@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
-import lineMaths from './VectorMaths';
+import lineMaths from './LineMaths';
+import { Vector2 } from 'three';
 // import { Bezier } from 'bezier-js';
 
 function Interlining() {
@@ -19,32 +20,72 @@ function Interlining() {
     const maxCurveRadius = 20;
 
     const drawer = {
-        drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, inputLine) {
-            /** @type {Point[]} */
-            const line = inputLine;
+        drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line) {
             if (line.length < 2) return;
 
-            ctx.beginPath();
-            ctx.strokeStyle = '#ff2d2d';
             ctx.lineWidth = 8;
 
-            const lineInfo = lineMaths.getLineInfo(line);
+            const segments = lineMaths.getSegments(line);
+            let startPoint = segments[0].start;
+            // console.log(`last segment (i = ${segments.length - 1}):`);
+            // console.log(segments[segments.length - 1]);
+            for (let i = 0; i < segments.length; i++) {
+                // going to draw the previous straight line segment and the arc at the end
+                // assume already in right spot (end of the circle of the previous)
+                ctx.beginPath();
+                ctx.moveTo(startPoint.x, startPoint.y);
+                ctx.strokeStyle = '#ff6f2d'; // straight line colour
+                // ctx.moveTo();
+                const seg = segments[i];
 
-            ctx.moveTo(line[0].x, line[0].y);
-            for (let i = 1; i < line.length; i++) {
-                const minRadius = lineMaths.getMinCurveRad(line, i);
-                // draw lines from midpoint
-                ctx.moveTo();
+                if (i == segments.length - 1) {
+                    ctx.lineTo(seg.end.x, seg.end.y);
+                    ctx.stroke();
+                    break;
+                }
+                
+                // line to start of circle
+                const maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
+                const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
+                ctx.lineTo(lineEnd.x, lineEnd.y);
+                ctx.stroke();
 
+                const nextSeg = segments[i + 1];
+                ctx.beginPath();
+                ctx.strokeStyle = '#81ff2d'; // "circle" colour
+                ctx.moveTo(lineEnd.x, lineEnd.y);
+                ctx.lineTo(seg.end.x, seg.end.y);
+                const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
+                ctx.lineTo(nextLineStart.x, nextLineStart.y);
+                ctx.stroke();
 
-                // const distToNext
-
-                // const minDist = Math.min();-
-
-
-                ctx.lineTo(line[i].x, line[i].y);
+                ctx.moveTo(nextLineStart.x, nextLineStart.y);
+                startPoint = nextLineStart;
             }
-            ctx.stroke();
+
+            // ctx.moveTo(line[0].x, line[0].y);
+            // for (let i = 1; i < line.length; i++) {
+            //     const maxHalfLength = lineMaths.getMaximumHalfLength(line, i, lineInfo, maxCurveRadius);
+            //     // draw lines from midpoint
+            //     if (i == 1) {
+            //         ctx.moveTo(line[0].x, line[0].y);
+            //     } else {
+            //         const prevSeg = lineInfo[i-1];
+            //         const midpoint = prevSeg.start + prevSeg.len * 0.5 * prevSeg.dir;
+            //         ctx.moveTo(midpoint.x, midpoint.y);
+            //     }
+            //     // draw to start of circle.
+
+            //     ctx.lineTo();
+
+
+            //     // const distToNext
+
+            //     // const minDist = Math.min();-
+
+
+            //     ctx.lineTo(line[i].x, line[i].y);
+            // }
         },
         drawCircle: function (
             /** @type {CanvasRenderingContext2D} */
@@ -117,7 +158,7 @@ function Interlining() {
                     setDraggedPoint({ lineIndex: lastLineIdx, pointIndex: pi });
                     return updated;
                 });
-                console.log(`length: ${draggedPoint.pointIndex}`);
+                // console.log(`length: ${draggedPoint.pointIndex}`);
                 break;
             case Mode.MANIPULATE:
                 const clickRadius = 24;
@@ -127,7 +168,7 @@ function Interlining() {
                 break;
         }
 
-        console.log(lines);
+        // console.log(lines);
 
         // const index = points.findIndex(p => {
         //     const distance = Math.sqrt((p.x - mouse.x) ** 2 + (p.y - mouse.y) ** 2);
@@ -144,7 +185,7 @@ function Interlining() {
             case Mode.DRAW:
                 if (!draggedPoint || (draggedPoint.lineIndex == -1 && draggedPoint.pointIndex == -1)) return;
 
-                console.log(`moving point ${draggedPoint.lineIndex}, ${draggedPoint.pointIndex}`);
+                // console.log(`moving point ${draggedPoint.lineIndex}, ${draggedPoint.pointIndex}`);
                 const mouse = getMousePos(e);
                 setLines(prevLines => {
                     const updated = [...prevLines];
