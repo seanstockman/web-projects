@@ -17,19 +17,33 @@ function Interlining() {
     const [lines, setLines] = useState([]);
     const [origin, setOrigin] = useState(null);
     const [draggedPoint, setDraggedPoint] = useState({ lineIndex: -1, pointIndex: -1 });
-    const maxCurveRadius = 20;
+    const radius = 20;
 
     const drawer = {
         drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line) {
             if (line.length < 2) return;
 
+            ctx.strokeStyle = '#ff6f2d'; // straight line colour
             ctx.lineWidth = 8;
 
             const segments = lineMaths.getSegments(line);
             let startPoint = segments[0].start;
             // console.log(`last segment (i = ${segments.length - 1}):`);
             // console.log(segments[segments.length - 1]);
-            for (let i = 0; i < segments.length; i++) {
+            if (line.length == 2) {
+                ctx.beginPath();
+                ctx.moveTo(startPoint.x, startPoint.y);
+                ctx.lineTo(segments[0].end.x, segments[0].end.y);
+                ctx.stroke();
+                return;
+            }
+
+            // ctx.beginPath();
+            // ctx.moveTo(startPoint.x, startPoint.y);
+            for (let i = 0; i < line.length - 2; i++) {
+            //     ctx.arcTo(line[i + 1].x, line[i + 1].y, line[i + 2].x, line[i + 2].y, radius);
+            // }
+            // ctx.stroke();
                 // going to draw the previous straight line segment and the arc at the end
                 // assume already in right spot (end of the circle of the previous)
                 ctx.beginPath();
@@ -43,23 +57,35 @@ function Interlining() {
                     ctx.stroke();
                     break;
                 }
-                
+
                 // line to start of circle
                 const maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
                 const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
                 ctx.lineTo(lineEnd.x, lineEnd.y);
                 ctx.stroke();
 
+                // do the circle
                 const nextSeg = segments[i + 1];
+                const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
+                const r = maxHalfLength * Math.tan(theta / 2);
+
+                const dirPerp = nextSeg.dir.clone().rotateAround(new Vector2(0,0), Math.PI / 2);
+                const prevDirPerp = seg.dir.clone().rotateAround(new Vector2(0,0), Math.PI / 2);
+
+                const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
+                const circleCentre = nextLineStart.clone().add(dirPerp.multiplyScalar(-Math.sign(seg.dir.dot(dirPerp)) * r));
+                // this.drawCircle(ctx, circleCentre, r, 'blue'); 
+
                 ctx.beginPath();
                 ctx.strokeStyle = '#81ff2d'; // "circle" colour
-                ctx.moveTo(lineEnd.x, lineEnd.y);
-                ctx.lineTo(seg.end.x, seg.end.y);
-                const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
-                ctx.lineTo(nextLineStart.x, nextLineStart.y);
+                ctx.arc(circleCentre.x, circleCentre.y, r, dirPerp.angle() + Math.PI, prevDirPerp.angle());
+                
+                // ctx.moveTo(lineEnd.x, lineEnd.y);
+                // ctx.lineTo(seg.end.x, seg.end.y);
+                // ctx.lineTo(nextLineStart.x, nextLineStart.y);
                 ctx.stroke();
 
-                ctx.moveTo(nextLineStart.x, nextLineStart.y);
+                // move marker to new start
                 startPoint = nextLineStart;
             }
 
@@ -87,10 +113,7 @@ function Interlining() {
             //     ctx.lineTo(line[i].x, line[i].y);
             // }
         },
-        drawCircle: function (
-            /** @type {CanvasRenderingContext2D} */
-            ctx,
-            p, radius, colour) {
+        drawCircle: function (/** @type {CanvasRenderingContext2D} */ ctx, p, radius, colour) {
             ctx.beginPath();
             ctx.fillStyle = colour;
             ctx.arc(p.x, p.y, radius, 0, 2 * Math.PI);
