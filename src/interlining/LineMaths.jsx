@@ -39,10 +39,10 @@ export const lineMaths = {
 }
 
 export const drawer = {
-    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, colour, curveDebugColour = null) {
+    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, maxRadius, colour, curveDebugColour = null) {
         if (line.length < 2) return;
 
-        ctx.strokeStyle = colour; // straight line colour
+        ctx.strokeStyle = colour;
         ctx.lineWidth = 8;
 
         const segments = lineMaths.getSegments(line);
@@ -65,7 +65,7 @@ export const drawer = {
             ctx.beginPath();
             ctx.moveTo(startPoint.x, startPoint.y);
             ctx.strokeStyle = colour; // straight line colour
-            // ctx.moveTo();
+
             const seg = segments[i];
 
             if (i == segments.length - 1) {
@@ -73,20 +73,25 @@ export const drawer = {
                 ctx.stroke();
                 break;
             }
+            // compute circle
 
-            // line to start of circle
-            const maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
-            const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
-            ctx.lineTo(lineEnd.x, lineEnd.y);
-            ctx.stroke();
-
-            // do the circle
+            let maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
             const nextSeg = segments[i + 1];
             const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
-            const r = maxHalfLength * Math.tan(theta / 2);
+            let r = maxHalfLength * Math.tan(theta / 2);
+            if (r > maxRadius) {
+                r = maxRadius;
+                maxHalfLength = r / Math.tan(theta / 2);
+            }
+
 
             const dirPerp = nextSeg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
             const prevDirPerp = seg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
+
+            // line to start of circle
+            const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
+            ctx.lineTo(lineEnd.x, lineEnd.y);
+            ctx.stroke();
 
             const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
             const side = -Math.sign(seg.dir.dot(dirPerp));
@@ -95,7 +100,7 @@ export const drawer = {
             // this.drawCircle(ctx, circleCentre, r, 'blue'); 
 
             ctx.beginPath();
-            if (curveDebugColour) {ctx.strokeStyle = curveDebugColour};
+            if (curveDebugColour) { ctx.strokeStyle = curveDebugColour };
             if (side == 1) {
                 ctx.arc(circleCentre.x, circleCentre.y, r, prevDirPerp.angle() + Math.PI, dirPerp.angle() + Math.PI);
             } else {
@@ -135,10 +140,19 @@ export const drawer = {
         //     ctx.lineTo(line[i].x, line[i].y);
         // }
     },
-    drawCircle: function (/** @type {CanvasRenderingContext2D} */ ctx, p, radius, colour) {
+    drawCircle: function (
+        /** @type {CanvasRenderingContext2D} */ ctx,
+        p, filled = true, strokeWidth = 2, radius = 5, colour = '#aabbcc') {
         ctx.beginPath();
         ctx.fillStyle = colour;
         ctx.arc(p.x, p.y, radius, 0, 2 * Math.PI);
-        ctx.fill();
+        if (filled) {
+            ctx.fill();
+        } else {
+            ctx.strokeStyle = colour;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+        }
+
     }
 }

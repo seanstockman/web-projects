@@ -9,7 +9,7 @@ function App() {
 
   return (
     <>
-      <section class="flex flex-col flex-grow items-center justify-center gap-[25px] lg:p-[32px_20px_24px] lg:gap-[18px]">
+      <section class="flex flex-col grow items-center justify-center gap-6.25 lg:p-[32px_20px_24px] lg:gap-4.5">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
           <img src={reactLogo} className="framework" alt="React logo" />

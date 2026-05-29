@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { lineMaths, drawer } from './LineMaths';
 import { Vector2 } from 'three';
-import { ToggleButton, ToggleButtonGroup, Button, ButtonGroup } from '@mui/material';
+import { ToggleButton, ToggleButtonGroup, Button, ButtonGroup, Slider } from '@mui/material';
 // import { Bezier } from 'bezier-js';
 
 /** 
@@ -23,11 +23,9 @@ function Interlining() {
     /** @type ArcLine[][] */
     const [lines, setLines] = useState([]);
     const [origin, setOrigin] = useState(null);
-    const [draggedPoint, setDraggedPoint] = useState({ lineIndex: -1, pointIndex: -1 });
-    const radius = 20;
+    const [draggedPoint, setDraggedPoint] = useState(null);
+    const [radius, setRadius] = useState(20);
     const [currentColor, setCurrentColor] = useState("#ff6f2d");
-
-
 
     // mode debug
     useEffect(() => { console.log(`Mode swapped to ${mode}.`); }, [mode]);
@@ -42,12 +40,20 @@ function Interlining() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         for (let i = 0; i < lines.length; i++) {
-            drawer.drawLine(ctx, lines[i].line, lines[i].color, "#599fe4");
+            drawer.drawLine(ctx, lines[i].line, radius, lines[i].color);
         }
 
-        if (!origin) return;
-        drawer.drawCircle(ctx, origin, 4, currentColor);
-    }, [lines, origin]);
+        if (origin) drawer.drawCircle(ctx, origin, 4, currentColor);
+        if (mode != Mode.MANIPULATE) return;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].line;
+            for (let j = 0; j < line.length; j++) {
+                drawer.drawCircle(ctx, line[j], false);
+            }
+        }
+
+
+    }, [lines, origin, radius, mode]);
 
     const getMousePos = (e) => {
         /** @type {HTMLCanvasElement} */
@@ -95,14 +101,32 @@ function Interlining() {
                 // console.log(`length: ${draggedPoint.pointIndex}`);
                 break;
             case Mode.MANIPULATE:
+                setDraggedPoint(null);
                 const clickRadius = 24;
-
+                const clickedPoint = {};
+                let clickedPointDist;
+                for (let i = 0; i < lines.length; i++) {
+                    let distance;
+                    const pointIndex = lines[i].line.findIndex(p => {
+                        distance = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+                        return distance < clickRadius;
+                    });
+                    if (i == 0 || distance < clickedPointDist) {
+                        clickedPoint.pointIndex = pointIndex;
+                        clickedPoint.lineIndex = i;
+                        clickedPointDist = distance;
+                    }
+                }
+                setDraggedPoint(clickedPoint);
+                // lines[0].line.findIndex();
                 break;
             default:
                 break;
         }
 
         // console.log(lines);
+
+        // const index = lines[]
 
         // const index = points.findIndex(p => {
         //     const distance = Math.sqrt((p.x - mouse.x) ** 2 + (p.y - mouse.y) ** 2);
@@ -115,12 +139,12 @@ function Interlining() {
     };
 
     const handleMouseMove = (e) => {
+        const mouse = getMousePos(e);
         switch (mode) {
             case Mode.DRAW:
-                if (!draggedPoint || (draggedPoint.lineIndex == -1 && draggedPoint.pointIndex == -1)) return;
+                if (!draggedPoint) return;
 
                 // console.log(`moving point ${draggedPoint.lineIndex}, ${draggedPoint.pointIndex}`);
-                const mouse = getMousePos(e);
                 setLines(prevLines => {
                     /** @type ArcLine[] */
                     const updated = [...prevLines];
@@ -130,8 +154,16 @@ function Interlining() {
                 });
                 break;
             case Mode.NEWLINE:
-                const pos = getMousePos(e);
-                setOrigin(pos);
+                setOrigin(mouse);
+                break;
+            case Mode.MANIPULATE:
+                if (!draggedPoint) return;
+                setLines(prevLines => {
+                    /** @type ArcLine[] */
+                    const updated = [...prevLines];
+                    updated[draggedPoint.lineIndex].line[draggedPoint.pointIndex] = { x: mouse.x, y: mouse.y };
+                    return updated;
+                });
                 break;
             default:
                 break;
@@ -140,7 +172,7 @@ function Interlining() {
 
     const handleRightClick = () => {
         setDraggedPoint(null);
-        setMode(Mode.MANIPULATE);
+        if (mode == Mode.DRAW) setMode(Mode.NEWLINE);
     }
 
     const modeButtons = [
@@ -153,27 +185,22 @@ function Interlining() {
             action: () => {
                 setMode(Mode.MANIPULATE);
                 setLines([]);
-                setDraggedPoint({ lineIndex: -1, pointIndex: -1 });
+                setDraggedPoint(null);
             },
             label: "Clear"
         }
     ];
 
-    // const handleMouseUpOrLeave = () => {
-    //     setDraggedPoint([-1, -1]);
-    // };
-
-    // const handleAlignment = (event, newAlignment) => {
-    //     setAlignment(newAlignment);
-    // };
+    const handleMouseUpOrLeave = () => {
+        if (mode == Mode.MANIPULATE) {
+            setDraggedPoint(null);
+        }
+    };
 
     return (
         <>
             <div className="p-4">
                 <h1 className="text-xl font-bold">Interlining Demo</h1>
-                <p className="text-gray-600 mb-2">
-                    Description.
-                </p>
             </div>
             <div className='flex flex-row justify-center gap-2 p-2'>
                 <ToggleButtonGroup
@@ -203,6 +230,14 @@ function Interlining() {
                     ))}
                 </ButtonGroup>
             </div>
+            <Slider
+                min={1}
+                max={100}
+                aria-label="Radius"
+                value={radius}
+                onChange={(e, r) => { setRadius(r); }}
+                valueLabelDisplay="auto"
+            />
             <canvas
                 ref={canvasRef}
                 id="interlining-canvas"
@@ -212,8 +247,8 @@ function Interlining() {
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onContextMenu={handleRightClick}
-            // onMouseUp={handleMouseUpOrLeave}
-            // onMouseLeave={handleMouseUpOrLeave}
+                onMouseUp={handleMouseUpOrLeave}
+                onMouseLeave={handleMouseUpOrLeave}
             />
         </>
     );
