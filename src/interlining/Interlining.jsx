@@ -1,8 +1,26 @@
 import { useRef, useEffect, useState } from 'react';
 import { lineMaths, drawer } from './LineMaths';
 import { Vector2 } from 'three';
-import { ToggleButton, ToggleButtonGroup, Button, ButtonGroup, Slider } from '@mui/material';
+import { ToggleButton, ToggleButtonGroup, Button, ButtonGroup, Slider, Stack, Paper, Divider, Tooltip } from '@mui/material';
+
+import ModeEditIcon from '@mui/icons-material/ModeEdit';
+import OpenWithIcon from '@mui/icons-material/OpenWith';
+import DeleteIcon from '@mui/icons-material/Delete';
 // import { Bezier } from 'bezier-js';
+import { styled } from '@mui/material/styles';
+
+const Item = styled(Paper)(({ theme }) => ({
+    backgroundColor: '#fff',
+    ...theme.typography.body2,
+    padding: theme.spacing(1),
+    textAlign: 'center',
+    color: (theme.vars ?? theme).palette.text.secondary,
+    ...theme.applyStyles('dark', {
+        backgroundColor: '#1A2027',
+    }),
+}));
+
+
 
 /** 
  * @typedef ArcLine
@@ -28,7 +46,10 @@ function Interlining() {
     const [currentColor, setCurrentColor] = useState("#ff6f2d");
 
     // mode debug
-    useEffect(() => { console.log(`Mode swapped to ${mode}.`); }, [mode]);
+    useEffect(() => {
+        setOrigin(null);
+        console.log(`Mode swapped to ${mode}.`);
+    }, [mode]);
 
     // refresh canvas
     useEffect(() => {
@@ -172,12 +193,13 @@ function Interlining() {
 
     const handleRightClick = () => {
         setDraggedPoint(null);
+        setOrigin(null);
         if (mode == Mode.DRAW) setMode(Mode.NEWLINE);
     }
 
     const modeButtons = [
-        { mode: Mode.MANIPULATE, label: 'Manipulate', bg: 'bg-purple-500' },
-        { mode: Mode.NEWLINE, label: 'Draw New Line', bg: 'bg-blue-500' },
+        { mode: Mode.NEWLINE, label: 'Draw New Line', bg: 'bg-blue-500', icon: <ModeEditIcon /> },
+        { mode: Mode.MANIPULATE, label: 'Manipulate', bg: 'bg-purple-500', icon: <OpenWithIcon /> },
     ];
 
     const actions = [
@@ -186,8 +208,10 @@ function Interlining() {
                 setMode(Mode.MANIPULATE);
                 setLines([]);
                 setDraggedPoint(null);
+                setOrigin(null);
             },
-            label: "Clear"
+            label: "Clear",
+            icon: <DeleteIcon />
         }
     ];
 
@@ -200,44 +224,64 @@ function Interlining() {
     return (
         <>
             <div className="p-4">
-                <h1 className="text-xl font-bold">Interlining Demo</h1>
+                <h1 className="font-bold">Interlining Demo</h1>
             </div>
-            <div className='flex flex-row justify-center gap-2 p-2'>
-                <ToggleButtonGroup
-                    value={mode}
-                    exclusive
-                    onChange={(e, val) => setMode(val)}
-                    aria-label="Basic button group">
-                    {modeButtons.map((b) => (
-                        <ToggleButton
-                            value={b.mode}
-                        >
-                            {b.label}
-                        </ToggleButton>
-                    ))}
-                </ToggleButtonGroup>
-                <input type='color' value={currentColor} onChange={(c) => setCurrentColor(c.target.value)} />
-                <ButtonGroup
-                    variant='constrained'
-                    aria-label="Basic button group"
-                >
-                    {actions.map((a) => (
-                        <Button
-                            onClick={a.action}
-                        >
-                            {a.label}
-                        </Button>
-                    ))}
-                </ButtonGroup>
+            <div className='justify-center py-5 px-100'>
+                <Stack direction="row"
+                    divider={<Divider orientation="vertical" flexItem />}
+                    spacing={2}>
+                    {/* <Item>Item 1</Item> */}
+                    {/* <p>Test</p> */}
+                    <ToggleButtonGroup
+                        value={mode}
+                        exclusive
+                        onChange={(e, val) => setMode(val)}
+                        aria-label="Basic button group">
+                        {modeButtons.map((b) => (
+                            <Tooltip title={b.label}>
+                                <ToggleButton
+                                    value={b.mode}
+                                >
+                                    {b.icon}
+                                </ToggleButton>
+                            </Tooltip>
+                        ))}
+                    </ToggleButtonGroup>
+                    <Tooltip title="Pick Line Colour">
+                        <input
+                            type='color'
+                            className='self-center'
+                            value={currentColor}
+                            onChange={(c) => setCurrentColor(c.target.value)}
+                        />
+                    </Tooltip>
+                    <ButtonGroup
+                        variant='constrained'
+                        aria-label="Basic button group"
+                    >
+                        {actions.map((a) => (
+                            <Tooltip title={a.label}>
+                                <Button
+                                    onClick={a.action}
+                                >
+                                    {a.icon}
+                                </Button>
+                            </Tooltip>
+                        ))}
+                    </ButtonGroup>
+                    <Tooltip title="Curve Radius">
+                        <Slider
+                            className='self-center'
+                            min={1}
+                            max={100}
+                            aria-label="Radius"
+                            value={radius}
+                            onChange={(e, r) => { setRadius(r); }}
+                            valueLabelDisplay="auto"
+                        />
+                    </Tooltip>
+                </Stack>
             </div>
-            <Slider
-                min={1}
-                max={100}
-                aria-label="Radius"
-                value={radius}
-                onChange={(e, r) => { setRadius(r); }}
-                valueLabelDisplay="auto"
-            />
             <canvas
                 ref={canvasRef}
                 id="interlining-canvas"
