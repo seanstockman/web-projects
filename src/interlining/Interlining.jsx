@@ -30,7 +30,7 @@ function Interlining() {
             let startPoint = segments[0].start;
             // console.log(`last segment (i = ${segments.length - 1}):`);
             // console.log(segments[segments.length - 1]);
-            if (line.length == 2) {
+            if (segments.length == 1) {
                 ctx.beginPath();
                 ctx.moveTo(startPoint.x, startPoint.y);
                 ctx.lineTo(segments[0].end.x, segments[0].end.y);
@@ -40,7 +40,7 @@ function Interlining() {
 
             // ctx.beginPath();
             // ctx.moveTo(startPoint.x, startPoint.y);
-            for (let i = 0; i < line.length - 2; i++) {
+            for (let i = 0; i < segments.length; i++) {
             //     ctx.arcTo(line[i + 1].x, line[i + 1].y, line[i + 2].x, line[i + 2].y, radius);
             // }
             // ctx.stroke();
@@ -73,12 +73,24 @@ function Interlining() {
                 const prevDirPerp = seg.dir.clone().rotateAround(new Vector2(0,0), Math.PI / 2);
 
                 const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
-                const circleCentre = nextLineStart.clone().add(dirPerp.multiplyScalar(-Math.sign(seg.dir.dot(dirPerp)) * r));
+                const side = -Math.sign(seg.dir.dot(dirPerp));
+                
+                // if (side == -1) {
+                //     console.log("left");
+                // } else  if (side == 1) {
+                //     console.log("right")
+                // }
+
+                const circleCentre = nextLineStart.clone().add(dirPerp.multiplyScalar(side * r));
                 // this.drawCircle(ctx, circleCentre, r, 'blue'); 
 
                 ctx.beginPath();
                 ctx.strokeStyle = '#81ff2d'; // "circle" colour
-                ctx.arc(circleCentre.x, circleCentre.y, r, dirPerp.angle() + Math.PI, prevDirPerp.angle());
+                if (side == 1) {
+                    ctx.arc(circleCentre.x, circleCentre.y, r, prevDirPerp.angle() + Math.PI, dirPerp.angle() + Math.PI);
+                } else {
+                    ctx.arc(circleCentre.x, circleCentre.y, r, dirPerp.angle() + Math.PI, prevDirPerp.angle());
+                }
                 
                 // ctx.moveTo(lineEnd.x, lineEnd.y);
                 // ctx.lineTo(seg.end.x, seg.end.y);
