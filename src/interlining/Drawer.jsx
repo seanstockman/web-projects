@@ -8,6 +8,13 @@ import { Vector2 } from "three";
  * @property {number} len
  */
 
+/**
+ * @typedef {Object} ArcLine
+ * @property {Segment[]} segments
+ * @property {Point[]} line
+ * @prop {string} color
+ */
+
 export const drawer = {
     drawInterlinedLines: function (ctx, lines, radius, lineWidth = 8) {
         interline(lines).forEach(l => drawer.drawLine(ctx, l.line, l.segments, radius, l.color, lineWidth));
@@ -143,7 +150,25 @@ const getMaximumHalfLength = (/** @type {Point[]} */ line, /** @type number */ i
 };
 
 const interline = (lines) => {
+    /** @type ArcLine[] */
     const updated = [...lines];
-    
+    let n = 0;
+    // for every line, for every segment
+    for (let i = 0; i < updated.length - 1; i++) {
+        for (let a = 0; a < updated[i].segments.length; a++) {
+            for (let j = i + 1; j < updated.length; j++) {
+                for (let b = 0; b < updated[j].segments.length; b++) {
+                    const segA = updated[i].segments[a];
+                    const segB = updated[j].segments[b];
+                    if (!segA.start.equals(segB.start) ||
+                        !segA.end.equals(segB.end)
+                    ) continue;
+                    n++;
+                    console.log(`intersection btw ${i} and ${j}`);
+                }
+            }
+        }
+    }
+    console.log(`${n} intersections found`);
     return updated;
 }
