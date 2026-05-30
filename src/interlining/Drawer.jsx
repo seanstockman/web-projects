@@ -9,14 +9,14 @@ import { Vector2 } from "three";
  */
 
 export const drawer = {
-    drawInterlinedLines: function (ctx, lines, radius) {
-        lines.forEach(l => drawer.drawLine(ctx, l.line, l.segments, radius, l.color));
+    drawInterlinedLines: function (ctx, lines, radius, lineWidth = 8) {
+        interline(lines).forEach(l => drawer.drawLine(ctx, l.line, l.segments, radius, l.color, lineWidth));
     },
-    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, segments, maxRadius, colour) {
+    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, segments, maxRadius, colour, lineWidth) {
         if (line.length < 2) return;
 
         ctx.strokeStyle = colour;
-        ctx.lineWidth = 8;
+        ctx.lineWidth = lineWidth;
 
         let startPoint = segments[0].start;
         // console.log(`last segment (i = ${segments.length - 1}):`);
@@ -43,7 +43,7 @@ export const drawer = {
                 break;
             }
             // compute circle
-            let maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
+            let maxHalfLength = getMaximumHalfLength(line, i + 1, segments);
             const nextSeg = segments[i + 1];
             const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
             let r = maxHalfLength * Math.tan(theta / 2);
@@ -112,20 +112,6 @@ export const drawer = {
 }
 
 export const lineMaths = {
-    getMaximumHalfLength(/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) {
-        let minHalfLen = -1;
-        if (i != 0) {
-            minHalfLen = lineInfo[i - 1].len / 2;
-        }
-        if (i < line.length - 1) { // next line exists
-            if (minHalfLen == -1) {
-                minHalfLen = lineInfo[i].len / 2;
-                return;
-            }
-            minHalfLen = Math.min(lineInfo[i].len / 2, minHalfLen);
-        }
-        return minHalfLen;
-    },
     getSegments(/** @type {Point[]} */ line) {
         /**@type Segment[] */
         let lineInfo = [];
@@ -139,4 +125,25 @@ export const lineMaths = {
         }
         return lineInfo;
     }
+}
+
+const getMaximumHalfLength = (/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) => {
+    let minHalfLen = -1;
+    if (i != 0) {
+        minHalfLen = lineInfo[i - 1].len / 2;
+    }
+    if (i < line.length - 1) { // next line exists
+        if (minHalfLen == -1) {
+            minHalfLen = lineInfo[i].len / 2;
+            return;
+        }
+        minHalfLen = Math.min(lineInfo[i].len / 2, minHalfLen);
+    }
+    return minHalfLen;
+};
+
+const interline = (lines) => {
+    const updated = [...lines];
+    
+    return updated;
 }

@@ -19,6 +19,9 @@ export function useInterlinerDraw(canvasRef) {
     const [options, setOptions] = useState([]);
     const [shiftHeld, setShiftHeld] = useState(false);
 
+    const clickRadius = 6;
+    const lineWidth = 8;
+
     // Track shift key
     useEffect(() => {
         const downHandler = (e) => e.key === 'Shift' && setShiftHeld(true);
@@ -56,7 +59,7 @@ export function useInterlinerDraw(canvasRef) {
             const avgXY = (Math.abs(offset.x) + Math.abs(offset.y)) / 2;
             const cursorToLeft = Math.sign(offset.x);
             // const cursorToLeft = Math.sign(offset.x);
-            
+
             const snappedPoints = [
                 { x: 0, y: offset.y },
                 { x: offset.x, y: 0 },
@@ -124,7 +127,6 @@ export function useInterlinerDraw(canvasRef) {
                 break;
             }
             case Mode.MANIPULATE: {
-                const clickRadius = 24;
                 let closestPoint = null;
                 let minDistance = Infinity;
 
@@ -210,13 +212,13 @@ export function useInterlinerDraw(canvasRef) {
 
         if (options.includes('showGrid')) drawer.drawGrid(ctx, canvas, gridSize);
 
-        drawer.drawInterlinedLines(ctx, lines,  radius);
+        drawer.drawInterlinedLines(ctx, lines, radius, lineWidth);
 
-        if (origin) drawer.drawCircle(ctx, origin, 4, currentColor);
+        if (origin) drawer.drawCircle(ctx, origin, true, 0, lineWidth * 0.5, currentColor);
 
         if (mode === Mode.MANIPULATE) {
             lines.forEach(line => {
-                line.line.forEach(p => drawer.drawCircle(ctx, p, false));
+                line.line.forEach(p => drawer.drawCircle(ctx, p, false, 2, clickRadius));
             });
         }
     }, [canvasRef, lines, origin, radius, currentColor, options, mode, gridSize]);
