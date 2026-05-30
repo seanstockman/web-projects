@@ -8,36 +8,6 @@ import { Vector2 } from "three";
  * @property {number} len
  */
 
-export const lineMaths = {
-    getMaximumHalfLength(/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) {
-        let minHalfLen = -1;
-        if (i != 0) {
-            minHalfLen = lineInfo[i - 1].len / 2;
-        }
-        if (i < line.length - 1) { // next line exists
-            if (minHalfLen == -1) {
-                minHalfLen = lineInfo[i].len / 2;
-                return;
-            }
-            minHalfLen = Math.min(lineInfo[i].len / 2, minHalfLen);
-        }
-        return minHalfLen;
-    },
-    getSegments(/** @type {Point[]} */ line) {
-        /**@type Segment[] */
-        let lineInfo = [];
-        for (let i = 0; i < line.length - 1; i++) {
-            lineInfo[i] = {};
-            const li = lineInfo[i];
-            li.start = new Vector2(line[i].x, line[i].y);
-            li.end = new Vector2(line[i + 1].x, line[i + 1].y);
-            li.len = li.start.distanceTo(li.end);
-            li.dir = li.end.clone().sub(li.start).normalize();
-        }
-        return lineInfo;
-    }
-}
-
 export const drawer = {
     drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, maxRadius, colour, curveDebugColour = null) {
         if (line.length < 2) return;
@@ -106,39 +76,11 @@ export const drawer = {
             } else {
                 ctx.arc(circleCentre.x, circleCentre.y, r, dirPerp.angle() + Math.PI, prevDirPerp.angle());
             }
-
-            // ctx.moveTo(lineEnd.x, lineEnd.y);
-            // ctx.lineTo(seg.end.x, seg.end.y);
-            // ctx.lineTo(nextLineStart.x, nextLineStart.y);
             ctx.stroke();
 
             // move marker to new start
             startPoint = nextLineStart;
         }
-
-        // ctx.moveTo(line[0].x, line[0].y);
-        // for (let i = 1; i < line.length; i++) {
-        //     const maxHalfLength = lineMaths.getMaximumHalfLength(line, i, lineInfo, maxCurveRadius);
-        //     // draw lines from midpoint
-        //     if (i == 1) {
-        //         ctx.moveTo(line[0].x, line[0].y);
-        //     } else {
-        //         const prevSeg = lineInfo[i-1];
-        //         const midpoint = prevSeg.start + prevSeg.len * 0.5 * prevSeg.dir;
-        //         ctx.moveTo(midpoint.x, midpoint.y);
-        //     }
-        //     // draw to start of circle.
-
-        //     ctx.lineTo();
-
-
-        //     // const distToNext
-
-        //     // const minDist = Math.min();-
-
-
-        //     ctx.lineTo(line[i].x, line[i].y);
-        // }
     },
     drawCircle: function (
         /** @type {CanvasRenderingContext2D} */ ctx,
@@ -172,4 +114,34 @@ export const drawer = {
             ctx.stroke();
         }
     },
+}
+
+const lineMaths = {
+    getMaximumHalfLength(/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) {
+        let minHalfLen = -1;
+        if (i != 0) {
+            minHalfLen = lineInfo[i - 1].len / 2;
+        }
+        if (i < line.length - 1) { // next line exists
+            if (minHalfLen == -1) {
+                minHalfLen = lineInfo[i].len / 2;
+                return;
+            }
+            minHalfLen = Math.min(lineInfo[i].len / 2, minHalfLen);
+        }
+        return minHalfLen;
+    },
+    getSegments(/** @type {Point[]} */ line) {
+        /**@type Segment[] */
+        let lineInfo = [];
+        for (let i = 0; i < line.length - 1; i++) {
+            lineInfo[i] = {};
+            const li = lineInfo[i];
+            li.start = new Vector2(line[i].x, line[i].y);
+            li.end = new Vector2(line[i + 1].x, line[i + 1].y);
+            li.len = li.start.distanceTo(li.end);
+            li.dir = li.end.clone().sub(li.start).normalize();
+        }
+        return lineInfo;
+    }
 }
