@@ -142,7 +142,7 @@ export const drawer = {
     },
     drawCircle: function (
         /** @type {CanvasRenderingContext2D} */ ctx,
-        p, filled = true, strokeWidth = 2, radius = 5, colour = '#aabbcc') {
+        p, filled = true, lineWidth = 2, radius = 5, colour = '#aabbcc') {
         ctx.beginPath();
         ctx.fillStyle = colour;
         ctx.arc(p.x, p.y, radius, 0, 2 * Math.PI);
@@ -150,9 +150,26 @@ export const drawer = {
             ctx.fill();
         } else {
             ctx.strokeStyle = colour;
-            ctx.lineWidth = strokeWidth;
+            ctx.lineWidth = lineWidth;
             ctx.stroke();
         }
 
-    }
+    },
+    drawGrid: function (/** @type {CanvasRenderingContext2D} */ ctx, canvas) {
+        ctx.strokeStyle = "#a7a7a7";
+        ctx.lineWidth = 0.5;
+        const gridStep = 10;
+        for (let i = gridStep; i < canvas.width - 1; i += gridStep) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+        for (let j = gridStep; j < canvas.height - 1; j += gridStep) {
+            ctx.beginPath();
+            ctx.moveTo(0, j);
+            ctx.lineTo(canvas.width, j);
+            ctx.stroke();
+        }
+    },
 }
