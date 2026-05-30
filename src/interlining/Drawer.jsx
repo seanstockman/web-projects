@@ -44,7 +44,6 @@ export const drawer = {
                 break;
             }
             // compute circle
-
             let maxHalfLength = lineMaths.getMaximumHalfLength(line, i + 1, segments);
             const nextSeg = segments[i + 1];
             const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
@@ -60,8 +59,12 @@ export const drawer = {
 
             // line to start of circle
             const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
-            ctx.lineTo(lineEnd.x, lineEnd.y);
-            ctx.stroke();
+            if (lineEnd != startPoint) {
+                ctx.lineTo(lineEnd.x, lineEnd.y);
+                ctx.stroke();
+            } else {
+                ctx.closePath();
+            }
 
             const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
             const side = -Math.sign(seg.dir.dot(dirPerp));
@@ -97,17 +100,16 @@ export const drawer = {
         }
 
     },
-    drawGrid: function (/** @type {CanvasRenderingContext2D} */ ctx, canvas) {
+    drawGrid: function (/** @type {CanvasRenderingContext2D} */ ctx, canvas, gridSize) {
         ctx.strokeStyle = "#a7a7a7";
         ctx.lineWidth = 0.5;
-        const gridStep = 10;
-        for (let i = gridStep; i < canvas.width - 1; i += gridStep) {
+        for (let i = gridSize; i < canvas.width - 1; i += gridSize) {
             ctx.beginPath();
             ctx.moveTo(i, 0);
             ctx.lineTo(i, canvas.height);
             ctx.stroke();
         }
-        for (let j = gridStep; j < canvas.height - 1; j += gridStep) {
+        for (let j = gridSize; j < canvas.height - 1; j += gridSize) {
             ctx.beginPath();
             ctx.moveTo(0, j);
             ctx.lineTo(canvas.width, j);
