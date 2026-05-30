@@ -1,6 +1,6 @@
 // useInterlinerDraw.js
 import { useState, useEffect, useCallback } from 'react';
-import { drawer } from './Drawer';
+import { drawer, lineMaths } from './Drawer';
 
 export function useInterlinerDraw(canvasRef) {
     const Mode = {
@@ -103,6 +103,7 @@ export function useInterlinerDraw(canvasRef) {
                 const lineIdx = lines.length;
                 setLines(prevLines => {
                     const newline = { line: [mouse, mouse], color: currentColor };
+                    newline.segments = lineMaths.getSegments(newline.line);
                     return [...prevLines, newline];
                 });
                 setDraggedPoint({ lineIndex: lineIdx, pointIndex: 1 });
@@ -117,6 +118,7 @@ export function useInterlinerDraw(canvasRef) {
                     updated[lastLineIdx].line = [...updated[lastLineIdx].line, mouse];
                     const pointIdx = updated[lastLineIdx].line.length - 1;
                     setDraggedPoint({ lineIndex: lastLineIdx, pointIndex: pointIdx });
+                    updated[lastLineIdx].segments = lineMaths.getSegments(updated[lastLineIdx].line)
                     return updated;
                 });
                 break;
@@ -155,6 +157,7 @@ export function useInterlinerDraw(canvasRef) {
                     const updated = [...prevLines];
                     updated[lineIndex] = { ...updated[lineIndex], line: [...updated[lineIndex].line] };
                     updated[lineIndex].line[pointIndex] = { x: mouse.x, y: mouse.y };
+                    updated[lineIndex].segments = lineMaths.getSegments(updated[lineIndex].line);
                     return updated;
                 });
                 break;
@@ -189,6 +192,7 @@ export function useInterlinerDraw(canvasRef) {
                     updated.splice(lineIndex, 1);
                 } else {
                     updated[lineIndex].line.splice(pointIndex - 1, 2);
+                    updated[lineIndex].segments = lineMaths.getSegments(updated[lineIndex].line);
                 }
                 return updated;
             });
@@ -206,7 +210,7 @@ export function useInterlinerDraw(canvasRef) {
 
         if (options.includes('showGrid')) drawer.drawGrid(ctx, canvas, gridSize);
 
-        lines.forEach(l => drawer.drawLine(ctx, l.line, radius, l.color));
+        drawer.drawInterlinedLines(ctx, lines,  radius);
 
         if (origin) drawer.drawCircle(ctx, origin, 4, currentColor);
 

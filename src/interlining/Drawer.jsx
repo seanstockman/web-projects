@@ -9,13 +9,15 @@ import { Vector2 } from "three";
  */
 
 export const drawer = {
-    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, maxRadius, colour, curveDebugColour = null) {
+    drawInterlinedLines: function (ctx, lines, radius) {
+        lines.forEach(l => drawer.drawLine(ctx, l.line, l.segments, radius, l.color));
+    },
+    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, segments, maxRadius, colour) {
         if (line.length < 2) return;
 
         ctx.strokeStyle = colour;
         ctx.lineWidth = 8;
 
-        const segments = lineMaths.getSegments(line);
         let startPoint = segments[0].start;
         // console.log(`last segment (i = ${segments.length - 1}):`);
         // console.log(segments[segments.length - 1]);
@@ -27,20 +29,17 @@ export const drawer = {
             return;
         }
 
-        // ctx.beginPath();
-        // ctx.moveTo(startPoint.x, startPoint.y);
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
         for (let i = 0; i < segments.length; i++) {
             // going to draw the previous straight line segment and the arc at the end
             // assume already in right spot (end of the circle of the previous)
-            ctx.beginPath();
-            ctx.moveTo(startPoint.x, startPoint.y);
-            ctx.strokeStyle = colour; // straight line colour
+
 
             const seg = segments[i];
 
             if (i == segments.length - 1) {
                 ctx.lineTo(seg.end.x, seg.end.y);
-                ctx.stroke();
                 break;
             }
             // compute circle
@@ -53,37 +52,34 @@ export const drawer = {
                 maxHalfLength = r / Math.tan(theta / 2);
             }
 
-
-            const dirPerp = nextSeg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
-            const prevDirPerp = seg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
-
             // line to start of circle
             const lineEnd = seg.start.clone().add(seg.dir.clone().multiplyScalar(seg.len - maxHalfLength));
-            if (lineEnd != startPoint) {
+            if (startPoint.x != lineEnd.x || startPoint.y != lineEnd.y) {
                 ctx.lineTo(lineEnd.x, lineEnd.y);
-                ctx.stroke();
-            } else {
-                ctx.closePath();
             }
 
             const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
-            const side = -Math.sign(seg.dir.dot(dirPerp));
 
-            const circleCentre = nextLineStart.clone().add(dirPerp.multiplyScalar(side * r));
-            // this.drawCircle(ctx, circleCentre, r, 'blue'); 
+            if (lineEnd.x != nextLineStart.x || lineEnd.y != nextLineStart.y) {
+                const dirPerp = nextSeg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
+                const prevDirPerp = seg.dir.clone().rotateAround(new Vector2(0, 0), Math.PI / 2);
+                const side = -Math.sign(seg.dir.dot(dirPerp));
 
-            ctx.beginPath();
-            if (curveDebugColour) { ctx.strokeStyle = curveDebugColour };
-            if (side == 1) {
-                ctx.arc(circleCentre.x, circleCentre.y, r, prevDirPerp.angle() + Math.PI, dirPerp.angle() + Math.PI);
-            } else {
-                ctx.arc(circleCentre.x, circleCentre.y, r, dirPerp.angle() + Math.PI, prevDirPerp.angle());
+                const circleCentre = nextLineStart.clone().add(dirPerp.multiplyScalar(side * r));
+
+                // FIXME:
+                if (side > 0) {
+                    ctx.arc(circleCentre.x, circleCentre.y, r, prevDirPerp.angle() + Math.PI, dirPerp.angle() + Math.PI);
+                } else {
+                    ctx.arc(circleCentre.x, circleCentre.y, r, prevDirPerp.angle(), dirPerp.angle() + Math.PI, true);
+                }
             }
-            ctx.stroke();
 
             // move marker to new start
+            ctx.moveTo(nextLineStart.x, nextLineStart.y);
             startPoint = nextLineStart;
         }
+        ctx.stroke();
     },
     drawCircle: function (
         /** @type {CanvasRenderingContext2D} */ ctx,
@@ -98,27 +94,24 @@ export const drawer = {
             ctx.lineWidth = lineWidth;
             ctx.stroke();
         }
-
     },
     drawGrid: function (/** @type {CanvasRenderingContext2D} */ ctx, canvas, gridSize) {
         ctx.strokeStyle = "#a7a7a7";
         ctx.lineWidth = 0.5;
+        ctx.beginPath();
         for (let i = gridSize; i < canvas.width - 1; i += gridSize) {
-            ctx.beginPath();
             ctx.moveTo(i, 0);
             ctx.lineTo(i, canvas.height);
-            ctx.stroke();
         }
         for (let j = gridSize; j < canvas.height - 1; j += gridSize) {
-            ctx.beginPath();
             ctx.moveTo(0, j);
             ctx.lineTo(canvas.width, j);
-            ctx.stroke();
         }
+        ctx.stroke();
     },
 }
 
-const lineMaths = {
+export const lineMaths = {
     getMaximumHalfLength(/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) {
         let minHalfLen = -1;
         if (i != 0) {
