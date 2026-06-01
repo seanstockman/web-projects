@@ -11,7 +11,6 @@ export enum Mode {
 
 export const Options = {
     SnapToGrid: "snapToGrid",
-
 }
 
 export type Point = {
@@ -23,7 +22,9 @@ export type Segment = {
     start: Vector2,
     end: Vector2,
     dir: Vector2,
-    len: number
+    len: number,
+    x0: number, // intersection with the x axis (x,0)
+    xIntAngleDegrees: number // angle between [0, 180) degrees. 0 is left/right, 90 is left/right
 }
 
 export type ArcLine = {
@@ -107,7 +108,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                 setOrigin(null);
                 const lineIdx = lines.length;
                 setLines(prevLines => {
-                    const newline : ArcLine = { line: [mouse, mouse], color: currentColor, segments: [] };
+                    const newline: ArcLine = { line: [mouse, mouse], color: currentColor, segments: [] };
                     newline.segments = lineMaths.getSegments(newline.line);
                     return [...prevLines, newline];
                 });
@@ -116,7 +117,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                 break;
             }
             case Mode.Draw: {
-                if (!lines.length) return;
+                if (!lines.length) break;
                 const lastLineIdx = lines.length - 1;
                 setLines(prevLines => {
                     const updated = [...prevLines];

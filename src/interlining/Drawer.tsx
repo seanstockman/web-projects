@@ -109,19 +109,22 @@ export const drawer = {
 
 export const lineMaths = {
     getSegments(line: Point[]) {
-        let lineInfo: Segment[] = [];
+        let segments: Segment[] = [];
         for (let i = 0; i < line.length - 1; i++) {
-            lineInfo[i] = {} as Segment;
-            const li = lineInfo[i];
+            segments[i] = {} as Segment;
+            const s = segments[i];
             const curr = line[i];
             const next = line[i + 1];
-            if (!li || !curr || !next) continue;
-            li.start = new Vector2(curr.x, curr.y);
-            li.end = new Vector2(next.x, next.y);
-            li.len = li.start.distanceTo(li.end);
-            li.dir = li.end.clone().sub(li.start).normalize();
+            if (!s || !curr || !next) continue;
+            s.start = new Vector2(curr.x, curr.y);
+            s.end = new Vector2(next.x, next.y);
+            s.len = s.start.distanceTo(s.end);
+            s.dir = s.end.clone().sub(s.start).normalize();
+            s.xIntAngleDegrees = (s.dir.angle() * 180 / Math.PI) % 180; // insert these into a hash?
+            s.x0 = s.xIntAngleDegrees == 0 ? -1 : -(s.start.y / s.dir.y) * s.dir.x + s.start.x;        // insert these into a hash?
+            console.log(`i: ${i}, x0: ${s.x0}, theta: ${s.xIntAngleDegrees}`);
         }
-        return lineInfo;
+        return segments;
     }
 }
 
@@ -143,8 +146,11 @@ function getMaximumHalfLength(line: Point[], i: number, lineInfo: Segment[]): nu
 };
 
 const interline = (lines: ArcLine[]) => {
+    return lines;
+
+
     const updated = [...lines];
-    let n = 0;
+    // let n = 0;
     // // for every line, for every segment
     // for (let i = 0; i < updated.length - 1; i++) {
     //     const line = updated[i];
@@ -163,6 +169,6 @@ const interline = (lines: ArcLine[]) => {
     //         }
     //     }
     // }
-    console.log(`${n} intersections found`);
+    // console.log(`${n} intersections found`);
     return updated;
 }

@@ -12,6 +12,15 @@
           "labels": [],
           "checkboxes": [],
           "comments": []
+        },
+        {
+          "id": "db28016d-56d4-4964-88e4-c3bfe7d7fbe0",
+          "listId": "29ecf0e7-764c-4970-a6ac-ad7139359368",
+          "title": "Replace three.js vector2s with faster implementation",
+          "description": "",
+          "labels": [],
+          "checkboxes": [],
+          "comments": []
         }
       ]
     },
