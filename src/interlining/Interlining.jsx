@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { useInterlinerDraw } from './useInterliningDraw';
+import { useInterlinerDraw, Options } from './useInterliningDraw';
 import { Stack, Typography, ToggleButtonGroup, ToggleButton, Button, ButtonGroup, Slider, Divider, Tooltip } from '@mui/material';
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import OpenWithIcon from '@mui/icons-material/OpenWith';
@@ -49,7 +49,7 @@ export default function InterliningCanvas() {
             disabled: false,        
         },
         {
-            value: "snapToGrid",
+            value: Options.SnapToGrid,
             label: "Snap to Grid",
             iconOn: <Icon path={mdiMagnetOn} size={1} />,
             iconOff: <Icon path={mdiMagnet} size={1} />,

@@ -122,7 +122,7 @@ export const lineMaths = {
             s.dir = s.end.clone().sub(s.start).normalize();
             s.xIntAngleDegrees = (s.dir.angle() * 180 / Math.PI) % 180; // insert these into a hash?
             s.x0 = s.xIntAngleDegrees == 0 ? -1 : -(s.start.y / s.dir.y) * s.dir.x + s.start.x;        // insert these into a hash?
-            console.log(`i: ${i}, x0: ${s.x0}, theta: ${s.xIntAngleDegrees}`);
+            // console.log(`i: ${i}, x0: ${s.x0}, theta: ${s.xIntAngleDegrees}`);
         }
         return segments;
     }

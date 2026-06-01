@@ -272,7 +272,7 @@ function getSnappedAngledCursor(lines: ArcLine[], draggedPointIndex: DraggedPoin
     ];
 
     let closestPoint: Point = { x: 0, y: 0 };
-    let closestDist: number;
+    let closestDist = Infinity;
     snappedPoints.forEach((p) => {
         const dist = Math.hypot(p.x - offset.x, p.y - offset.y);
         if (!closestPoint || dist < closestDist) {
