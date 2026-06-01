@@ -1,37 +1,25 @@
 import { Vector2 } from "three";
-
-/**
- * @typedef {Object} Segment
- * @property {Vector2} start
- * @property {Vector2} end
- * @property {Vector2} dir
- * @property {number} len
- */
-
-/**
- * @typedef {Object} ArcLine
- * @property {Segment[]} segments
- * @property {Point[]} line
- * @prop {string} color
- */
+import type { ArcLine, Point, Segment } from "./useInterliningDraw.js";
 
 export const drawer = {
-    drawInterlinedLines: function (ctx, lines, radius, lineWidth = 8) {
+    drawInterlinedLines: function (ctx: CanvasRenderingContext2D, lines: ArcLine[],
+        radius: number, lineWidth = 8) {
         interline(lines).forEach(l => drawer.drawLine(ctx, l.line, l.segments, radius, l.color, lineWidth));
     },
-    drawLine: function (/** @type {CanvasRenderingContext2D} */ctx, /** @type {Point[]} */ line, segments, maxRadius, colour, lineWidth) {
+    drawLine: function (ctx: CanvasRenderingContext2D, line: Point[], segments: Segment[],
+        maxRadius: number, colour: string, lineWidth: number) {
         if (line.length < 2) return;
 
         ctx.strokeStyle = colour;
         ctx.lineWidth = lineWidth;
 
-        let startPoint = segments[0].start;
+        let startPoint = segments[0]!.start;
         // console.log(`last segment (i = ${segments.length - 1}):`);
         // console.log(segments[segments.length - 1]);
         if (segments.length == 1) {
             ctx.beginPath();
             ctx.moveTo(startPoint.x, startPoint.y);
-            ctx.lineTo(segments[0].end.x, segments[0].end.y);
+            ctx.lineTo(segments[0]!.end.x, segments[0]!.end.y);
             ctx.stroke();
             return;
         }
@@ -44,6 +32,7 @@ export const drawer = {
 
 
             const seg = segments[i];
+            if (!seg) continue;
 
             if (i == segments.length - 1) {
                 ctx.lineTo(seg.end.x, seg.end.y);
@@ -52,6 +41,7 @@ export const drawer = {
             // compute circle
             let maxHalfLength = getMaximumHalfLength(line, i + 1, segments);
             const nextSeg = segments[i + 1];
+            if (!nextSeg) continue;
             const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
             let r = maxHalfLength * Math.tan(theta / 2);
             if (r > maxRadius) {
@@ -88,9 +78,8 @@ export const drawer = {
         }
         ctx.stroke();
     },
-    drawCircle: function (
-        /** @type {CanvasRenderingContext2D} */ ctx,
-        p, filled = true, lineWidth = 2, radius = 5, colour = '#aabbcc') {
+    drawCircle: function (ctx: CanvasRenderingContext2D, p: Point, filled = true,
+        lineWidth = 2, radius = 5, colour = '#aabbcc') {
         ctx.beginPath();
         ctx.fillStyle = colour;
         ctx.arc(p.x, p.y, radius, 0, 2 * Math.PI);
@@ -102,7 +91,7 @@ export const drawer = {
             ctx.stroke();
         }
     },
-    drawGrid: function (/** @type {CanvasRenderingContext2D} */ ctx, canvas, gridSize) {
+    drawGrid: function (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, gridSize: number) {
         ctx.strokeStyle = "#a7a7a7";
         ctx.lineWidth = 0.5;
         ctx.beginPath();
@@ -119,14 +108,16 @@ export const drawer = {
 }
 
 export const lineMaths = {
-    getSegments(/** @type {Point[]} */ line) {
-        /**@type Segment[] */
-        let lineInfo = [];
+    getSegments(line: Point[]) {
+        let lineInfo: Segment[] = [];
         for (let i = 0; i < line.length - 1; i++) {
-            lineInfo[i] = {};
+            lineInfo[i] = {} as Segment;
             const li = lineInfo[i];
-            li.start = new Vector2(line[i].x, line[i].y);
-            li.end = new Vector2(line[i + 1].x, line[i + 1].y);
+            const curr = line[i];
+            const next = line[i + 1];
+            if (!li || !curr || !next) continue;
+            li.start = new Vector2(curr.x, curr.y);
+            li.end = new Vector2(next.x, next.y);
             li.len = li.start.distanceTo(li.end);
             li.dir = li.end.clone().sub(li.start).normalize();
         }
@@ -134,41 +125,44 @@ export const lineMaths = {
     }
 }
 
-const getMaximumHalfLength = (/** @type {Point[]} */ line, /** @type number */ i, /** @type Segment[] */ lineInfo) => {
+function getMaximumHalfLength(line: Point[], i: number, lineInfo: Segment[]): number {
+    // if (!lineInfo[i - 1]?.len) return 0;
+    if (!lineInfo[i]) return 0;
     let minHalfLen = -1;
     if (i != 0) {
-        minHalfLen = lineInfo[i - 1].len / 2;
+        minHalfLen = lineInfo[i - 1]!.len / 2;
     }
     if (i < line.length - 1) { // next line exists
         if (minHalfLen == -1) {
             minHalfLen = lineInfo[i].len / 2;
-            return;
+            return 0;
         }
         minHalfLen = Math.min(lineInfo[i].len / 2, minHalfLen);
     }
     return minHalfLen;
 };
 
-const interline = (lines) => {
-    /** @type ArcLine[] */
+const interline = (lines: ArcLine[]) => {
     const updated = [...lines];
     let n = 0;
-    // for every line, for every segment
-    for (let i = 0; i < updated.length - 1; i++) {
-        for (let a = 0; a < updated[i].segments.length; a++) {
-            for (let j = i + 1; j < updated.length; j++) {
-                for (let b = 0; b < updated[j].segments.length; b++) {
-                    const segA = updated[i].segments[a];
-                    const segB = updated[j].segments[b];
-                    if (!segA.start.equals(segB.start) ||
-                        !segA.end.equals(segB.end)
-                    ) continue;
-                    n++;
-                    console.log(`intersection btw ${i} and ${j}`);
-                }
-            }
-        }
-    }
+    // // for every line, for every segment
+    // for (let i = 0; i < updated.length - 1; i++) {
+    //     const line = updated[i];
+    //     if (!line) continue;
+    //     for (let a = 0; a < line.segments.length; a++) {
+    //         for (let j = i + 1; j < updated.length; j++) {
+    //             for (let b = 0; b < updated[j].segments.length; b++) {
+    //                 const segA = updated[i].segments[a];
+    //                 const segB = updated[j].segments[b];
+    //                 if (!segA.start.equals(segB.start) ||
+    //                     !segA.end.equals(segB.end)
+    //                 ) continue;
+    //                 n++;
+    //                 console.log(`intersection btw ${i} and ${j}`);
+    //             }
+    //         }
+    //     }
+    // }
     console.log(`${n} intersections found`);
     return updated;
 }

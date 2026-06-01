@@ -26,15 +26,15 @@ export default function InterliningCanvas() {
     useEffect(() => drawCanvas(), [drawCanvas]);
 
     const modeButtons = [
-        { mode: Mode.NEWLINE, label: 'Draw New Line', icon: <ModeEditIcon /> },
-        { mode: Mode.MANIPULATE, label: 'Manipulate', icon: <OpenWithIcon /> },
+        { mode: Mode.NewLine, label: 'Draw New Line', icon: <ModeEditIcon /> },
+        { mode: Mode.Manipulate, label: 'Manipulate', icon: <OpenWithIcon /> },
     ];
 
     const actions = [
         {
             label: "Clear", icon: <DeleteIcon />, action: () => {
                 setLines([]);
-                setMode(Mode.MANIPULATE);
+                setMode(Mode.Manipulate);
             }
         }
     ];

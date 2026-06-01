@@ -1,6 +1,6 @@
 import {useState} from "react";
 
-function SimpleColourPicker() {
+export function SimpleColourPicker() {
     const [colour, setColour] = useState('#0080ff');
 
     return(<div>

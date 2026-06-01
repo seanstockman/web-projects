@@ -1,0 +1,41 @@
+{
+  "lists": [
+    {
+      "id": "29ecf0e7-764c-4970-a6ac-ad7139359368",
+      "title": "Backlog",
+      "cards": [
+        {
+          "id": "bd2d2d61-8aab-4761-bd61-a42a70d7448f",
+          "listId": "29ecf0e7-764c-4970-a6ac-ad7139359368",
+          "title": "Make UI better / individual settings per line",
+          "description": "",
+          "labels": [],
+          "checkboxes": [],
+          "comments": []
+        }
+      ]
+    },
+    {
+      "id": "80ccdda3-80cc-4d65-a091-f54ff4007ff6",
+      "title": "To Do",
+      "cards": []
+    },
+    {
+      "id": "7b9cbe92-b8b8-4430-83ce-f5fe7d54ebed",
+      "title": "Doing",
+      "cards": []
+    },
+    {
+      "id": "e920797a-6d8e-41e7-9fb8-e53a96dcd08e",
+      "title": "Done",
+      "cards": []
+    }
+  ],
+  "archive": {
+    "lists": [],
+    "cards": []
+  },
+  "settings": {
+    "labels": []
+  }
+}
