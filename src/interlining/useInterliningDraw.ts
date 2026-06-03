@@ -11,6 +11,7 @@ export enum Mode {
 
 export const Options = {
     SnapToGrid: "snapToGrid",
+    ShowGrid: "showGrid"
 }
 
 export type Point = {
@@ -46,7 +47,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
     const [draggedPointIndex, setDraggedPoint] = useState<DraggedPoint | null>(null);
     const [radius, setRadius] = useState(20);
     const [currentColor, setCurrentColor] = useState("#ff6f2d");
-    const [options, setOptions] = useState<string[]>([]);
+    const [options, setOptions] = useState<string[]>([Options.SnapToGrid,""]);
     const [shiftHeld, setShiftHeld] = useState(false);
 
     const clickRadius = 6;
@@ -218,7 +219,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
         if (!ctx || !canvas) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (options.includes('showGrid')) drawer.drawGrid(ctx, canvas, gridSize);
+        if (options.includes(Options.ShowGrid)) drawer.drawGrid(ctx, canvas, gridSize);
 
         drawer.drawInterlinedLines(ctx, lines, radius, lineWidth);
 

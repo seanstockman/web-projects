@@ -41,19 +41,17 @@ export default function InterliningCanvas() {
 
     const toggles = [
         {
-            value:
-                "showGrid",
+            value: Options.ShowGrid,
             label: "Toggle Grid",
             iconOn: <GridOn />,
             iconOff: <GridOff />,
-            disabled: false,        
-        },
-        {
+            disabled: false,
+        }, {
             value: Options.SnapToGrid,
             label: "Snap to Grid",
             iconOn: <Icon path={mdiMagnetOn} size={1} />,
             iconOff: <Icon path={mdiMagnet} size={1} />,
-            disabled: !options.includes("showGrid"),        
+            disabled: !options.includes(Options.ShowGrid),
         },
     ];
 
@@ -82,7 +80,7 @@ export default function InterliningCanvas() {
                     ))}
                 </ButtonGroup>
 
-                <ToggleButtonGroup value={options} onChange={(e, v) => {setOptions(v); console.log(`set options to ${v}`)}}>
+                <ToggleButtonGroup value={options} onChange={(e, v) => { setOptions(v); console.log(`set options to ${v}`) }}>
                     {toggles.map(t => (
                         <Tooltip title={t.label} key={t.value}>
                             <ToggleButton disabled={t.disabled} value={t.value}>{options.includes(t.value) ? t.iconOn : t.iconOff}</ToggleButton>
