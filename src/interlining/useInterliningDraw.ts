@@ -78,7 +78,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
             mouse.y = Math.round(mouse.y / gridSize) * gridSize;
         }
 
-        console.log(segmentMap);
+        // console.log(segmentMap);
 
         return mouse;
     }, [canvasRef, options, gridSize, shiftHeld, draggedPointIndex]);

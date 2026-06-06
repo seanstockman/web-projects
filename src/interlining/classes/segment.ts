@@ -81,6 +81,21 @@ export class Segment {
         this.bucket = null;
     }
 
+    intersect(p1: Vector2, p2: Vector2): Vector2 {
+        const p3 = this.nudged.start, p4 = this.nudged.end;
+        const denominator = (p1.x - p2.x) * (p3.y * p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+        console.log(`p1: ${p1.x}, ${p1.y}\np2: ${p2.x}, ${p2.y}\np3: ${p3.x}, ${p3.y}\np4: ${p4.x}, ${p4.y}`);
+        if (denominator == 0) {console.error(`denom == 0`);return Vector2.zero();}
+        return new Vector2(
+            ((p1.x * p2.y - p1.y * p2.x) * (p3.x - p4.x)
+                - (p1.x - p2.x) * (p3.x * p4.y - p3.y * p4.x))
+            / denominator,
+            ((p1.x * p2.y - p1.y * p2.x) * (p3.y - p4.y)
+                - (p1.y - p2.y) * (p3.x * p4.y - p3.y * p4.x))
+            / denominator
+        );
+    }
+
     /** Creates and appends a new segment from the end of the last segment to the new point. */
     static addPoint(s: Segment[], end: Vector2) {
         const prev = s.at(-1);
@@ -114,10 +129,17 @@ const interline = (bucket: Segment[]) => {
             console.error(`s.nudged does not exist`)
             continue;
         }
-        const offsetX = (i - midpoint) * interliningSpacing * -bucket[0]!.dir.y;
-        const offsetY = (i - midpoint) * interliningSpacing * bucket[0]!.dir.x;
-        s.nudged.start.updateXY(s.start.x + offsetX, s.start.y + offsetY);
-        s.nudged.end.updateXY(s.end.x + offsetX, s.end.y + offsetY);
+        const offsetOrigin = new Vector2((i - midpoint) * interliningSpacing * -s.dir.y + s.start.x,
+            (i - midpoint) * interliningSpacing * s.dir.x + s.start.y);
+        const offsetOther = offsetOrigin.clone();
+        offsetOther.x += s.dir.x;
+        offsetOther.y += s.dir.y;
+
+        const newStart = s.prev ? s.prev.intersect(offsetOrigin, offsetOther) : offsetOrigin;
+        s.nudged.start.updateXY(newStart.x, newStart.y);
+
+        const newEnd = s.next ? s.next.intersect(offsetOrigin, offsetOther) : { x: s.end.x - s.dir.y, y: s.end.y + s.dir.x };
+        s.nudged.end.updateXY(newEnd.x, newEnd.y);
         s.length = s.nudged.start.distTo(s.nudged.end);
         if (s.prev) {
             s.prev.nudged.length = s.prev.nudged.end.distTo(s.prev.nudged.start);
