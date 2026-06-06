@@ -5,7 +5,7 @@ import { Line } from "./line.js";
 export const drawer = {
     drawInterlinedLines: function (ctx: CanvasRenderingContext2D, lines: Line[],
         radius: number, lineWidth = 8) {
-        interline(lines).forEach(l => drawer.drawLine(ctx, l.segments, radius, l.color, lineWidth));
+        lines.forEach(l => drawer.drawLine(ctx, l.segments, radius, l.color, lineWidth));
     },
     drawLine: function (ctx: CanvasRenderingContext2D, segments: Segment[],
         maxRadius: number, colour: string, lineWidth: number) {
@@ -14,53 +14,50 @@ export const drawer = {
         ctx.strokeStyle = colour;
         ctx.lineWidth = lineWidth;
 
-        let startPoint = segments[0]!.start;
-        // console.log(`last segment (i = ${segments.length - 1}):`);
-        // console.log(segments[segments.length - 1]);
+        let startPoint = segments[0]!.nudged.start;
         if (segments.length == 1) {
             ctx.beginPath();
             ctx.moveTo(startPoint.x, startPoint.y);
-            ctx.lineTo(segments[0]!.end.x, segments[0]!.end.y);
+            const end = segments[0]!.nudged.end;
+            ctx.lineTo(end.x, end.y);
             ctx.stroke();
             return;
         }
 
         const debugCircles = [];
 
-        console.log(`dl claled`);
         ctx.beginPath();
         ctx.moveTo(startPoint.x, startPoint.y);
         for (let i = 0; i < segments.length; i++) {
             // going to draw the previous straight line segment and the arc at the end
             // assume already in right spot (end of the circle of the previous)
 
-            const seg = segments[i];
-            if (!seg) { console.log(`no seg ${i}`); continue; }
-
+            const curr = segments[i]?.nudged;
+            if (!curr) { console.error(`no seg ${i}`); continue; }
 
             if (i == segments.length - 1) {
-                ctx.lineTo(seg.end.x, seg.end.y);
+                ctx.lineTo(curr.end.x, curr.end.y);
                 break;
             }
 
 
             // compute circle
             let maxHalfLength = getMaximumHalfLength(segments[i]);
-            const nextSeg = segments[i + 1];
-            if (!nextSeg) continue;
+            const next = segments[i + 1]?.nudged;
+            if (!next) continue;
 
             // ctx.lineTo(seg.end.x, seg.end.y);
             // continue;
             // const theta = seg.dir.clone().multiplyScalar(-1).angleTo(nextSeg.dir);
-            const nextSegAngle = nextSeg.dir.angleAsNormalised();
-            const thisSegAngle = seg.dir.angleAsNormalised() + Math.PI;
+            const nextSegAngle = next.dir.angleAsNormalised();
+            const thisSegAngle = curr.dir.angleAsNormalised() + Math.PI;
             let theta = thisSegAngle - nextSegAngle;
             if (theta > Math.PI) theta = 2 * Math.PI - theta;
             theta = Math.abs(theta);
 
             let r = maxHalfLength * Math.tan(theta / 2);
             if (r < 0) {
-                console.log(`r < 0; theta = ${theta}\nr = ${r}\nmhl=${maxHalfLength}`);
+                console.error(`r < 0; theta = ${theta}\nr = ${r}\nmhl=${maxHalfLength}`);
             }
 
             if (r > maxRadius) {
@@ -69,9 +66,9 @@ export const drawer = {
             }
 
             // line to start of circle
-            const lineLength = seg.length - maxHalfLength;
-            const lineEndX = seg.start.x + seg.dir.x * lineLength;
-            const lineEndY = seg.start.y + seg.dir.y * lineLength;
+            const lineLength = curr.length - maxHalfLength;
+            const lineEndX = curr.start.x + curr.dir.x * lineLength;
+            const lineEndY = curr.start.y + curr.dir.y * lineLength;
 
             if (startPoint.x != lineEndX || startPoint.y != lineEndY) {
                 ctx.lineTo(lineEndX, lineEndY);
@@ -79,17 +76,17 @@ export const drawer = {
 
             // const nextLineStart = nextSeg.start.clone().add(nextSeg.dir.clone().multiplyScalar(maxHalfLength));
             const nextLineStart = new Vec2(
-                nextSeg.start.x + nextSeg.dir.x * maxHalfLength,
-                nextSeg.start.y + nextSeg.dir.y * maxHalfLength
+                next.start.x + next.dir.x * maxHalfLength,
+                next.start.y + next.dir.y * maxHalfLength
             );
 
 
             if (lineEndX != nextLineStart.x || lineEndY != nextLineStart.y) {
-                const side = -Math.sign(seg.dir.dotValues(-nextSeg.dir.y, nextSeg.dir.x));
+                const side = -Math.sign(curr.dir.dotValues(-next.dir.y, next.dir.x));
 
                 const circleCentre = nextLineStart.clone();
-                circleCentre.x += side * r * -nextSeg.dir.y;
-                circleCentre.y += side * r * nextSeg.dir.x;
+                circleCentre.x += side * r * -next.dir.y;
+                circleCentre.y += side * r * next.dir.x;
                 // .add(dirPerp.multiplyScalar(side * r));
 
                 // drawer.drawCircle(ctx, circleCentre, true, 0, r);
@@ -157,42 +154,8 @@ export const drawer = {
  */
 function getMaximumHalfLength(segment: Segment | undefined): number {
     if (!segment) return 0;
-    let minHalfLen = segment.length / 2;
+    let minHalfLen = segment.nudged.length / 2;
     if (!segment.next) return minHalfLen;
-    minHalfLen = Math.min(minHalfLen, segment.next.length / 2);
+    minHalfLen = Math.min(minHalfLen, segment.next.nudged.length / 2);
     return minHalfLen;
 };
-
-const interline = (lines: Line[]) => {
-    return lines;
-    // const updated = [...lines];
-
-
-
-    // let n = 0;
-    // // for every line, for every segment
-    // for (let i = 0; i < updated.length - 1; i++) {
-    //     const lineA = updated[i];
-    //     if (!lineA) continue;
-    //     for (let a = 0; a < lineA.segments.length; a++) {
-    //         const segA = lineA.segments[a];
-    //         for (let j = i + 1; j < updated.length; j++) {
-    //             const lineB = updated[j];
-    //             if (!lineB) continue;
-    //             for (let b = 0; b < lineB.segments.length; b++) {
-    //                 const segB = lineB.segments[b];
-    //                 if (segA?.x0 != segB?.x0) continue;
-    //                 if (segA?.xIntAngleDegrees != segB?.xIntAngleDegrees) continue;
-    //                 lineA.line[a]!.x += 5;
-    //                 lineA.line[a + 1]!.x += 5;
-    //                 lineB.line[b]!.x -= 5;
-    //                 lineB.line[b + 1]!.x -= 5;
-    //                 n++;
-    //                 console.log(`intersection btw ${i} and ${j}`);
-    //             }
-    //         }
-    //     }
-    // }
-    // console.log(`${n} intersections found`);
-    // return updated;
-}

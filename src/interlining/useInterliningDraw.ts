@@ -24,7 +24,7 @@ export type DraggedPoint = {
 export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
     const [mode, setMode] = useState(Mode.Manipulate);
     const [lines, setLines] = useState<Line[]>([]);
-    const [segmentMap, setSegmentMap] = useState<Map<number, Segment[]>>(new Map());
+    const [segmentMap, setSegmentMap] = useState<Map<string, Segment[]>>(new Map());
     const [origin, setOrigin] = useState<Vec2 | null>(null);
     const [gridSize, setGridSize] = useState(20);
     const [draggedPointIndex, setDraggedPoint] = useState<DraggedPoint | null>(null);
@@ -78,6 +78,8 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
             mouse.y = Math.round(mouse.y / gridSize) * gridSize;
         }
 
+        console.log(segmentMap);
+
         return mouse;
     }, [canvasRef, options, gridSize, shiftHeld, draggedPointIndex]);
 
@@ -90,6 +92,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                 setLines(prevLines => {
                     const newline: Line = new Line(
                         [mouse, mouse.clone()],
+                        segmentMap,
                         currentColor);
                     return [...prevLines, newline];
                 });
@@ -189,7 +192,8 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                     updated.splice(lineIndex, 1);
                 } else {
                     updatedLine.points.splice(pointIndex - 1, 2);
-                    console.log(`seglen: ${updatedLine.segments.length}; pi-1 = ${pointIndex - 1}`);
+                    updatedLine.segments[pointIndex - 2]?.pruneFromBucket();
+                    updatedLine.segments[pointIndex - 1]?.pruneFromBucket();
                     updatedLine.segments.splice(pointIndex - 2, 2);
                 }
                 return updated;
@@ -208,9 +212,14 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
 
         if (options.includes(Options.ShowGrid)) drawer.drawGrid(ctx, canvas, gridSize);
 
-        drawer.drawInterlinedLines(ctx, lines, radius, lineWidth);
-
         if (origin) drawer.drawCircle(ctx, origin, true, 0, lineWidth * 0.5, currentColor);
+
+        if (lines.length == 0) {
+            segmentMap.forEach((_value, key) => segmentMap.delete(key));
+            return;
+        }
+
+        drawer.drawInterlinedLines(ctx, lines, radius, lineWidth);
 
         if (mode === Mode.Manipulate) {
             lines.forEach(line => {

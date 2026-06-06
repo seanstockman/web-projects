@@ -6,7 +6,7 @@ export class Line {
     points: Vec2[] = [];
     color: string = "#ffffff";
 
-    constructor(points: Vec2[], color: string | null = null) {
+    constructor(points: Vec2[], segmentMap: Map<string, Segment[]> | null = null, color: string | null = null) {
         this.points = points;
         if (color) this.color = color;
         // create segments
@@ -16,11 +16,10 @@ export class Line {
             if (i == 1) {
                 const prevPoint = points[i-1];
                 if (!prevPoint) return;
-                this.segments = [new Segment(prevPoint, curr)];
+                this.segments = [new Segment(segmentMap, prevPoint, curr)];
             } else {
                 Segment.addPoint(this.segments, curr);
             }
         }
-        console.log(this.segments);
     }
 }
