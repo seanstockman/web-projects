@@ -1,7 +1,9 @@
 // useInterlinerDraw.js
 import { useState, useEffect, useCallback, type RefObject } from 'react';
-import { drawer, lineMaths } from './Drawer.js';
-import { Vector2 } from "three";
+import { drawer } from './Drawer.js';
+import { Segment } from './classes/segment.js';
+import { Line } from './line.js';
+import { Vector2 as Vec2, Vector2 } from './classes/vector-2.js';
 
 export enum Mode {
     Manipulate,
@@ -14,26 +16,6 @@ export const Options = {
     ShowGrid: "showGrid"
 }
 
-export type Point = {
-    x: number,
-    y: number
-}
-
-export type Segment = {
-    start: Vector2,
-    end: Vector2,
-    dir: Vector2,
-    len: number,
-    x0: number, // intersection with the x axis (x,0)
-    xIntAngleDegrees: number // angle between [0, 180) degrees. 0 is left/right, 90 is left/right
-}
-
-export type ArcLine = {
-    segments: Segment[],
-    line: Point[],
-    color: string
-}
-
 export type DraggedPoint = {
     lineIndex: number,
     pointIndex: number
@@ -41,13 +23,14 @@ export type DraggedPoint = {
 
 export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
     const [mode, setMode] = useState(Mode.Manipulate);
-    const [lines, setLines] = useState<ArcLine[]>([]);
-    const [origin, setOrigin] = useState<Point | null>(null);
+    const [lines, setLines] = useState<Line[]>([]);
+    const [segmentMap, setSegmentMap] = useState<Map<number, Segment[]>>(new Map());
+    const [origin, setOrigin] = useState<Vec2 | null>(null);
     const [gridSize, setGridSize] = useState(20);
     const [draggedPointIndex, setDraggedPoint] = useState<DraggedPoint | null>(null);
     const [radius, setRadius] = useState(20);
     const [currentColor, setCurrentColor] = useState("#ff6f2d");
-    const [options, setOptions] = useState<string[]>([Options.SnapToGrid,""]);
+    const [options, setOptions] = useState<string[]>([Options.SnapToGrid, Options.ShowGrid]);
     const [shiftHeld, setShiftHeld] = useState(false);
 
     const clickRadius = 6;
@@ -76,58 +59,56 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
 
     const getMousePos = useCallback((e: MouseEvent) => {
         const canvas = canvasRef.current;
-        if (!canvas) return { x: 0, y: 0 };
+        if (!canvas) return Vec2.zero();
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        let x = (e.clientX - rect.left) * scaleX;
-        let y = (e.clientY - rect.top) * scaleY;
+        const mouse = new Vec2(
+            (e.clientX - rect.left) * scaleX,
+            (e.clientY - rect.top) * scaleY
+        );
 
         if (shiftHeld && draggedPointIndex && draggedPointIndex.pointIndex != 0) {
-            const snapped = getSnappedAngledCursor(lines, draggedPointIndex, { x: x, y: y });
-            if (snapped) {
-                x = snapped.x;
-                y = snapped.y;
-            }
+            const snapped = getSnappedAngledCursor(lines, draggedPointIndex, mouse);
+            if (snapped) { mouse.updateXY(snapped.x, snapped.y); }
         }
 
         if (options.includes(Options.SnapToGrid)) {
-            x = Math.round(x / gridSize) * gridSize;
-            y = Math.round(y / gridSize) * gridSize;
+            mouse.x = Math.round(mouse.x / gridSize) * gridSize;
+            mouse.y = Math.round(mouse.y / gridSize) * gridSize;
         }
 
-        return {
-            x: x,
-            y: y,
-        };
+        return mouse;
     }, [canvasRef, options, gridSize, shiftHeld, draggedPointIndex]);
 
     const handleMouseDown = useCallback((e: MouseEvent) => {
         const mouse = getMousePos(e);
         switch (mode) {
-            case Mode.NewLine: {
+            case Mode.NewLine: { // create new line
                 setOrigin(null);
                 const lineIdx = lines.length;
                 setLines(prevLines => {
-                    const newline: ArcLine = { line: [mouse, mouse], color: currentColor, segments: [] };
-                    newline.segments = lineMaths.getSegments(newline.line);
+                    const newline: Line = new Line(
+                        [mouse, mouse.clone()],
+                        currentColor);
                     return [...prevLines, newline];
                 });
                 setDraggedPoint({ lineIndex: lineIdx, pointIndex: 1 });
                 setMode(Mode.Draw);
                 break;
             }
-            case Mode.Draw: {
+            case Mode.Draw: { // update existing line; add segment
                 if (!lines.length) break;
                 const lastLineIdx = lines.length - 1;
                 setLines(prevLines => {
                     const updated = [...prevLines];
                     const lastLine = updated[lastLineIdx];
                     if (!lastLine) return prevLines;
-                    lastLine.line = [...lastLine.line, mouse];
-                    const pointIdx = lastLine.line.length - 1;
+                    lastLine.points = [...lastLine.points, mouse];
+                    const pointIdx = lastLine.points.length - 1;
                     setDraggedPoint({ lineIndex: lastLineIdx, pointIndex: pointIdx });
-                    lastLine.segments = lineMaths.getSegments(lastLine.line)
+                    const lastPoint = lastLine.points.at(-1);
+                    if (lastPoint) { Segment.addPoint(lastLine.segments, lastPoint); }
                     return updated;
                 });
                 break;
@@ -137,7 +118,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                 let minDistance = Infinity;
 
                 lines.forEach((line, lineIndex) => {
-                    line.line.forEach((p, pointIndex) => {
+                    line.points.forEach((p, pointIndex) => {
                         const distance = Math.hypot(p.x - mouse.x, p.y - mouse.y);
                         if (distance < clickRadius && distance < minDistance) {
                             closestPoint = { lineIndex, pointIndex };
@@ -165,8 +146,13 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                     const updated = [...prevLines];
                     const updatedLine = updated[lineIndex];
                     if (!updatedLine) return prevLines;
-                    updatedLine.line[pointIndex] = { x: mouse.x, y: mouse.y };
-                    updatedLine.segments = lineMaths.getSegments(updatedLine.line);
+                    const updatedPoint = updatedLine.points[pointIndex];
+                    if (!updatedPoint) return prevLines;
+                    updatedPoint.updateXY(mouse.x, mouse.y);
+                    updatedLine.segments[pointIndex - 1]?.update();
+                    updatedLine.segments[pointIndex]?.update();
+                    // assume its the last point for now.
+                    // updatedLine.segments.at(-1)!.update();
                     return updated;
                 });
                 break;
@@ -199,11 +185,12 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
                 const updated = [...prevLines];
                 const updatedLine = updated[lineIndex];
                 if (!updatedLine) return prevLines;
-                if (updatedLine.line.length <= 3) {
+                if (updatedLine.points.length <= 3) {
                     updated.splice(lineIndex, 1);
                 } else {
-                    updatedLine.line.splice(pointIndex - 1, 2);
-                    updatedLine.segments = lineMaths.getSegments(updatedLine.line);
+                    updatedLine.points.splice(pointIndex - 1, 2);
+                    console.log(`seglen: ${updatedLine.segments.length}; pi-1 = ${pointIndex - 1}`);
+                    updatedLine.segments.splice(pointIndex - 2, 2);
                 }
                 return updated;
             });
@@ -227,7 +214,7 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
 
         if (mode === Mode.Manipulate) {
             lines.forEach(line => {
-                line.line.forEach(p => drawer.drawCircle(ctx, p, false, 2, clickRadius));
+                line.points.forEach(p => drawer.drawCircle(ctx, p, false, 2, clickRadius));
             });
         }
     }, [canvasRef, lines, origin, radius, currentColor, options, mode, gridSize]);
@@ -255,24 +242,24 @@ export function useInterlinerDraw(canvasRef: RefObject<HTMLCanvasElement>) {
     };
 }
 
-function getSnappedAngledCursor(lines: ArcLine[], draggedPointIndex: DraggedPoint, mouse: Point): Point | null {
-    const l = lines[draggedPointIndex.lineIndex]?.line;
+function getSnappedAngledCursor(lines: Line[], draggedPointIndex: DraggedPoint, mouse: Vector2): Vector2 | null {
+    const l = lines[draggedPointIndex.lineIndex]?.points;
     if (!l) return null;
     const prev = l[draggedPointIndex.pointIndex - 1];
     if (!prev) return null;
     const offset = { x: mouse.x - prev.x, y: mouse.y - prev.y };
     const avgXY = (Math.abs(offset.x) + Math.abs(offset.y)) / 2;
-    const cursorToLeft = Math.sign(offset.x);
+    const isCursorToLeft = Math.sign(offset.x);
     // const cursorToLeft = Math.sign(offset.x);
 
-    const snappedPoints: Point[] = [
-        { x: 0, y: offset.y },
-        { x: offset.x, y: 0 },
-        { x: cursorToLeft * avgXY, y: avgXY },
-        { x: cursorToLeft * avgXY, y: -avgXY },
+    const snappedPoints: Vec2[] = [
+        new Vec2(0, offset.y),
+        new Vec2(offset.x, 0),
+        new Vec2(isCursorToLeft * avgXY, avgXY),
+        new Vec2(isCursorToLeft * avgXY, -avgXY),
     ];
 
-    let closestPoint: Point = { x: 0, y: 0 };
+    let closestPoint: Vec2 = Vec2.zero();
     let closestDist = Infinity;
     snappedPoints.forEach((p) => {
         const dist = Math.hypot(p.x - offset.x, p.y - offset.y);
@@ -281,5 +268,5 @@ function getSnappedAngledCursor(lines: ArcLine[], draggedPointIndex: DraggedPoin
             closestDist = dist;
         }
     });
-    return { x: closestPoint.x + prev.x, y: closestPoint.y + prev.y };
+    return new Vector2(closestPoint.x + prev.x, closestPoint.y + prev.y);
 }
