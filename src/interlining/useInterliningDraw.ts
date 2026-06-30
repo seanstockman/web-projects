@@ -1,9 +1,9 @@
 // useInterlinerDraw.js
 import { useState, useEffect, useCallback, type RefObject } from 'react';
 import { drawer } from './Drawer.js';
-import { Segment } from './classes/segment.js';
-import { Line } from './line.js';
-import { Vector2 as Vec2, Vector2 } from './classes/vector-2.js';
+import { Segment } from '../geometry/classes/segment.ts';
+import { Line } from '../geometry/classes/line.ts';
+import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 
 export enum Mode {
     Manipulate,

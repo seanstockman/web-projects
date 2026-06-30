@@ -1,4 +1,4 @@
-import { Vector2 } from "./vector-2.js";
+import { Vector2 } from "./vector-2.ts";
 
 export class Segment {
     start: Vector2;

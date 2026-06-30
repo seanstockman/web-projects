@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router';
 import './index.css';
 import App from './App.jsx';
 import Interlining from './interlining/Interlining.jsx';
+import MedialSkeleton from './medial-skeleton/MedialSkeleton.tsx';
 import { Container, createTheme, ThemeProvider } from '@mui/material';
 import { lime, red } from '@mui/material/colors';
 import ResponsiveAppBar from './components/ResponsiveAppBar.jsx';
@@ -68,6 +69,7 @@ function Root() {
           <Routes>
             <Route index element={<App />} />
             <Route path="projects/interlining" element={<Interlining />} />
+            <Route path="projects/medial-skeleton" element={<MedialSkeleton />} />
           </Routes>
         </BrowserRouter>
       </Container>

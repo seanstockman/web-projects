@@ -1,13 +1,28 @@
-import { Segment } from "./classes/segment.js";
-import { Vector2 as Vec2 } from "./classes/vector-2.js";
-import { Line } from "./line.js";
+import { Segment } from "../geometry/classes/segment.ts";
+import { Vector2 as Vec2 } from "../geometry/classes/vector-2.ts";
+import { Line } from "../geometry/classes/line.ts";
 
 export const drawer = {
+    drawLine: function (ctx: CanvasRenderingContext2D, line: Line, width: number) {
+        if (line.points.length < 2) return;
+        ctx.beginPath();
+
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = width;
+        ctx.moveTo(line.points[0]!.x, line.points[0]!.y);
+
+        for (let i = 1; i < line.points.length; i++) {
+            ctx.lineTo(line.points[i]!.x, line.points[i]!.y);
+        }
+
+        ctx.stroke();
+        ctx.closePath();
+    },
     drawInterlinedLines: function (ctx: CanvasRenderingContext2D, lines: Line[],
         radius: number, lineWidth = 8) {
-        lines.forEach(l => drawer.drawLine(ctx, l.segments, radius, l.color, lineWidth));
+        lines.forEach(l => drawer.drawCurvedLine(ctx, l.segments, radius, l.color, lineWidth));
     },
-    drawLine: function (ctx: CanvasRenderingContext2D, segments: Segment[],
+    drawCurvedLine: function (ctx: CanvasRenderingContext2D, segments: Segment[],
         maxRadius: number, colour: string, lineWidth: number) {
         if (segments.length < 1) return;
 

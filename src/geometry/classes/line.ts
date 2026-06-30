@@ -1,5 +1,5 @@
-import { Segment } from "./classes/segment.js";
-import { Vector2 as Vec2 } from "./classes/vector-2.js";
+import { Segment } from "./segment.ts";
+import { Vector2 as Vec2 } from "./vector-2.ts";
 
 export class Line {
     segments: Segment[] = [];
