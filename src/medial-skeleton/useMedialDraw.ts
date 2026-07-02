@@ -3,6 +3,7 @@ import { Line } from '../geometry/classes/line.ts';
 import { Segment } from '../geometry/classes/segment.ts';
 import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 import { drawer } from '../interlining/Drawer.tsx'
+import { findCircumcircle } from '../geometry/point-geometry/point-geometry.ts';
 
 export enum Mode {
     Manipulate,
@@ -20,7 +21,7 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const [movedPoint, setMovedPoint] = useState<Vec2 | null>(null);
     const [snapped, setSnapped] = useState(false);
     const [lines, setLines] = useState<Line[]>([]);
-    const [updater, setUpdater] = useState(true);
+    const [extraPoints, setExtraPoints] = useState<Vec2[]>([]);
 
     useEffect(() => {
         if (lines.length == 0) return;
@@ -54,7 +55,8 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         }
 
         lines.forEach(l => drawer.drawLine(ctx, l, 3));
-    }, [canvasRef, getMousePos, cursor, movedPoint, updater, mode])
+        extraPoints.forEach(p => drawer.drawCircle(ctx, p, false, 1, 2, '#808080'));
+    }, [canvasRef, getMousePos, cursor, movedPoint, mode, lines, extraPoints])
 
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         let mouse = getMousePos(e);
@@ -167,9 +169,26 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         }
     }, [mode, getMousePos, movedPoint]);
 
+    function circumcircle() {
+        if (lines.length < 1) {console.error('lines length < 1');return null;}
+        const l = lines[lines.length - 1];
+        if (!l?.points.length) {console.error('l.p.len not found'); return null};
+        if (l.points.length < 3) {console.error('l.p.len != 3'); console.log(l); return null;}
+        setExtraPoints(extraPoints => {
+            const c = findCircumcircle(l.points);
+            if (c) {
+                return [...extraPoints, c.center]
+            }
+            console.error('find failure');
+            return extraPoints;
+        });
+    }
+
     return {
         drawCanvas,
         handleMouseMove,
-        handleMouseDown
+        handleMouseDown,
+        setLines, setMode, setExtraPoints,
+        circumcircle
     };
 }

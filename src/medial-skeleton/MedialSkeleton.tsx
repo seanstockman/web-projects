@@ -1,15 +1,34 @@
 import { Button, ButtonGroup, Divider, Slider, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { PageStack } from '../components/PageComponents.tsx';
-import { useMedialDraw } from './useMedialDraw.ts';
+import { useMedialDraw, Mode } from './useMedialDraw.ts';
 import { useEffect, useRef } from 'react';
+
+import DeleteIcon from '@mui/icons-material/Delete';
+import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
 
 
 export default function MedialSkeleton() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const {
-        handleMouseMove, handleMouseDown, drawCanvas
+        handleMouseMove, handleMouseDown, drawCanvas,
+        setLines, setMode, setExtraPoints,
+        circumcircle
     } = useMedialDraw(canvasRef);
+
+    const actions = [
+        {
+            label: "Clear", icon: <DeleteIcon />, action: () => {
+                setLines([]);
+                setExtraPoints([]);
+                setMode(Mode.NewLine);
+            }
+        }, {
+            label: "Get Circumcircle", icon: <PanoramaFishEyeIcon />, action: () => {
+                circumcircle();
+            }
+        }
+    ];
 
     useEffect(() => drawCanvas(), [drawCanvas]);
     return (
@@ -18,8 +37,8 @@ export default function MedialSkeleton() {
         <PageStack>
             <Typography variant='h3'>Medial Skeleton</Typography>
 
-            {/* <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
-                <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => setMode(val)}>
+            <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+                {/* <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => setMode(val)}>
                     {modeButtons.map(b => (
                         <Tooltip title={b.label} key={b.mode}>
                             <ToggleButton value={b.mode}>{b.icon}</ToggleButton>
@@ -29,7 +48,7 @@ export default function MedialSkeleton() {
 
                 <Tooltip title="Pick Line Colour">
                     <input type="color" value={currentColor} className='self-center' onChange={e => setCurrentColor(e.target.value)} />
-                </Tooltip>
+                </Tooltip> */}
 
                 <ButtonGroup>
                     {actions.map(a => (
@@ -39,7 +58,7 @@ export default function MedialSkeleton() {
                     ))}
                 </ButtonGroup>
 
-                <ToggleButtonGroup value={options} onChange={(e, v) => { setOptions(v); console.log(`set options to ${v}`) }}>
+                {/* <ToggleButtonGroup value={options} onChange={(e, v) => { setOptions(v); console.log(`set options to ${v}`) }}>
                     {toggles.map(t => (
                         <Tooltip title={t.label} key={t.value}>
                             <ToggleButton disabled={t.disabled} value={t.value}>{options.includes(t.value) ? t.iconOn : t.iconOff}</ToggleButton>
@@ -49,8 +68,8 @@ export default function MedialSkeleton() {
 
                 <Tooltip title="Curve Radius">
                     <Slider min={1} max={100} value={radius} onChange={(e, r) => setRadius(r)} valueLabelDisplay="auto" />
-                </Tooltip>
-            </Stack> */}
+                </Tooltip> */}
+            </Stack>
 
             <canvas
                 ref={canvasRef}
