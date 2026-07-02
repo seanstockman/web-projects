@@ -3,12 +3,17 @@ import { Vector2 as Vec2 } from "../geometry/classes/vector-2.ts";
 import { Line } from "../geometry/classes/line.ts";
 
 export const drawer = {
-    drawLine: function (ctx: CanvasRenderingContext2D, line: Line, width: number) {
+    drawLine: function (ctx: CanvasRenderingContext2D, line: Line) {
         if (line.points.length < 2) return;
         ctx.beginPath();
 
         ctx.strokeStyle = line.color;
-        ctx.lineWidth = width;
+        ctx.lineWidth = line.width;
+        if (line.dash) {
+            ctx.setLineDash([10, 5]);
+        } else {
+            ctx.setLineDash([0]);
+        }
         ctx.moveTo(line.points[0]!.x, line.points[0]!.y);
 
         for (let i = 1; i < line.points.length; i++) {

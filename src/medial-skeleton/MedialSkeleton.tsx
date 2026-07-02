@@ -5,30 +5,41 @@ import { useEffect, useRef } from 'react';
 
 import DeleteIcon from '@mui/icons-material/Delete';
 import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
-
+import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
+import LayersClearIcon from '@mui/icons-material/LayersClear';
 
 export default function MedialSkeleton() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const {
         handleMouseMove, handleMouseDown, drawCanvas,
-        setLines, setMode, setExtraPoints,
-        circumcircle
+        setLines, setMode, setOverlayPoints, setOverlayLines,
+        showCircumcircle, showDelaunay
     } = useMedialDraw(canvasRef);
 
     const actions = [
         {
             label: "Clear", icon: <DeleteIcon />, action: () => {
                 setLines([]);
-                setExtraPoints([]);
+                setOverlayPoints([]);
+                setOverlayLines([]);
                 setMode(Mode.NewLine);
             }
         }, {
-            label: "Get Circumcircle", icon: <PanoramaFishEyeIcon />, action: () => {
-                circumcircle();
+            label: "Show the circumcircle of the last drawn polygon", icon: <PanoramaFishEyeIcon />, action: () => {
+                showCircumcircle();
             }
-        }
-    ];
+        }, {
+            label: "Run Delauney Triangulation", icon: <ChangeHistoryIcon />, action: () => {
+                showDelaunay();
+            }
+        }, {
+            label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
+                setOverlayLines([]);
+                setOverlayPoints([]);
+            }
+        },
+    ]
 
     useEffect(() => drawCanvas(), [drawCanvas]);
     return (

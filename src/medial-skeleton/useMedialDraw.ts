@@ -4,6 +4,8 @@ import { Segment } from '../geometry/classes/segment.ts';
 import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 import { drawer } from '../interlining/Drawer.tsx'
 import { findCircumcircle } from '../geometry/point-geometry/point-geometry.ts';
+import delauneyTriangulation from '../geometry/point-geometry/delauney-triangulation.ts';
+import { Point } from '../geometry/classes/point.ts';
 
 export enum Mode {
     Manipulate,
@@ -13,7 +15,15 @@ export enum Mode {
 
 const snappingDistance = 10;
 const victoryColour = '#7DF527';
-const drawingColour = '#F54927';
+const drawingColour = '#2768f5';
+
+type customCircle = {
+    centre: Vec2,
+    radius: number,
+    colour: string,
+    filled: boolean,
+    lineWidth: number,
+}
 
 export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const [mode, setMode] = useState(Mode.NewLine);
@@ -21,7 +31,8 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const [movedPoint, setMovedPoint] = useState<Vec2 | null>(null);
     const [snapped, setSnapped] = useState(false);
     const [lines, setLines] = useState<Line[]>([]);
-    const [extraPoints, setExtraPoints] = useState<Vec2[]>([]);
+    const [overlayPoints, setOverlayPoints] = useState<customCircle[]>([]);
+    const [overlayLines, setOverlayLines] = useState<Line[]>([]);
 
     useEffect(() => {
         if (lines.length == 0) return;
@@ -50,13 +61,14 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        lines.forEach(l => drawer.drawLine(ctx, l));
+        overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
+        overlayLines.forEach(l => drawer.drawLine(ctx, l));
+    
         if (cursor != null) {
-            drawer.drawCircle(ctx, cursor);
+            drawer.drawCircle(ctx, cursor, true, 0, 2, '#005effd4');
         }
-
-        lines.forEach(l => drawer.drawLine(ctx, l, 3));
-        extraPoints.forEach(p => drawer.drawCircle(ctx, p, false, 1, 2, '#808080'));
-    }, [canvasRef, getMousePos, cursor, movedPoint, mode, lines, extraPoints])
+    }, [canvasRef, getMousePos, cursor, movedPoint, mode, lines, overlayPoints])
 
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         let mouse = getMousePos(e);
@@ -169,26 +181,65 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         }
     }, [mode, getMousePos, movedPoint]);
 
-    function circumcircle() {
-        if (lines.length < 1) {console.error('lines length < 1');return null;}
+    function showCircumcircle() {
+        if (lines.length < 1) { console.error('lines length < 1'); return null; }
         const l = lines[lines.length - 1];
-        if (!l?.points.length) {console.error('l.p.len not found'); return null};
-        if (l.points.length < 3) {console.error('l.p.len != 3'); console.log(l); return null;}
-        setExtraPoints(extraPoints => {
+        if (!l?.points.length) { console.error('l.p.len not found'); return null };
+        if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
+        setOverlayPoints(extraPoints => {
             const c = findCircumcircle(l.points);
             if (c) {
-                return [...extraPoints, c.center]
+                const outline: customCircle = {
+                    centre: c.center,
+                    radius: c.radius,
+                    colour: "#272727",
+                    filled: false,
+                    lineWidth: 1
+                }
+                const centre: customCircle = {
+                    centre: c.center,
+                    radius: 1,
+                    colour: "#272727",
+                    filled: true,
+                    lineWidth: 0
+                }
+                return [...extraPoints, outline, centre]
             }
             console.error('find failure');
             return extraPoints;
         });
     }
 
+    function showDelaunay() {
+        if (lines.length == 0) return;
+        const l = lines[lines.length - 1];
+        if (!l?.points.length) { console.error('l.p.len not found'); return null };
+        if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
+        const points = l.points.map(v => new Point(v.x, v.y));
+        const d = delauneyTriangulation(points);
+        setOverlayLines(e => [
+            ...e,
+            new Line([d?.points[0]!, d?.points[1]!], null, '#fd2222'),
+            new Line([d?.points[1]!, d?.points[2]!], null, '#9e22fd', 2, true),
+            new Line([d?.points[2]!, d?.points[0]!], null, '#9e22fd', 2, true),
+        ]);
+        setOverlayPoints(e => [
+            ...e,
+            ...(d?.points?.slice(0,2).map(p => ({
+                centre: p,         // p becomes the centre
+                radius: 2,        // Shared property
+                colour: 'red',     // Shared property
+                filled: false,      // Shared property
+                lineWidth: 1       // Shared property
+            })) ?? [])
+        ]);
+    }
+
     return {
         drawCanvas,
         handleMouseMove,
         handleMouseDown,
-        setLines, setMode, setExtraPoints,
-        circumcircle
+        setLines, setMode, setOverlayPoints, setOverlayLines,
+        showCircumcircle, showDelaunay
     };
 }
