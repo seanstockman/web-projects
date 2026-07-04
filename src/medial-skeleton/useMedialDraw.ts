@@ -4,7 +4,7 @@ import { Segment } from '../geometry/classes/segment.ts';
 import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 import { drawer } from '../interlining/Drawer.tsx'
 import { findCircumcircle } from '../geometry/point-geometry/point-geometry.ts';
-import delauneyTriangulation from '../geometry/point-geometry/delauney-triangulation.ts';
+import delaunayTriangulation, { delaunayResultAsLines, initialisation } from '../geometry/point-geometry/delaunay-triangulation.ts';
 import { Point } from '../geometry/classes/point.ts';
 
 export enum Mode {
@@ -216,21 +216,21 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         if (!l?.points.length) { console.error('l.p.len not found'); return null };
         if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
         const points = l.points.map(v => new Point(v.x, v.y));
-        const d = delauneyTriangulation(points);
+        const d = initialisation(points);
+
         setOverlayLines(e => [
             ...e,
-            new Line([d?.points[0]!, d?.points[1]!], null, '#fd2222'),
-            new Line([d?.points[1]!, d?.points[2]!], null, '#9e22fd', 2, true),
-            new Line([d?.points[2]!, d?.points[0]!], null, '#9e22fd', 2, true),
+            ...delaunayResultAsLines(d, "#fd2222", "#9e22fd")
         ]);
+        
         setOverlayPoints(e => [
             ...e,
-            ...(d?.points?.slice(0,2).map(p => ({
-                centre: p,         // p becomes the centre
-                radius: 2,        // Shared property
-                colour: 'red',     // Shared property
-                filled: false,      // Shared property
-                lineWidth: 1       // Shared property
+            ...(d?.points.map(p => ({ //?.slice(0,2)
+                centre: p,
+                radius: 2,
+                colour: 'red',
+                filled: false,
+                lineWidth: 1
             })) ?? [])
         ]);
     }
