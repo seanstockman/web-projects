@@ -1,21 +1,23 @@
 import { Button, ButtonGroup, Divider, Slider, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { PageStack } from '../components/PageComponents.tsx';
-import { useMedialDraw, Mode } from './useMedialDraw.ts';
+import { useDelaunayDraw, Mode } from './useDelaunayDraw.ts';
 import { useEffect, useRef } from 'react';
 
 import DeleteIcon from '@mui/icons-material/Delete';
 import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
 import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
-export default function MedialSkeleton() {
+export default function DelaunayTriangulation() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const {
         handleMouseMove, handleMouseDown, drawCanvas,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        showCircumcircle, showDelaunay
-    } = useMedialDraw(canvasRef);
+        iterateDelaunay,
+        binDelaunay
+    } = useDelaunayDraw(canvasRef);
 
     const actions = [
         {
@@ -24,14 +26,22 @@ export default function MedialSkeleton() {
                 setOverlayPoints([]);
                 setOverlayLines([]);
                 setMode(Mode.NewLine);
+                binDelaunay();
             }
-        }, {
-            label: "Show the circumcircle of the last drawn polygon", icon: <PanoramaFishEyeIcon />, action: () => {
-                showCircumcircle();
-            }
-        }, {
-            label: "Run Delauney Triangulation", icon: <ChangeHistoryIcon />, action: () => {
-                showDelaunay();
+        }, 
+        // {
+        //     label: "Show the circumcircle of the last drawn polygon", icon: <PanoramaFishEyeIcon />, action: () => {
+        //         showCircumcircle();
+        //     }
+        // },
+        //  {
+        //     label: "Run Delaunay Triangulation", icon: <ChangeHistoryIcon />, action: () => {
+        //         initialiseDelaunay();
+        //     }
+        // }, 
+        {
+            label: "Iterate Delaunay", icon: <PlayArrowIcon />, action: () => {
+                iterateDelaunay();
             }
         }, {
             label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
@@ -46,7 +56,7 @@ export default function MedialSkeleton() {
 
 
         <PageStack>
-            <Typography variant='h3'>Medial Skeleton</Typography>
+            <Typography variant='h3'>Delaunay Triangulation Demo</Typography>
 
             <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
                 {/* <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => setMode(val)}>

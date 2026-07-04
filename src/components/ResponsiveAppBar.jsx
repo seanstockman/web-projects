@@ -21,7 +21,7 @@ const navItems = [
     label: 'Projects',
     children: [
       { label: 'Interlining', to: '/projects/interlining' },
-      { label: 'Medial Skeleton', to: '/projects/medial-skeleton' },
+      { label: 'Delaunay Triangulation', to: '/projects/delaunay' },
     ],
   },
   // { label: 'Pricing', to: '/pricing' },

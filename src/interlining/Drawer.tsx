@@ -167,6 +167,9 @@ export const drawer = {
         }
         ctx.stroke();
     },
+    drawText: function (ctx: CanvasRenderingContext2D,text: string,  position: {x: number, y:number}, offset: {x: number, y: number} = {x:0,y:0}, size: number = 10) {
+        ctx.fillText(text, position.x + offset.x, position.y + offset.y, size);
+    },
 }
 
 /**

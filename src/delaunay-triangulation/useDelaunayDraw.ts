@@ -3,9 +3,9 @@ import { Line } from '../geometry/classes/line.ts';
 import { Segment } from '../geometry/classes/segment.ts';
 import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 import { drawer } from '../interlining/Drawer.tsx'
-import { findCircumcircle } from '../geometry/point-geometry/point-geometry.ts';
-import delaunayTriangulation, { delaunayResultAsLines, initialisation } from '../geometry/point-geometry/delaunay-triangulation.ts';
+import { geometry2d } from '../geometry/point-geometry/geometry2d.ts';
 import { Point } from '../geometry/classes/point.ts';
+import { delaunay, type DelaunayResult } from '../geometry/point-geometry/delaunay-triangulation.ts';
 
 export enum Mode {
     Manipulate,
@@ -23,9 +23,13 @@ type customCircle = {
     colour: string,
     filled: boolean,
     lineWidth: number,
+    text: string | null
 }
 
-export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
+let savedDelaunay: DelaunayResult | undefined = undefined;
+
+
+export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const [mode, setMode] = useState(Mode.NewLine);
     const [cursor, setCursor] = useState<Vec2 | null>(null);
     const [movedPoint, setMovedPoint] = useState<Vec2 | null>(null);
@@ -63,8 +67,11 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
 
         lines.forEach(l => drawer.drawLine(ctx, l));
         overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
+
+        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
+
         overlayLines.forEach(l => drawer.drawLine(ctx, l));
-    
+
         if (cursor != null) {
             drawer.drawCircle(ctx, cursor, true, 0, 2, '#005effd4');
         }
@@ -187,21 +194,23 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         if (!l?.points.length) { console.error('l.p.len not found'); return null };
         if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
         setOverlayPoints(extraPoints => {
-            const c = findCircumcircle(l.points);
+            const c = geometry2d.getCircumcircle(l.points[0]!, l.points[1]!, l.points[2]!);
             if (c) {
                 const outline: customCircle = {
-                    centre: c.center,
+                    centre: new Vec2(c.centre.x, c.centre.y),
                     radius: c.radius,
                     colour: "#272727",
                     filled: false,
-                    lineWidth: 1
+                    lineWidth: 1,
+                    text: null
                 }
                 const centre: customCircle = {
-                    centre: c.center,
+                    centre: new Vec2(c.centre.x, c.centre.y),
                     radius: 1,
                     colour: "#272727",
                     filled: true,
-                    lineWidth: 0
+                    lineWidth: 0,
+                    text: null
                 }
                 return [...extraPoints, outline, centre]
             }
@@ -210,27 +219,67 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         });
     }
 
-    function showDelaunay() {
-        if (lines.length == 0) return;
+    function initialiseDelaunay() {
+        if (lines.length == 0) return undefined;
         const l = lines[lines.length - 1];
-        if (!l?.points.length) { console.error('l.p.len not found'); return null };
-        if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
+        if (!l?.points.length) { console.error('l.p.len not found'); return undefined };
+        if (l.points.length < 4) { console.error('l.p.len != 3'); console.log(l); return undefined; }
         const points = l.points.map(v => new Point(v.x, v.y));
-        const d = initialisation(points);
+        points.splice(points.length - 1, 1);
+        return delaunay.initialise(points);
+    }
+
+    function iterateDelaunay() {
+        if (savedDelaunay) {
+            if (savedDelaunay.current >= savedDelaunay.points.length) {
+                console.log('d.current exceeds iteration steps');
+                return;
+            }
+        }
+
+        setOverlayLines([]);
+        setOverlayPoints([]);
+
+        if (savedDelaunay == undefined) {
+            savedDelaunay = initialiseDelaunay();
+        } else {
+            const ccs = delaunay.iterate(savedDelaunay!);
+
+            if (!ccs) return; // end of iterations
+            
+            setOverlayPoints(e => [...e, ...ccs.map(c => ({
+                centre: new Vec2(c.centre.x, c.centre.y),
+                radius: c.radius,
+                colour: '#939393',
+                filled: false,
+                lineWidth: 1,
+                text: null
+            }))]);
+        }
+        showDelaunay();
+    }
+
+    function binDelaunay() {
+        savedDelaunay = undefined;
+    }
+
+    function showDelaunay() {
+        if (savedDelaunay == undefined) { console.log('reyurnings'); return; }
 
         setOverlayLines(e => [
             ...e,
-            ...delaunayResultAsLines(d, "#fd2222", "#9e22fd")
+            ...delaunay.getResultToLines(savedDelaunay!, "#fd2222", "#9e22fd")
         ]);
-        
+
         setOverlayPoints(e => [
             ...e,
-            ...(d?.points.map(p => ({ //?.slice(0,2)
+            ...(savedDelaunay!.points.map(p => ({ //?.slice(0,2)
                 centre: p,
                 radius: 2,
                 colour: 'red',
                 filled: false,
-                lineWidth: 1
+                lineWidth: 1,
+                text: savedDelaunay!.points.findIndex(n => n == p).toString()
             })) ?? [])
         ]);
     }
@@ -240,6 +289,7 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
         handleMouseMove,
         handleMouseDown,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        showCircumcircle, showDelaunay
+        iterateDelaunay,
+        binDelaunay
     };
 }
