@@ -68,11 +68,11 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         // lines.forEach(l => drawer.drawLine(ctx, l));
         drawer.drawLinesStartOnly(ctx, lines);
         
-        overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
-
-        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
-
         overlayLines.forEach(l => drawer.drawLine(ctx, l));
+        
+        overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
+        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
+        
 
         if (cursor != null) {
             drawer.drawCircle(ctx, cursor, true, 0, 2, '#005effd4');
@@ -241,6 +241,8 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         setOverlayLines([]);
         setOverlayPoints([]);
+
+        console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();

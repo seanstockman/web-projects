@@ -8,6 +8,7 @@ import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
 import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 export default function DelaunayTriangulation() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,7 +49,13 @@ export default function DelaunayTriangulation() {
                 setOverlayLines([]);
                 setOverlayPoints([]);
             }
-        },
+        }, {
+            label: "Reset Delaunay", icon: <RestartAltIcon />, action: () => {
+                binDelaunay();
+                setOverlayLines([]);
+                setOverlayPoints([]);
+            }
+        }, 
     ]
 
     useEffect(() => drawCanvas(), [drawCanvas]);

@@ -57,6 +57,7 @@ export const delaunay = {
         const P_i = d.points[d.current]!;
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
         let L = d.sweepIndices[0]!, R = -1, M = -1;
+        let sweep_i; // index of the point P_i in the sweep-edge after insertion.
 
         for (let i = 1; i < d.sweepIndices.length; i++) {
             const curr = d.sweepIndices[i]!;
@@ -65,28 +66,46 @@ export const delaunay = {
             if (P_curr.x > P_i.x) {
                 R = curr
                 d.sweepIndices.splice(i, 0, d.current);
+                sweep_i = i;
                 break;
             } else if (P_curr.x == P_i.x) {
                 d.sweepIndices.splice(i, 1, d.current);
                 M = curr;
                 R = d.sweepIndices[i + 1]!;
+                sweep_i = i;
                 break;
             }
             L = curr;
         }
 
         if (R == -1) { console.error("could not find a midpoint"); return; }
+        if (sweep_i == undefined) return; // just to trigger intellisense
 
         let ccs;
         if (M == -1) {
             // 3.4.1 i
-            ccs = addAndLegaliseNewTriangle(d, L, R);
+            ccs = addAndLegaliseNewTriangle(d, d.current, L, R);
         } else {
             // 3.4.1 ii
             ccs = [
-                ...addAndLegaliseNewTriangle(d, L, M)!,
-                ...addAndLegaliseNewTriangle(d, M, R)!,
+                ...addAndLegaliseNewTriangle(d, d.current, L, M)!,
+                ...addAndLegaliseNewTriangle(d, d.current, M, R)!,
             ];
+        }
+
+        // triangle(s) are added... now check visible
+        // step 1) check angle between i and adjacent sweep edges. if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
+
+        for (let i = sweep_i; i > 2; i--) {
+            const adjFillResult = checkAndFillAdjacentSharpAngles(d, i - 2);
+            if (!adjFillResult) break;
+            ccs!.push(...adjFillResult);
+        }
+
+        for (let i = sweep_i; i < d.sweepIndices.length - 2; i++) {
+            const adjFillResult = checkAndFillAdjacentSharpAngles(d, i);
+            if (!adjFillResult) break;
+            ccs!.push(...adjFillResult);
         }
 
         d.current++;
@@ -127,18 +146,18 @@ function disconnectPoints(graph: number[][], a: number, b: number) {
     graph[b]?.splice(graph[b].findIndex(n => n == a), 1);
 }
 
-/** Connects the new point with index i (at d.current) to the graph.
+/** Connects the new point with index i to the graph.
  * 1) Determines the adjacent triangle L-R-O.
  * 2) Connects i-L and i-R, forming the triangle i-L-R
  * 3) Finds the circumcircle of i-L-R.
  * 4) If O is in the circumcircle, will disconnect L-R and connect i-O, forming the legalised triangles L-i-O and R-i-O. 
  * - Returns an array of circumcircles in the order they are explored (including L-i-O if it is switched).
 */
-function addAndLegaliseNewTriangle(d: DelaunayGraph, L: number, R: number) {
-    const P_L = d.points[L]!, P_R = d.points[R]!, P_i = d.points[d.current]!;
+function addAndLegaliseNewTriangle(d: DelaunayGraph, I: number, L: number, R: number) {
+    const P_L = d.points[L]!, P_R = d.points[R]!, P_i = d.points[I]!;
 
     let P_other;
-    let otherIndex = -1;
+    let O = -1; // other index
 
     const leftPointConns = d.graph[L]!;
     const rightPointConns = d.graph[R]!;
@@ -146,25 +165,45 @@ function addAndLegaliseNewTriangle(d: DelaunayGraph, L: number, R: number) {
     for (let i = 0; i < leftPointConns.length; i++) {
         for (let j = 0; j < rightPointConns.length; j++) {
             if (leftPointConns[i] != rightPointConns[j]) continue;
-            otherIndex = leftPointConns[i]!;
+            O = leftPointConns[i]!;
             break;
         }
-        if (otherIndex != -1) break;
+        if (O != -1) break;
     }
 
-    if (otherIndex == -1) { console.error("No adjacent triangle could be found."); return; }
+    if (O == -1) { console.error("No adjacent triangle could be found."); return; }
 
-    P_other = d.points[otherIndex]!;
+    P_other = d.points[O]!;
 
-    connectPoints(d.graph, L, d.current);
-    connectPoints(d.graph, R, d.current);
+    connectPoints(d.graph, L, I);
+    connectPoints(d.graph, R, I);
     const ccs = [geometry2d.getCircumcircle(P_L, P_R, P_i)];
+    console.log(`adding triangle ${L}-${I}-${R}`);
 
     if (geometry2d.distance(P_other, ccs[0]!.centre) < ccs[0]!.radius) {
         disconnectPoints(d.graph, L, R);
-        connectPoints(d.graph, otherIndex, d.current);
+        connectPoints(d.graph, O, I);
         ccs.push(geometry2d.getCircumcircle(P_other, P_i, P_R));
+        console.log(`swapping, adding triangles ${L}-${O}-${I} & ${I}-${O}-${R}`);
     }
 
+
     return ccs;
+}
+
+const sweepAddThreshold = Math.PI / 2;
+
+/** Checks the angle between the points on the sweepline, starting from the given leftmost index, A. 
+ * If the angle A-B-C < pi/2, it will add a new legal triangle to the graph and return any generated circumcircles.
+ * Returns null otherwise. */
+function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: number) {
+    const pointIndices = [d.sweepIndices[leftSweepIndex]!, d.sweepIndices[leftSweepIndex + 1]!, d.sweepIndices[leftSweepIndex + 2]!];
+    console.log(`adjCheck: checking angle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
+    const a = geometry2d.getAngleBetweenPoints(d.points[pointIndices[0]!]!, d.points[pointIndices[1]!]!,
+        d.points[pointIndices[2]!]!);
+    if (a > sweepAddThreshold) return null;
+    console.log(`adjCheck: adding triangle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
+
+    d.sweepIndices.splice(leftSweepIndex + 1, 1);
+    return addAndLegaliseNewTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!)!;
 }
