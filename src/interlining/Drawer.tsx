@@ -140,6 +140,9 @@ export const drawer = {
         //     drawer.drawCircle(ctx, c.centre, true, 0, c.r);
         // });
     },
+    drawLinesStartOnly: function (ctx: CanvasRenderingContext2D, lines: Line[]) {
+        lines.forEach(l => drawer.drawCircle(ctx, l.points[0]!, false, 1, 2));
+    },
     drawCircle: function (ctx: CanvasRenderingContext2D, p: Vec2, filled = true,
         lineWidth = 2, radius = 5, colour = '#aabbcc') {
         ctx.beginPath();

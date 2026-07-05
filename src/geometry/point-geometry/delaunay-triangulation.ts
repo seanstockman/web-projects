@@ -2,7 +2,7 @@ import { Line } from "../classes/line.ts";
 import { geometry2d } from "./geometry2d.ts";
 import { Point } from "../classes/point.ts";
 
-export type DelaunayResult = {
+export type DelaunayGraph = {
     points: Point[],
     graph: number[][],
     sweepIndices: number[],
@@ -18,7 +18,7 @@ export const delaunay = {
         return initialised;
     },
 
-    initialise(points: Point[]): DelaunayResult {
+    initialise(points: Point[]): DelaunayGraph {
         const sorted = [...points];
         sorted.sort((a, b) => a.x - b.x);
         const xMin = sorted[0]!.x;
@@ -38,44 +38,28 @@ export const delaunay = {
 
         sorted.unshift(Pm1, Pm2);
 
-        const res: DelaunayResult = {
+        const res: DelaunayGraph = {
             points: sorted,
             graph: Array.from({ length: sorted.length }, () => []),
             sweepIndices: [0, 2, 1],
             current: 3
         };
 
-        delaunay.connectPoints(res.graph, 0, 2);
-        delaunay.connectPoints(res.graph, 1, 2);
-        delaunay.connectPoints(res.graph, 0, 1);
+        connectPoints(res.graph, 0, 2);
+        connectPoints(res.graph, 1, 2);
+        connectPoints(res.graph, 0, 1);
 
         return res;
     },
 
-    connectPoints(graph: number[][], a: number, b: number) {
-        console.log(`connecting ${a} and ${b}`);
-        graph[a]?.push(b);
-        graph[b]?.push(a);
-    },
-
-    disconnectPoints(graph: number[][], a: number, b: number) {
-        graph[a]?.splice(graph[a].findIndex(n => n == b), 1);
-        graph[b]?.splice(graph[b].findIndex(n => n == a), 1);
-    },
-
-    iterate(d: DelaunayResult) {
+    iterate(d: DelaunayGraph) {
         // 3.4.1 Point event
         const P_i = d.points[d.current]!;
-        console.log(d.points);
-        console.log(d.sweepIndices);
-        console.log(`current: ${d.current}`);
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
         let L = d.sweepIndices[0]!, R = -1, M = -1;
 
         for (let i = 1; i < d.sweepIndices.length; i++) {
             const curr = d.sweepIndices[i]!;
-
-            // console.log(`curr: ${curr}, L: ${L}, R: ${R}`);
 
             const P_curr = d.points[curr]!;
             if (P_curr.x > P_i.x) {
@@ -83,6 +67,7 @@ export const delaunay = {
                 d.sweepIndices.splice(i, 0, d.current);
                 break;
             } else if (P_curr.x == P_i.x) {
+                d.sweepIndices.splice(i, 1, d.current);
                 M = curr;
                 R = d.sweepIndices[i + 1]!;
                 break;
@@ -94,11 +79,14 @@ export const delaunay = {
 
         let ccs;
         if (M == -1) {
-            console.log('itr: middle case');
-            ccs = delaunay.pointEventMiddleCase(d, L, R);
+            // 3.4.1 i
+            ccs = addAndLegaliseNewTriangle(d, L, R);
         } else {
-            console.log(`M: ${M}`);
-            delaunay.pointEventLeftCase(d);
+            // 3.4.1 ii
+            ccs = [
+                ...addAndLegaliseNewTriangle(d, L, M)!,
+                ...addAndLegaliseNewTriangle(d, M, R)!,
+            ];
         }
 
         d.current++;
@@ -110,58 +98,11 @@ export const delaunay = {
         // assume middle case for now
     },
 
-    // 3.4.1 i
-    pointEventMiddleCase(d: DelaunayResult, leftIndex: number, rightIndex: number) {
-        const P_L = d.points[leftIndex]!, P_R = d.points[rightIndex]!, P_i = d.points[d.current]!;
-
-        let P_other;
-        let otherIndex = -1;
-
-        const leftPointConns = d.graph[leftIndex]!;
-        const rightPointConns = d.graph[rightIndex]!;
-
-        for (let i = 0; i < leftPointConns.length; i++) {
-            for (let j = 0; j < rightPointConns.length; j++) {
-                if (leftPointConns[i] != rightPointConns[j]) continue;
-                otherIndex = leftPointConns[i]!;
-                break;
-            }
-            if (otherIndex != -1) break;
-        }
-
-        P_other = d.points[otherIndex]!;
-
-        // const P_Q = geometry2d.getInterceptFromPoints(P_L, P_R, P_i, {x: P_i.x, y: P_i.y - 1});
-        delaunay.connectPoints(d.graph, leftIndex, d.current);
-        delaunay.connectPoints(d.graph, rightIndex, d.current);
-        const ccs = [geometry2d.getCircumcircle(P_L, P_R, P_i)];
-
-
-        // console.log(`otherI: ${otherIndex}`);
-
-        if (geometry2d.distance(P_other, ccs[0]!.centre) < ccs[0]!.radius) {
-            console.log(`flipping.`);
-            delaunay.disconnectPoints(d.graph, leftIndex, rightIndex);
-            delaunay.connectPoints(d.graph, otherIndex, d.current);
-            ccs.push(geometry2d.getCircumcircle(P_other, P_i, P_R));
-        }
-
-        return ccs;
-    },
-
-    // 3.4.1 ii
-    pointEventLeftCase(d: DelaunayResult) {
-        console.error('not implemented pointEventLeftCase');
-
-    },
-
-    getResultToLines(d: DelaunayResult, normalColor: string, sweepColor: string): Line[] {
+    getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
         const lines = [];
 
         // normal
         for (let i = 0; i < d.graph.length; i++) {
-            console.log(`graph i:`);
-            console.log(d.graph[i]);
             for (let j = 0; j < d.graph[i]!.length; j++) {
                 lines.push(new Line([d.points[i]!, d.points[d.graph[i]![j]!]!], null, normalColor));
             }
@@ -174,4 +115,56 @@ export const delaunay = {
 
         return lines;
     }
+}
+
+function connectPoints(graph: number[][], a: number, b: number) {
+    graph[a]?.push(b);
+    graph[b]?.push(a);
+}
+
+function disconnectPoints(graph: number[][], a: number, b: number) {
+    graph[a]?.splice(graph[a].findIndex(n => n == b), 1);
+    graph[b]?.splice(graph[b].findIndex(n => n == a), 1);
+}
+
+/** Connects the new point with index i (at d.current) to the graph.
+ * 1) Determines the adjacent triangle L-R-O.
+ * 2) Connects i-L and i-R, forming the triangle i-L-R
+ * 3) Finds the circumcircle of i-L-R.
+ * 4) If O is in the circumcircle, will disconnect L-R and connect i-O, forming the legalised triangles L-i-O and R-i-O. 
+ * - Returns an array of circumcircles in the order they are explored (including L-i-O if it is switched).
+*/
+function addAndLegaliseNewTriangle(d: DelaunayGraph, L: number, R: number) {
+    const P_L = d.points[L]!, P_R = d.points[R]!, P_i = d.points[d.current]!;
+
+    let P_other;
+    let otherIndex = -1;
+
+    const leftPointConns = d.graph[L]!;
+    const rightPointConns = d.graph[R]!;
+
+    for (let i = 0; i < leftPointConns.length; i++) {
+        for (let j = 0; j < rightPointConns.length; j++) {
+            if (leftPointConns[i] != rightPointConns[j]) continue;
+            otherIndex = leftPointConns[i]!;
+            break;
+        }
+        if (otherIndex != -1) break;
+    }
+
+    if (otherIndex == -1) { console.error("No adjacent triangle could be found."); return; }
+
+    P_other = d.points[otherIndex]!;
+
+    connectPoints(d.graph, L, d.current);
+    connectPoints(d.graph, R, d.current);
+    const ccs = [geometry2d.getCircumcircle(P_L, P_R, P_i)];
+
+    if (geometry2d.distance(P_other, ccs[0]!.centre) < ccs[0]!.radius) {
+        disconnectPoints(d.graph, L, R);
+        connectPoints(d.graph, otherIndex, d.current);
+        ccs.push(geometry2d.getCircumcircle(P_other, P_i, P_R));
+    }
+
+    return ccs;
 }

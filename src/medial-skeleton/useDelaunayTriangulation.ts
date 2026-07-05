@@ -29,7 +29,7 @@ type customCircle = {
 let savedDelaunay: DelaunayGraph | undefined = undefined;
 
 
-export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
+export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
     const [mode, setMode] = useState(Mode.NewLine);
     const [cursor, setCursor] = useState<Vec2 | null>(null);
     const [movedPoint, setMovedPoint] = useState<Vec2 | null>(null);
@@ -65,9 +65,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // lines.forEach(l => drawer.drawLine(ctx, l));
-        drawer.drawLinesStartOnly(ctx, lines);
-        
+        lines.forEach(l => drawer.drawLine(ctx, l));
         overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
 
         overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
@@ -245,18 +243,19 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();
         } else {
-            const ccs = delaunay.iterate(savedDelaunay!);
+            const cc = delaunay.iterate(savedDelaunay!);
 
-            if (!ccs) return; // end of iterations
-            
-            setOverlayPoints(e => [...e, ...ccs.map(c => ({
-                centre: new Vec2(c.centre.x, c.centre.y),
-                radius: c.radius,
+            if (!cc) return; // end of iterations
+
+            const c: customCircle = {
+                centre: new Vec2(cc!.centre.x, cc!.centre.y),
+                radius: cc!.radius,
                 colour: '#939393',
                 filled: false,
                 lineWidth: 1,
                 text: null
-            }))]);
+            }
+            setOverlayPoints(e => [...e, c]);
         }
         showDelaunay();
     }
@@ -291,7 +290,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         handleMouseMove,
         handleMouseDown,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        iterateDelaunay,
+        showCircumcircle, initialiseDelaunay, iterateDelaunay,
         binDelaunay
     };
 }
