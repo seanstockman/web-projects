@@ -67,12 +67,12 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         // lines.forEach(l => drawer.drawLine(ctx, l));
         drawer.drawLinesStartOnly(ctx, lines);
-        
+
         overlayLines.forEach(l => drawer.drawLine(ctx, l));
-        
+
         overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
         overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
-        
+
 
         if (cursor != null) {
             drawer.drawCircle(ctx, cursor, true, 0, 2, '#005effd4');
@@ -232,12 +232,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
     }
 
     function iterateDelaunay() {
-        if (savedDelaunay) {
-            if (savedDelaunay.current >= savedDelaunay.points.length) {
-                console.log('d.current exceeds iteration steps');
-                return;
-            }
-        }
+        if (savedDelaunay?.finished) return;
 
         setOverlayLines([]);
         setOverlayPoints([]);
@@ -246,11 +241,16 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();
+        } else if (savedDelaunay.current >= savedDelaunay.points.length){
+            delaunay.finalise(savedDelaunay);
+            console.log(savedDelaunay);
+            savedDelaunay.finished = true;
         } else {
             const ccs = delaunay.iterate(savedDelaunay!);
 
-            if (!ccs) return; // end of iterations
-            
+            if (!ccs) return; // end of iterations (?)
+
+            // display explored circumcircles
             setOverlayPoints(e => [...e, ...ccs.map(c => ({
                 centre: new Vec2(c.centre.x, c.centre.y),
                 radius: c.radius,

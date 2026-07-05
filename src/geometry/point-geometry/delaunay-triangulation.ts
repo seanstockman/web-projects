@@ -5,8 +5,9 @@ import { Point } from "../classes/point.ts";
 export type DelaunayGraph = {
     points: Point[],
     graph: number[][],
-    sweepIndices: number[],
-    current: number
+    sweepLine: number[],
+    current: number,
+    finished: boolean
 }
 
 export const delaunay = {
@@ -41,8 +42,9 @@ export const delaunay = {
         const res: DelaunayGraph = {
             points: sorted,
             graph: Array.from({ length: sorted.length }, () => []),
-            sweepIndices: [0, 2, 1],
-            current: 3
+            sweepLine: [0, 2, 1],
+            current: 3,
+            finished: false
         };
 
         connectPoints(res.graph, 0, 2);
@@ -56,22 +58,22 @@ export const delaunay = {
         // 3.4.1 Point event
         const P_i = d.points[d.current]!;
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
-        let L = d.sweepIndices[0]!, R = -1, M = -1;
+        let L = d.sweepLine[0]!, R = -1, M = -1;
         let sweep_i; // index of the point P_i in the sweep-edge after insertion.
 
-        for (let i = 1; i < d.sweepIndices.length; i++) {
-            const curr = d.sweepIndices[i]!;
+        for (let i = 1; i < d.sweepLine.length; i++) {
+            const curr = d.sweepLine[i]!;
 
             const P_curr = d.points[curr]!;
             if (P_curr.x > P_i.x) {
                 R = curr
-                d.sweepIndices.splice(i, 0, d.current);
+                d.sweepLine.splice(i, 0, d.current);
                 sweep_i = i;
                 break;
             } else if (P_curr.x == P_i.x) {
-                d.sweepIndices.splice(i, 1, d.current);
+                d.sweepLine.splice(i, 1, d.current);
                 M = curr;
-                R = d.sweepIndices[i + 1]!;
+                R = d.sweepLine[i + 1]!;
                 sweep_i = i;
                 break;
             }
@@ -102,7 +104,7 @@ export const delaunay = {
             ccs!.push(...adjFillResult);
         }
 
-        for (let i = sweep_i; i < d.sweepIndices.length - 2; i++) {
+        for (let i = sweep_i; i < d.sweepLine.length - 2; i++) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(d, i);
             if (!adjFillResult) break;
             ccs!.push(...adjFillResult);
@@ -117,6 +119,28 @@ export const delaunay = {
         // assume middle case for now
     },
 
+    finalise(d: DelaunayGraph) {
+        for (let i = 2; i < d.graph.length; i++) {
+            for (let j = 0; j < d.graph[i]!.length; j++) {
+                if (d.graph[i]![j]! >= 2) continue;
+                d.graph[i]!.splice(j, 1);
+                j--;
+            }
+        }
+
+        for (let i = 0; i < d.graph.length; i++) {
+            for (let j = 0; j < d.graph[i]!.length; j++) {
+                d.graph[i]![j]! -= 2;
+            }
+        }
+
+        d.graph.splice(0, 2);
+        d.points.splice(0, 2);
+        d.sweepLine.splice(d.sweepLine.length - 1, 1);
+        d.sweepLine.splice(0, 1);
+        d.sweepLine = [];
+    },
+
     getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
         const lines = [];
 
@@ -128,8 +152,8 @@ export const delaunay = {
         }
 
         // sweep
-        for (let i = 0; i < d.sweepIndices.length - 1; i++) {
-            lines.push(new Line([d.points[d.sweepIndices[i]!]!, d.points[d.sweepIndices[i + 1]!]!], null, sweepColor, 2, true));
+        for (let i = 0; i < d.sweepLine.length - 1; i++) {
+            lines.push(new Line([d.points[d.sweepLine[i]!]!, d.points[d.sweepLine[i + 1]!]!], null, sweepColor, 2, true));
         }
 
         return lines;
@@ -197,13 +221,13 @@ const sweepAddThreshold = Math.PI / 2;
  * If the angle A-B-C < pi/2, it will add a new legal triangle to the graph and return any generated circumcircles.
  * Returns null otherwise. */
 function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: number) {
-    const pointIndices = [d.sweepIndices[leftSweepIndex]!, d.sweepIndices[leftSweepIndex + 1]!, d.sweepIndices[leftSweepIndex + 2]!];
+    const pointIndices = [d.sweepLine[leftSweepIndex]!, d.sweepLine[leftSweepIndex + 1]!, d.sweepLine[leftSweepIndex + 2]!];
     console.log(`adjCheck: checking angle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
     const a = geometry2d.getAngleBetweenPoints(d.points[pointIndices[0]!]!, d.points[pointIndices[1]!]!,
         d.points[pointIndices[2]!]!);
     if (a > sweepAddThreshold) return null;
     console.log(`adjCheck: adding triangle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
 
-    d.sweepIndices.splice(leftSweepIndex + 1, 1);
+    d.sweepLine.splice(leftSweepIndex + 1, 1);
     return addAndLegaliseNewTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!)!;
 }
