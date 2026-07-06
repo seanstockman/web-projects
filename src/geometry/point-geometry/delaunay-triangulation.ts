@@ -12,7 +12,8 @@ export type DelaunayGraph = {
 
 export type DelaunayCheckedCircle = {
     circle: Circle,
-    legal: boolean
+    legal: boolean,
+    removedLine: null | number[]
 }
 
 export const delaunay = {
@@ -221,7 +222,8 @@ function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
 
     const ccs: DelaunayCheckedCircle[] = [{
         circle: geometry2d.getCircumcircle(P_A, P_B, P_X),
-        legal: true
+        legal: true,
+        removedLine: null
     }];
 
     if (geometry2d.distance(P_Y, ccs[0]!.circle.centre) < ccs[0]!.circle.radius) {
@@ -231,7 +233,8 @@ function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
         connectPoints(d.graph, Y, X);
         ccs.push({
             circle: geometry2d.getCircumcircle(P_Y, P_X, P_B),
-            legal: true
+            legal: true,
+            removedLine: [A, B]
         });
         console.log(`legalising triangle ${X}-${A}-${B}, adding  ${A}-${X}-${Y} & ${B}-${X}-${Y}`);
     }

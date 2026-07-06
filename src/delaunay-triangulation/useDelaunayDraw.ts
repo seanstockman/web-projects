@@ -190,45 +190,50 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         }
     }, [mode, getMousePos, movedPoint]);
 
-    function showCircumcircle() {
-        if (lines.length < 1) { console.error('lines length < 1'); return null; }
-        const l = lines[lines.length - 1];
-        if (!l?.points.length) { console.error('l.p.len not found'); return null };
-        if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
-        setOverlayPoints(extraPoints => {
-            const c = geometry2d.getCircumcircle(l.points[0]!, l.points[1]!, l.points[2]!);
-            if (c) {
-                const outline: customCircle = {
-                    centre: new Vec2(c.centre.x, c.centre.y),
-                    radius: c.radius,
-                    colour: "#272727",
-                    filled: false,
-                    lineWidth: 1,
-                    text: null
-                }
-                const centre: customCircle = {
-                    centre: new Vec2(c.centre.x, c.centre.y),
-                    radius: 1,
-                    colour: "#272727",
-                    filled: true,
-                    lineWidth: 0,
-                    text: null
-                }
-                return [...extraPoints, outline, centre]
-            }
-            console.error('find failure');
-            return extraPoints;
-        });
-    }
+    // function showCircumcircle() {
+    //     if (lines.length < 1) { console.error('lines length < 1'); return null; }
+    //     const l = lines[lines.length - 1];
+    //     if (!l?.points.length) { console.error('l.p.len not found'); return null };
+    //     if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
+    //     setOverlayPoints(extraPoints => {
+    //         const c = geometry2d.getCircumcircle(l.points[0]!, l.points[1]!, l.points[2]!);
+    //         if (c) {
+    //             const outline: customCircle = {
+    //                 centre: new Vec2(c.centre.x, c.centre.y),
+    //                 radius: c.radius,
+    //                 colour: "#272727",
+    //                 filled: false,
+    //                 lineWidth: 1,
+    //                 text: null
+    //             }
+    //             const centre: customCircle = {
+    //                 centre: new Vec2(c.centre.x, c.centre.y),
+    //                 radius: 1,
+    //                 colour: "#272727",
+    //                 filled: true,
+    //                 lineWidth: 0,
+    //                 text: null
+    //             }
+    //             return [...extraPoints, outline, centre]
+    //         }
+    //         console.error('find failure');
+    //         return extraPoints;
+    //     });
+    // }
 
-    function initialiseDelaunay() {
-        if (lines.length == 0) return undefined;
-        const l = lines[lines.length - 1];
-        if (!l?.points.length) { console.error('l.p.len not found'); return undefined };
-        if (l.points.length < 4) { console.error('l.p.len != 3'); console.log(l); return undefined; }
-        const points = l.points.map(v => new Point(v.x, v.y));
-        points.splice(points.length - 1, 1);
-        return delaunay.initialise(points);
+    const wait = (ms: number): Promise<void> => {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    };
+
+
+    async function runDelaunayTimelapse(deltaMs: number) {
+        savedDelaunay = initialiseDelaunay();
+        if (!savedDelaunay) return;
+        await wait(deltaMs);
+        for (let i = 0; i < savedDelaunay.points.length; i++) {
+            iterateDelaunay();
+            await wait(deltaMs);
+        }
     }
 
     function iterateDelaunay() {
@@ -241,7 +246,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();
-        } else if (savedDelaunay.current >= savedDelaunay.points.length){
+        } else if (savedDelaunay.current >= savedDelaunay.points.length) {
             delaunay.finalise(savedDelaunay);
             console.log(savedDelaunay);
             savedDelaunay.finished = true;
@@ -259,8 +264,26 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
                 lineWidth: 1,
                 text: null
             }))]);
+
+            setOverlayLines(e => [...e, ...ccs.filter(c => c.removedLine != null).map(c => new Line([
+                savedDelaunay!.points[c.removedLine![0]!]!, savedDelaunay!.points[c.removedLine![1]!]!],
+                null,
+                '#ff0000',
+                1,
+                true
+            ))])
         }
         showDelaunay();
+    }
+
+    function initialiseDelaunay() {
+        if (lines.length == 0) return undefined;
+        const l = lines[lines.length - 1];
+        if (!l?.points.length) { console.error('l.p.len not found'); return undefined };
+        if (l.points.length < 4) { console.error('l.p.len != 3'); console.log(l); return undefined; }
+        const points = l.points.map(v => new Point(v.x, v.y));
+        points.splice(points.length - 1, 1);
+        return delaunay.initialise(points);
     }
 
     function binDelaunay() {
@@ -293,7 +316,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         handleMouseMove,
         handleMouseDown,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        iterateDelaunay,
+        iterateDelaunay, runDelaunayTimelapse,
         binDelaunay
     };
 }

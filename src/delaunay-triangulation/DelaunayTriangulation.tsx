@@ -10,13 +10,15 @@ import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
+import SkipNextIcon from '@mui/icons-material/SkipNext';
+
 export default function DelaunayTriangulation() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const {
         handleMouseMove, handleMouseDown, drawCanvas,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        iterateDelaunay,
+        iterateDelaunay, runDelaunayTimelapse,
         binDelaunay
     } = useDelaunayDraw(canvasRef);
 
@@ -29,25 +31,20 @@ export default function DelaunayTriangulation() {
                 setMode(Mode.NewLine);
                 binDelaunay();
             }
-        }, 
+        },
         // {
         //     label: "Show the circumcircle of the last drawn polygon", icon: <PanoramaFishEyeIcon />, action: () => {
         //         showCircumcircle();
         //     }
         // },
-        //  {
-        //     label: "Run Delaunay Triangulation", icon: <ChangeHistoryIcon />, action: () => {
-        //         initialiseDelaunay();
-        //     }
-        // }, 
         {
-            label: "Iterate Delaunay", icon: <PlayArrowIcon />, action: () => {
-                iterateDelaunay();
+            label: "Run Delaunay Triangulation", icon: <PlayArrowIcon />, action: () => {
+                runDelaunayTimelapse(50);
             }
-        }, {
-            label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
-                setOverlayLines([]);
-                setOverlayPoints([]);
+        },
+        {
+            label: "Iterate Delaunay", icon: <SkipNextIcon />, action: () => {
+                iterateDelaunay();
             }
         }, {
             label: "Reset Delaunay", icon: <RestartAltIcon />, action: () => {
@@ -56,6 +53,12 @@ export default function DelaunayTriangulation() {
                 setOverlayPoints([]);
             }
         }, 
+        // {
+        //     label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
+        //         setOverlayLines([]);
+        //         setOverlayPoints([]);
+        //     }
+        // }
     ]
 
     useEffect(() => drawCanvas(), [drawCanvas]);
