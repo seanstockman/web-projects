@@ -63,7 +63,7 @@ export const geometry2d = {
         const angleBA = Math.atan2(A.x - B.x, A.y - B.y);
         const angleBC = Math.atan2(C.x - B.x, C.y - B.y);
         const angleBetween = (angleBC - angleBA + Math.PI * 2) % (Math.PI * 2);
-        console.log(`aBA: ${angleBA * 180 / Math.PI}, aBC: ${angleBC * 180 / Math.PI}, angle between: ${angleBetween * 180 / Math.PI}`);
+        // console.log(`aBA: ${angleBA * 180 / Math.PI}, aBC: ${angleBC * 180 / Math.PI}, angle between: ${angleBetween * 180 / Math.PI}`);
         return angleBetween;
     },
 

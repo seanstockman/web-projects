@@ -1,5 +1,5 @@
 import { Line } from "../classes/line.ts";
-import { geometry2d } from "./geometry2d.ts";
+import { geometry2d, type Circle } from "./geometry2d.ts";
 import { Point } from "../classes/point.ts";
 
 export type DelaunayGraph = {
@@ -8,6 +8,11 @@ export type DelaunayGraph = {
     sweepLine: number[],
     current: number,
     finished: boolean
+}
+
+export type DelaunayCheckedCircle = {
+    circle: Circle,
+    legal: boolean
 }
 
 export const delaunay = {
@@ -86,12 +91,19 @@ export const delaunay = {
         let ccs;
         if (M == -1) {
             // 3.4.1 i
-            ccs = addAndLegaliseNewTriangle(d, d.current, L, R);
+            console.log(`adding triangle ${d.current}-${L}-${R}`);
+            connectPoints(d.graph, d.current, L);
+            connectPoints(d.graph, d.current, R);
+            ccs = legaliseTriangle(d, d.current, L, R);
         } else {
             // 3.4.1 ii
+            console.log(`adding triangles ${d.current}-${L}-${M} and ${d.current}-${M}-${R}`);
+            connectPoints(d.graph, d.current, L);
+            connectPoints(d.graph, d.current, M);
+            connectPoints(d.graph, d.current, R);
             ccs = [
-                ...addAndLegaliseNewTriangle(d, d.current, L, M)!,
-                ...addAndLegaliseNewTriangle(d, d.current, M, R)!,
+                ...legaliseTriangle(d, d.current, L, M)!,
+                ...legaliseTriangle(d, d.current, M, R)!,
             ];
         }
 
@@ -170,47 +182,59 @@ function disconnectPoints(graph: number[][], a: number, b: number) {
     graph[b]?.splice(graph[b].findIndex(n => n == a), 1);
 }
 
-/** Connects the new point with index i to the graph.
- * 1) Determines the adjacent triangle L-R-O.
- * 2) Connects i-L and i-R, forming the triangle i-L-R
- * 3) Finds the circumcircle of i-L-R.
- * 4) If O is in the circumcircle, will disconnect L-R and connect i-O, forming the legalised triangles L-i-O and R-i-O. 
- * - Returns an array of circumcircles in the order they are explored (including L-i-O if it is switched).
+/** Connects the new point with index i to the graph. */
+// function addAndLegaliseNewTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
+//     connectPoints(d.graph, A, X);
+//     connectPoints(d.graph, B, X);
+
+//     return legaliseTriangle(d, X, A, B);
+// }
+
+/** Legalises the triangle pairs formed by the points A, B, X and Y, where Y forms the neighbouring triangle along the line AB.
+ * 1) Determines the adjacent triangle A-B-Y.
+ * 2) Finds the circumcircle of A-B-X.
+ * 3) If Y is in the circumcircle, will disconnect A-B and connect X-Y, forming the legalised triangles A-X-Y and B-X-Y. 
+ * - Returns an array of circumcircles in the order they are explored (including A-X-Y if it is switched).
 */
-function addAndLegaliseNewTriangle(d: DelaunayGraph, I: number, L: number, R: number) {
-    const P_L = d.points[L]!, P_R = d.points[R]!, P_i = d.points[I]!;
+function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
+    const P_X = d.points[X]!, P_A = d.points[A]!, P_B = d.points[B]!;
 
-    let P_other;
-    let O = -1; // other index
+    let P_Y;
+    let Y = -1; // other index
 
-    const leftPointConns = d.graph[L]!;
-    const rightPointConns = d.graph[R]!;
+    const leftPointConns = d.graph[A]!;
+    const rightPointConns = d.graph[B]!;
 
     for (let i = 0; i < leftPointConns.length; i++) {
         for (let j = 0; j < rightPointConns.length; j++) {
             if (leftPointConns[i] != rightPointConns[j]) continue;
-            O = leftPointConns[i]!;
+            if (leftPointConns[i] == X) continue;
+            Y = leftPointConns[i]!;
             break;
         }
-        if (O != -1) break;
+        if (Y != -1) break;
     }
 
-    if (O == -1) { console.error("No adjacent triangle could be found."); return; }
+    if (Y == -1) { console.error("No adjacent triangle A-B-Y could be found."); return; }
 
-    P_other = d.points[O]!;
+    P_Y = d.points[Y]!;
 
-    connectPoints(d.graph, L, I);
-    connectPoints(d.graph, R, I);
-    const ccs = [geometry2d.getCircumcircle(P_L, P_R, P_i)];
-    console.log(`adding triangle ${L}-${I}-${R}`);
+    const ccs: DelaunayCheckedCircle[] = [{
+        circle: geometry2d.getCircumcircle(P_A, P_B, P_X),
+        legal: true
+    }];
 
-    if (geometry2d.distance(P_other, ccs[0]!.centre) < ccs[0]!.radius) {
-        disconnectPoints(d.graph, L, R);
-        connectPoints(d.graph, O, I);
-        ccs.push(geometry2d.getCircumcircle(P_other, P_i, P_R));
-        console.log(`swapping, adding triangles ${L}-${O}-${I} & ${I}-${O}-${R}`);
+    if (geometry2d.distance(P_Y, ccs[0]!.circle.centre) < ccs[0]!.circle.radius) {
+        ccs[0]!.legal = false;
+
+        disconnectPoints(d.graph, A, B);
+        connectPoints(d.graph, Y, X);
+        ccs.push({
+            circle: geometry2d.getCircumcircle(P_Y, P_X, P_B),
+            legal: true
+        });
+        console.log(`legalising triangle ${X}-${A}-${B}, adding  ${A}-${X}-${Y} & ${B}-${X}-${Y}`);
     }
-
 
     return ccs;
 }
@@ -222,12 +246,21 @@ const sweepAddThreshold = Math.PI / 2;
  * Returns null otherwise. */
 function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: number) {
     const pointIndices = [d.sweepLine[leftSweepIndex]!, d.sweepLine[leftSweepIndex + 1]!, d.sweepLine[leftSweepIndex + 2]!];
-    console.log(`adjCheck: checking angle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
     const a = geometry2d.getAngleBetweenPoints(d.points[pointIndices[0]!]!, d.points[pointIndices[1]!]!,
         d.points[pointIndices[2]!]!);
     if (a > sweepAddThreshold) return null;
-    console.log(`adjCheck: adding triangle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
+    console.log(`adjacency angle < pi/2, adding triangle ${pointIndices[0]}-${pointIndices[1]}-${pointIndices[2]}`);
 
     d.sweepLine.splice(leftSweepIndex + 1, 1);
-    return addAndLegaliseNewTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!)!;
+
+    connectPoints(d.graph, pointIndices[0]!, pointIndices[2]!);
+
+    // legalise connection - test left, then right if not.
+    let ccs = legaliseTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!);
+
+    if (ccs!.length == 1) { // didnt change, check other case
+        ccs = legaliseTriangle(d, pointIndices[0]!, pointIndices[1]!, pointIndices[2]!);
+    }
+
+    return ccs;
 }

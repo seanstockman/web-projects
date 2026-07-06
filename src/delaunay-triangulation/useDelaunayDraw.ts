@@ -252,9 +252,9 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
             // display explored circumcircles
             setOverlayPoints(e => [...e, ...ccs.map(c => ({
-                centre: new Vec2(c.centre.x, c.centre.y),
-                radius: c.radius,
-                colour: '#939393',
+                centre: new Vec2(c.circle.centre.x, c.circle.centre.y),
+                radius: c.circle.radius,
+                colour: c.legal ? '#00ff8c' : '#ff0000',
                 filled: false,
                 lineWidth: 1,
                 text: null
@@ -272,7 +272,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         setOverlayLines(e => [
             ...e,
-            ...delaunay.getResultToLines(savedDelaunay!, "#fd2222", "#9e22fd")
+            ...delaunay.getResultToLines(savedDelaunay!, drawingColour, "#9e22fd")
         ]);
 
         setOverlayPoints(e => [
@@ -280,7 +280,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
             ...(savedDelaunay!.points.map(p => ({ //?.slice(0,2)
                 centre: p,
                 radius: 2,
-                colour: 'red',
+                colour: '#9e22fd',
                 filled: false,
                 lineWidth: 1,
                 text: savedDelaunay!.points.findIndex(n => n == p).toString()
