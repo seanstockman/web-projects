@@ -4,6 +4,7 @@ import { Point } from "../classes/point.ts";
 
 export type DelaunayGraph = {
     points: Point[],
+    count: number,
     graph: number[][],
     sweepLine: number[],
     current: number,
@@ -43,19 +44,20 @@ export const delaunay = {
         const Pm1 = new Point(xMin - deltaX, yMin - deltaY);
         const Pm2 = new Point(xMax + deltaX, yMin - deltaY);
 
-        sorted.unshift(Pm1, Pm2);
+        sorted.push(Pm1, Pm2);
 
         const res: DelaunayGraph = {
             points: sorted,
+            count: points.length,
             graph: Array.from({ length: sorted.length }, () => []),
-            sweepLine: [0, 2, 1],
-            current: 3,
+            sweepLine: [points.length, 0, points.length + 1],
+            current: 1,
             finished: false
         };
 
-        connectPoints(res.graph, 0, 2);
-        connectPoints(res.graph, 1, 2);
-        connectPoints(res.graph, 0, 1);
+        connectPoints(res.graph, res.count, 0);
+        connectPoints(res.graph, res.count + 1, 0);
+        connectPoints(res.graph, res.count, res.count + 1);
 
         return res;
     },
@@ -89,15 +91,14 @@ export const delaunay = {
         if (R == -1) { console.error("could not find a midpoint"); return; }
         if (sweep_i == undefined) return; // just to trigger intellisense
 
+        // add legal triangle
         let ccs;
         if (M == -1) {
-            // 3.4.1 i
             console.log(`adding triangle ${d.current}-${L}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, R);
             ccs = legaliseTriangle(d, d.current, L, R);
         } else {
-            // 3.4.1 ii
             console.log(`adding triangles ${d.current}-${L}-${M} and ${d.current}-${M}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, M);
@@ -108,8 +109,8 @@ export const delaunay = {
             ];
         }
 
-        // triangle(s) are added... now check visible
-        // step 1) check angle between i and adjacent sweep edges. if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
+        // fix 1) adjacent shallow angles: check angle between i and adjacent sweep edges. 
+        // if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
 
         for (let i = sweep_i; i > 2; i--) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(d, i - 2);
@@ -123,6 +124,9 @@ export const delaunay = {
             ccs!.push(...adjFillResult);
         }
 
+        // fix 2) check for basins.
+
+
         d.current++;
         return ccs;
         // we have P_L and P_R defined
@@ -133,24 +137,22 @@ export const delaunay = {
     },
 
     finalise(d: DelaunayGraph) {
-        for (let i = 2; i < d.graph.length; i++) {
+        for (let i = 0; i < d.count; i++) {
             for (let j = 0; j < d.graph[i]!.length; j++) {
-                if (d.graph[i]![j]! >= 2) continue;
+                if (d.graph[i]![j]! < d.count) continue;
                 d.graph[i]!.splice(j, 1);
                 j--;
             }
         }
 
-        for (let i = 0; i < d.graph.length; i++) {
-            for (let j = 0; j < d.graph[i]!.length; j++) {
-                d.graph[i]![j]! -= 2;
-            }
-        }
+        // for (let i = 0; i < d.graph.length; i++) {
+        //     for (let j = 0; j < d.graph[i]!.length; j++) {
+        //         d.graph[i]![j]! -= 2;
+        //     }
+        // }
 
-        d.graph.splice(0, 2);
-        d.points.splice(0, 2);
-        d.sweepLine.splice(d.sweepLine.length - 1, 1);
-        d.sweepLine.splice(0, 1);
+        d.graph.splice(d.count, 2);
+        d.points.splice(d.count, 2);
         d.sweepLine = [];
     },
 
@@ -183,6 +185,17 @@ function disconnectPoints(graph: number[][], a: number, b: number) {
     graph[b]?.splice(graph[b].findIndex(n => n == a), 1);
 }
 
+function getSharedConnections(graph: number[][], a: number, b: number) {
+    const shared: number[] = [];
+    for (let i = 0; i < graph[a]!.length; i++) {
+        let n = graph[a]![i]!;
+        if (shared.includes(n)) continue;
+        if (!graph[b]!.includes(n)) continue;
+        shared.push(n);
+    }
+    return shared;
+}
+
 /** Connects the new point with index i to the graph. */
 // function addAndLegaliseNewTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
 //     connectPoints(d.graph, A, X);
@@ -203,17 +216,10 @@ function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number) {
     let P_Y;
     let Y = -1; // other index
 
-    const leftPointConns = d.graph[A]!;
-    const rightPointConns = d.graph[B]!;
-
-    for (let i = 0; i < leftPointConns.length; i++) {
-        for (let j = 0; j < rightPointConns.length; j++) {
-            if (leftPointConns[i] != rightPointConns[j]) continue;
-            if (leftPointConns[i] == X) continue;
-            Y = leftPointConns[i]!;
-            break;
-        }
-        if (Y != -1) break;
+    const shared = getSharedConnections(d.graph, A, B);
+    for (let i = 0; i < shared.length; i++) {
+        if (shared[i]! == X) continue;
+        Y = shared[i]!;
     }
 
     if (Y == -1) { console.error("No adjacent triangle A-B-Y could be found."); return; }

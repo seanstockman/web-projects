@@ -246,7 +246,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();
-        } else if (savedDelaunay.current >= savedDelaunay.points.length) {
+        } else if (savedDelaunay.current >= savedDelaunay.count) {
             delaunay.finalise(savedDelaunay);
             console.log(savedDelaunay);
             savedDelaunay.finished = true;
@@ -300,13 +300,13 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         setOverlayPoints(e => [
             ...e,
-            ...(savedDelaunay!.points.map(p => ({ //?.slice(0,2)
-                centre: p,
-                radius: 2,
-                colour: '#9e22fd',
-                filled: false,
-                lineWidth: 1,
-                text: savedDelaunay!.points.findIndex(n => n == p).toString()
+            ...(savedDelaunay!.points.map((p, index) => ({ //?.slice(0,2)
+                    centre: p,
+                    radius: 2,
+                    colour: '#9e22fd',
+                    filled: false,
+                    lineWidth: 1,
+                    text: index >= savedDelaunay!.count ? (-index - 1 + savedDelaunay!.count).toString() : index.toString()
             })) ?? [])
         ]);
     }
