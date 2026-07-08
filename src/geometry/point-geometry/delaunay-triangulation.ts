@@ -67,7 +67,7 @@ export const delaunay = {
         const P_i = d.points[d.current]!;
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
         let L = d.sweepLine[0]!, R = -1, M = -1;
-        let sweep_i; // index of the point P_i in the sweep-edge after insertion.
+        let sweep_i: number = -1; // index of the point P_i in the sweep-edge after insertion.
 
         for (let i = 1; i < d.sweepLine.length; i++) {
             const curr = d.sweepLine[i]!;
@@ -89,17 +89,17 @@ export const delaunay = {
         }
 
         if (R == -1) { console.error("could not find a midpoint"); return; }
-        if (sweep_i == undefined) return; // just to trigger intellisense
+        if (sweep_i == -1) return; // just to trigger intellisense
 
         // add legal triangle
         let ccs;
         if (M == -1) {
-            console.log(`adding triangle ${d.current}-${L}-${R}`);
+            console.log(`adding triangle ${L}-${d.current}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, R);
             ccs = legaliseTriangle(d, d.current, L, R);
         } else {
-            console.log(`adding triangles ${d.current}-${L}-${M} and ${d.current}-${M}-${R}`);
+            console.log(`adding triangles ${L}-${d.current}-${M} and ${M}-${d.current}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, M);
             connectPoints(d.graph, d.current, R);
@@ -112,19 +112,30 @@ export const delaunay = {
         // fix 1) adjacent shallow angles: check angle between i and adjacent sweep edges. 
         // if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
 
-        for (let i = sweep_i; i > 2; i--) {
-            const adjFillResult = checkAndFillAdjacentSharpAngles(d, i - 2);
-            if (!adjFillResult) break;
-            ccs!.push(...adjFillResult);
-        }
-
         for (let i = sweep_i; i < d.sweepLine.length - 2; i++) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(d, i);
             if (!adjFillResult) break;
             ccs!.push(...adjFillResult);
         }
 
-        // fix 2) check for basins.
+        for (let i = sweep_i; i > 2; i--) {
+            const adjFillResult = checkAndFillAdjacentSharpAngles(d, i - 2);
+            if (!adjFillResult) break;
+            ccs!.push(...adjFillResult);
+        }
+
+        // fix 2) check for basins
+        // sweep_i = d.sweepLine.findIndex(p => p == d.current);
+        // if (sweep_i < d.sweepLine.length - 3) {
+        //     const P_check = d.sweepLine[sweep_i + 2]!;
+        //     // if (Math.atan2(P_check.));
+        // }
+
+        // if (sweep_i > 2) {
+
+        // }
+
+
 
 
         d.current++;

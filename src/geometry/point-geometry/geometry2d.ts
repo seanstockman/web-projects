@@ -60,10 +60,9 @@ export const geometry2d = {
     /** Returns the angle (in radians) between segments AB and BC, along the left side of the direction of the line ABC. 
      * Returns the angle as a value in range [0, 2*pi) */
     getAngleBetweenPoints(A: Point, B: Point, C: Point) {
-        const angleBA = Math.atan2(A.x - B.x, A.y - B.y);
-        const angleBC = Math.atan2(C.x - B.x, C.y - B.y);
-        const angleBetween = (angleBC - angleBA + Math.PI * 2) % (Math.PI * 2);
-        // console.log(`aBA: ${angleBA * 180 / Math.PI}, aBC: ${angleBC * 180 / Math.PI}, angle between: ${angleBetween * 180 / Math.PI}`);
+        const angleBA = Math.atan2(A.y - B.y, A.x - B.x);
+        const angleBC = Math.atan2(C.y - B.y, C.x - B.x);
+        const angleBetween = (angleBA - angleBC + Math.PI * 2) % (Math.PI * 2);
         return angleBetween;
     },
 
