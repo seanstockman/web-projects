@@ -144,8 +144,28 @@ export const delaunay = {
         // assume middle case for now
     },
 
-    /** Returns an array of all the circumcircles of the triangles for checking. */
+    /** Returns an array of all the circumcircles of the triangles for checking.
+     * i) removes triangles defined by at least one artificial point
+     * ii) adds the bordering triangles forming the convex hull of V
+     */
     finalise(d: DelaunayGraph) {
+        let ccs = [];
+
+        for (let i = 1; i < d.sweepLine.length - 3; i++) {
+            let A = d.sweepLine[i]!;
+            let B = d.sweepLine[i + 1]!;
+            let C = d.sweepLine[i + 2]!;
+            let area = geometry2d.getSignedArea(d.points[A]!, d.points[B]!, d.points[C]!); // shoelace formula
+            if (area <= 0) continue;
+            console.log(`finalisation: adding triangle ${A}-${B}-${C}`);
+            connectPoints(d.graph, A, C);
+            d.sweepLine.splice(i + 1, 1);
+            ccs.push(legaliseTriangle(d, C, A, B).dccs);
+            ccs.push(legaliseTriangle(d, A, B, C).dccs);
+            i--; // go back to where we started.
+        }
+
+
         for (let i = 0; i < d.count; i++) {
             for (let j = 0; j < d.graph[i]!.length; j++) {
                 if (d.graph[i]![j]! < d.count) continue;
@@ -163,6 +183,9 @@ export const delaunay = {
         d.graph.splice(d.count, 2);
         d.points.splice(d.count, 2);
         d.sweepLine = [];
+
+        // return;
+        // return ccs;
 
         const tris: number[][] = [];
 
@@ -184,8 +207,19 @@ export const delaunay = {
             }
         }
 
-        return tris.map(tri => geometry2d.getCircumcircle(d.points[tri[0]!]!, d.points[tri[1]!]!, d.points[tri[2]!]!));
+        let triCircles = tris.map(tri => geometry2d.getCircumcircle(d.points[tri[0]!]!, d.points[tri[1]!]!, d.points[tri[2]!]!));
 
+        for (let i = 0; i < tris.length; i++) {
+            let c = triCircles[i]!;
+            for (let j = 0; j < d.points.length; j++) {
+                if (tris[i]!.includes(j)) continue;
+                let X = d.points[j]!;
+                if (geometry2d.distance(X, c.centre) > c.radius) continue;
+                console.error(`triangle ${tris[i]} includes point ${j}`);
+            }
+        }
+
+        return triCircles;
     },
 
     getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
@@ -328,6 +362,7 @@ function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: numbe
 }
 
 function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolean): DelaunayCheckedCircle[] {
+    // FIXME: KNOWN BUG: if the basin is not convex, 
     const P_i = d.points[d.current]!;
     let P_basin_start: Point | undefined, P_basin_end: Point | undefined;
     let basinStartIndex: number = -1, basinEndIndex: number = -1;
@@ -353,7 +388,7 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
         if (P_basin_start.y <= d.points[d.sweepLine[basinStartIndex + 1]!]!.y) return [];
 
         const angle = Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x);
-        console.log(`checking angle ${angle* 180 / Math.PI}`);
+        console.log(`checking angle ${angle * 180 / Math.PI}`);
         if (angle < 3 / 4 * Math.PI) return [];
         for (let i = basinStartIndex + 2; i < d.sweepLine.length; i++) {
             if (d.points[d.sweepLine[i]!]!.y < P_basin_start.y) continue;
@@ -363,23 +398,54 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
     }
 
     if (basinStartIndex < 0 || basinEndIndex < 0) { console.log("warning: failed to find basin end or start index"); return []; }
-    console.log(`omg theres a basin P_${d.sweepLine[basinStartIndex]}-P_${d.sweepLine[basinEndIndex]}`);
+    console.log(`Found basin from P_${d.sweepLine[basinStartIndex]} to P_${d.sweepLine[basinEndIndex]}.`);
 
     let ccs: DelaunayCheckedCircle[] = [];
+    // algorithm MODIFICATION! new idea: start from lowest, connect to highest! oh i am shitting myself RIGHt NOW
 
-    for (let i = basinStartIndex + 2; i <= basinEndIndex; i++) {
-        console.log(`basin fill: connecting ${d.sweepLine[basinStartIndex]}-${d.sweepLine[i - 1]}-${d.sweepLine[i]}`);
-        connectPoints(d.graph, d.sweepLine[basinStartIndex]!, d.sweepLine[i]!);
 
-        let legalisationResult = legaliseTriangle(d, d.sweepLine[i]!, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!);
+    let verticallySortedSweepIndices = Array.from({ length: basinEndIndex - basinStartIndex + 1 }, (_, i) => basinStartIndex + i).sort((a, b) => d.points[d.sweepLine[a]!]!.y - d.points[d.sweepLine[b]!]!.y);
+    console.log(verticallySortedSweepIndices.map(s_i => d.sweepLine[s_i]));
+
+    for (let i = 0; i < verticallySortedSweepIndices.length - 2; i++) {
+        // because basinStart and basinEnd are the highest points, there will always be an X - 1 and X + 1
+        let sweepX = verticallySortedSweepIndices[i]!;
+        let X = d.sweepLine[sweepX]!;
+        let L = d.sweepLine[sweepX - 1]!;
+        let R = d.sweepLine[sweepX + 1]!;
+
+        console.log(`basin fill: adding triangle ${L}-${X}-${R}`);
+        connectPoints(d.graph, L, R);
+        
+        d.sweepLine.splice(sweepX, 1);
+        verticallySortedSweepIndices.forEach((s_i, i) => {
+            if (s_i < sweepX) return;
+            verticallySortedSweepIndices[i] = s_i - 1;
+        });
+        
+        let legalisationResult = legaliseTriangle(d, R, L, X);
         ccs.push(...legalisationResult.dccs);
         if (legalisationResult.flipped) continue;
 
-        legalisationResult = legaliseTriangle(d, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, d.sweepLine[i]!);
+        legalisationResult = legaliseTriangle(d, L, X, R);
         ccs.push(...legalisationResult.dccs);
+
     }
 
-    d.sweepLine.splice(basinStartIndex + 1, basinEndIndex - basinStartIndex - 1);
+
+    // for (let i = basinStartIndex + 2; i <= basinEndIndex; i++) {
+    //     console.log(`basin fill: connecting ${d.sweepLine[basinStartIndex]}-${d.sweepLine[i - 1]}-${d.sweepLine[i]}`);
+    //     connectPoints(d.graph, d.sweepLine[basinStartIndex]!, d.sweepLine[i]!);
+
+    //     let legalisationResult = legaliseTriangle(d, d.sweepLine[i]!, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!);
+    //     ccs.push(...legalisationResult.dccs);
+    //     if (legalisationResult.flipped) continue;
+
+    //     legalisationResult = legaliseTriangle(d, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, d.sweepLine[i]!);
+    //     ccs.push(...legalisationResult.dccs);
+    // }
+
+    // d.sweepLine.splice(basinStartIndex + 1, basinEndIndex - basinStartIndex - 1);
 
     // if (P_check.y     > )
 

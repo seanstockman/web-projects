@@ -68,6 +68,11 @@ export const geometry2d = {
 
     pointToFromScreen(p: Point) {
         p.y *= -1;
+    },
+    
+    getSignedArea(A: Point, B: Point, C: Point) {
+        // shoelace formula
+        return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y)-(A.y * B.x + B.y * C.x + C.y * A.x));
     }
 }
 
