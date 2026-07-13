@@ -1,3 +1,5 @@
+// implementation of Domiter & Zalik constrained sweep-line algorithm (2008).
+
 import { Line } from "../classes/line.ts";
 import { geometry2d, type Circle } from "./geometry2d.ts";
 import { Point } from "../classes/point.ts";
@@ -97,15 +99,15 @@ export const delaunay = {
             console.log(`adding triangle ${L}-${d.current}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, R);
-            ccs = legaliseTriangle(d, d.current, L, R);
+            ccs = legaliseTriangle(d, d.current, L, R).dccs;
         } else {
             console.log(`adding triangles ${L}-${d.current}-${M} and ${M}-${d.current}-${R}`);
             connectPoints(d.graph, d.current, L);
             connectPoints(d.graph, d.current, M);
             connectPoints(d.graph, d.current, R);
             ccs = [
-                ...legaliseTriangle(d, d.current, L, M)!,
-                ...legaliseTriangle(d, d.current, M, R)!,
+                ...legaliseTriangle(d, d.current, L, M).dccs,
+                ...legaliseTriangle(d, d.current, M, R).dccs,
             ];
         }
 
@@ -142,6 +144,7 @@ export const delaunay = {
         // assume middle case for now
     },
 
+    /** Returns an array of all the circumcircles of the triangles for checking. */
     finalise(d: DelaunayGraph) {
         for (let i = 0; i < d.count; i++) {
             for (let j = 0; j < d.graph[i]!.length; j++) {
@@ -160,6 +163,29 @@ export const delaunay = {
         d.graph.splice(d.count, 2);
         d.points.splice(d.count, 2);
         d.sweepLine = [];
+
+        const tris: number[][] = [];
+
+        for (let i = 0; i < d.graph.length; i++) {
+            const neighbors = d.graph[i] || [];
+            for (let j = 0; j < neighbors.length; j++) {
+                const u = neighbors[j]!;
+                if (u <= i) continue; // Only look forward
+
+                for (let k = j + 1; k < neighbors.length; k++) {
+                    const v = neighbors[k]!;
+                    if (v <= u) continue; // Only look forward
+
+                    // Check if u and v are connected
+                    if (!d.graph[u]?.includes(v)) continue;
+
+                    tris.push([i, u, v]);
+                }
+            }
+        }
+
+        return tris.map(tri => geometry2d.getCircumcircle(d.points[tri[0]!]!, d.points[tri[1]!]!, d.points[tri[2]!]!));
+
     },
 
     getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
@@ -202,13 +228,19 @@ function getSharedConnections(graph: number[][], a: number, b: number) {
     return shared;
 }
 
+type DelaunayLegalisationResult = {
+    dccs: DelaunayCheckedCircle[],
+    flipped: boolean
+}
+
 /** Legalises the triangle pairs formed by the points A, B, X and Y, where Y forms the neighbouring triangle along the line AB.
  * 1) Determines the adjacent triangle A-B-Y.
  * 2) Finds the circumcircle of A-B-X.
  * 3) If Y is in the circumcircle, will disconnect A-B and connect X-Y, forming the legalised triangles A-X-Y and B-X-Y. 
  * - Returns an array of circumcircles in the order they are explored (including A-X-Y if it is switched).
 */
-function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number, legaliseReversed: boolean = false) {
+function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number): { dccs: DelaunayCheckedCircle[], flipped: boolean } {
+    console.log(`checking triangle ${A}-${X}-${B}`);
     let P_X = d.points[X]!, P_A = d.points[A]!, P_B = d.points[B]!;
 
     let P_Y;
@@ -220,24 +252,33 @@ function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number, leg
         Y = shared[i]!;
     }
 
-    if (Y == -1) { console.error("No adjacent triangle A-B-Y could be found."); return []; }
+    if (Y == -1) { console.error("No adjacent triangle A-Y-B could be found."); return { dccs: [], flipped: false }; }
+
+    const result: DelaunayLegalisationResult = {
+        dccs: [],
+        flipped: false
+    }
 
     P_Y = d.points[Y]!;
 
-    if (legaliseReversed) {
-        [P_X, P_Y] = [P_Y, P_X];
-        [X, Y] = [Y, X];
-    }
-
     const ccs: DelaunayCheckedCircle[] = [{
         circle: geometry2d.getCircumcircle(P_A, P_B, P_X),
+        legal: true,
+        removedLine: null
+    }, {
+        circle: geometry2d.getCircumcircle(P_A, P_B, P_Y),
         legal: true,
         removedLine: null
     }];
 
     if (geometry2d.distance(P_Y, ccs[0]!.circle.centre) < ccs[0]!.circle.radius) {
         ccs[0]!.legal = false;
+    }
+    if (geometry2d.distance(P_X, ccs[1]!.circle.centre) < ccs[1]!.circle.radius) {
+        ccs[1]!.legal = false;
+    }
 
+    if (!ccs[0]!.legal || !ccs[1]!.legal) {
         disconnectPoints(d.graph, A, B);
         connectPoints(d.graph, Y, X);
         ccs.push({
@@ -245,10 +286,18 @@ function legaliseTriangle(d: DelaunayGraph, X: number, A: number, B: number, leg
             legal: true,
             removedLine: [A, B]
         });
-        console.log(`legalising triangle ${X}-${A}-${B}, adding  ${A}-${X}-${Y} & ${B}-${X}-${Y}`);
+        console.log(`legalising triangle ${A}-${X}-${B}, adding and checking ${A}-${X}-${Y} & ${Y}-${X}-${B}`);
+        result.flipped = true;
+
+        let subA = legaliseTriangle(d, X, A, Y);
+        if (subA) ccs.push(...subA.dccs);
+
+        let subB = legaliseTriangle(d, X, Y, B);
+        if (subB) ccs.push(...subB.dccs);
     }
 
-    return ccs;
+    result.dccs.push(...ccs);
+    return result;
 }
 
 const sweepAddThreshold = Math.PI / 2;
@@ -268,10 +317,11 @@ function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: numbe
     connectPoints(d.graph, pointIndices[0]!, pointIndices[2]!);
 
     // legalise connection - test left, then right if not.
-    let ccs = legaliseTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!);
+    let legalResult = legaliseTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!);
+    let ccs = legalResult.dccs;
 
-    if (ccs!.length == 1) { // didnt change, check other case
-        ccs = legaliseTriangle(d, pointIndices[0]!, pointIndices[1]!, pointIndices[2]!);
+    if (!legalResult.flipped) { // didnt change, check other case
+        ccs.push(...legaliseTriangle(d, pointIndices[0]!, pointIndices[1]!, pointIndices[2]!).dccs);
     }
 
     return ccs;
@@ -287,14 +337,14 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
         P_basin_end = d.points[d.sweepLine[basinEndIndex]!]!;
         if (P_basin_end.y <= d.points[d.sweepLine[basinEndIndex - 1]!]!.y) return [];
 
-        // const angle = Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x) * 180 / Math.PI;
-        // console.log(`checking angle ${angle}`);
-        // if (Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x) < 3 / 4 * Math.PI) return [];
-        // console.log(`omg theres a potential trough starting at P_${d.points.findIndex(P => P == P_basin_start)}, going ${leftSideCheck ? "left" : "right"}`);
-        // for (let i = basinStartIndex + 2; i < d.sweepLine.length; i++) {
-        //     if (d.points[d.sweepLine[i]!]!.y < P_basin_start!.y) continue;
-        //     basinEndIndex = i;
-        // }
+        const angle = Math.atan2(P_i.y - P_basin_end.y, P_i.x - P_basin_end.x);
+        console.log(`checking angle ${angle * 180 / Math.PI}`);
+        if (angle > Math.PI / 4) return [];
+        for (let i = basinEndIndex - 2; i >= 0; i--) {
+            if (d.points[d.sweepLine[i]!]!.y < P_basin_end.y) continue;
+            basinStartIndex = i;
+            break;
+        }
     } else {
         // right side check
         if (sweep_i >= d.sweepLine.length - 5) return [];
@@ -302,16 +352,16 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
         P_basin_start = d.points[d.sweepLine[basinStartIndex]!]!
         if (P_basin_start.y <= d.points[d.sweepLine[basinStartIndex + 1]!]!.y) return [];
 
-        const angle = Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x) * 180 / Math.PI;
-        console.log(`checking angle ${angle}`);
-        if (Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x) < 3 / 4 * Math.PI) return [];
+        const angle = Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x);
+        console.log(`checking angle ${angle* 180 / Math.PI}`);
+        if (angle < 3 / 4 * Math.PI) return [];
         for (let i = basinStartIndex + 2; i < d.sweepLine.length; i++) {
             if (d.points[d.sweepLine[i]!]!.y < P_basin_start.y) continue;
             basinEndIndex = i;
             break;
         }
     }
-    
+
     if (basinStartIndex < 0 || basinEndIndex < 0) { console.log("warning: failed to find basin end or start index"); return []; }
     console.log(`omg theres a basin P_${d.sweepLine[basinStartIndex]}-P_${d.sweepLine[basinEndIndex]}`);
 
@@ -320,16 +370,13 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
     for (let i = basinStartIndex + 2; i <= basinEndIndex; i++) {
         console.log(`basin fill: connecting ${d.sweepLine[basinStartIndex]}-${d.sweepLine[i - 1]}-${d.sweepLine[i]}`);
         connectPoints(d.graph, d.sweepLine[basinStartIndex]!, d.sweepLine[i]!);
-        let cc = legaliseTriangle(d, d.sweepLine[i]!, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!);
-        ccs.push(...cc);
-        if (cc.length > 1) continue;
-        cc = legaliseTriangle(d, d.sweepLine[i]!, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, true);
-        ccs.push(...cc);
-        if (cc.length > 1) continue;
-        cc = legaliseTriangle(d, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, d.sweepLine[i]!);
-        ccs.push(...cc);
-        if (cc.length > 1) continue;
-        ccs.push(...legaliseTriangle(d, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, d.sweepLine[i]!, true));
+
+        let legalisationResult = legaliseTriangle(d, d.sweepLine[i]!, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!);
+        ccs.push(...legalisationResult.dccs);
+        if (legalisationResult.flipped) continue;
+
+        legalisationResult = legaliseTriangle(d, d.sweepLine[basinStartIndex]!, d.sweepLine[i - 1]!, d.sweepLine[i]!);
+        ccs.push(...legalisationResult.dccs);
     }
 
     d.sweepLine.splice(basinStartIndex + 1, basinEndIndex - basinStartIndex - 1);

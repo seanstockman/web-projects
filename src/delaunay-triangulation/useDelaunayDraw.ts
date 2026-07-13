@@ -247,7 +247,15 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         if (savedDelaunay == undefined) {
             savedDelaunay = initialiseDelaunay();
         } else if (savedDelaunay.current >= savedDelaunay.count) {
-            delaunay.finalise(savedDelaunay);
+            const ccs = delaunay.finalise(savedDelaunay);
+            setOverlayPoints(e => [...e, ...ccs.map(c => ({
+                centre: new Vec2(c.centre.x, c.centre.y),
+                radius: c.radius,
+                colour: '#009a15',
+                filled: false,
+                lineWidth: 0.2,
+                text: null
+            }))]);
             console.log(savedDelaunay);
             savedDelaunay.finished = true;
         } else {

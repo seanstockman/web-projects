@@ -104,8 +104,8 @@ export default function DelaunayTriangulation() {
 
             <canvas
                 ref={canvasRef}
-                width={800}
-                height={400}
+                width={1600}
+                height={800}
                 className="bg-gray-200 block touch-none max-w-full h-auto"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
