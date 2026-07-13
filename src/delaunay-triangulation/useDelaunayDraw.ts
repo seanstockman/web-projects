@@ -242,11 +242,12 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         setOverlayLines([]);
         setOverlayPoints([]);
 
-        console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
 
         if (savedDelaunay == undefined) {
+            console.log(`~~~~~~~~~~~~~~ initialising ~~~~~~~~~~~~~~`);
             savedDelaunay = initialiseDelaunay();
         } else if (savedDelaunay.current >= savedDelaunay.count) {
+            console.log(`~~~~~~~~~~~~~~ finalising ~~~~~~~~~~~~~~`);
             const ccs = delaunay.finalise(savedDelaunay);
             setOverlayPoints(e => [...e, ...ccs.map(c => ({
                 centre: new Vec2(c.centre.x, c.centre.y),
@@ -259,6 +260,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
             console.log(savedDelaunay);
             savedDelaunay.finished = true;
         } else {
+            console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
             const ccs = delaunay.iterate(savedDelaunay!);
 
             if (!ccs) return; // end of iterations (?)
@@ -309,12 +311,12 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         setOverlayPoints(e => [
             ...e,
             ...(savedDelaunay!.points.map((p, index) => ({ //?.slice(0,2)
-                    centre: p,
-                    radius: 2,
-                    colour: '#9e22fd',
-                    filled: false,
-                    lineWidth: 1,
-                    text: index >= savedDelaunay!.count ? (-index - 1 + savedDelaunay!.count).toString() : index.toString()
+                centre: p,
+                radius: 2,
+                colour: '#9e22fd',
+                filled: false,
+                lineWidth: 1,
+                text: index >= savedDelaunay!.count ? (-index - 1 + savedDelaunay!.count).toString() : index.toString()
             })) ?? [])
         ]);
     }

@@ -20,13 +20,15 @@ type Face = {
 
 export class HalfEdgeGraph {
     vertices: Vertex[];
-    halfEdges: HalfEdge[] = [];
-    faces: Face[] = [];
-
-    private edgeMap = new Map<string, number>();
+    halfEdges: HalfEdge[];
+    faces: Face[];
+    private edgeMap: Map<string, number>;
 
     constructor(points: Point[]) {
         this.vertices = points.map(p => ({ point: p, edges: [] }));
+        this.halfEdges = [];
+        this.faces = [];
+        this.edgeMap = new Map<string, number>();
     }
 
     private registerEdges(...edgeIndices: number[]) {
@@ -40,7 +42,8 @@ export class HalfEdgeGraph {
     private findAndSetTwins(...edgeIndices: number[]) {
         edgeIndices.forEach(edgeIndex => {
             let e = this.halfEdges[edgeIndex]!;
-            let foundTwin = this.findEdge(this.halfEdges[e.next]!.v, e.v);
+            let dest = this.halfEdges[e.next]!.v;
+            let foundTwin = this.findEdgeIndex(dest, e.v);
             if (foundTwin == -1) return;
             e.twin = foundTwin;
             this.halfEdges[foundTwin]!.twin = edgeIndex;
@@ -49,7 +52,7 @@ export class HalfEdgeGraph {
 
     /** Finds and returns the index of the edge from origin to dest in this HalfEdgeGraph's HalfEdge array. 
      * Returns -1 if it cannot be found. */
-    private findEdge(origin: number, dest: number) {
+    public findEdgeIndex(origin: number, dest: number) {
         return this.edgeMap.get(`${origin}-${dest}`) ?? -1;
     }
 
@@ -59,7 +62,7 @@ export class HalfEdgeGraph {
         vertices.forEach((origin, i) => {
             let nextIndex = i == vertices.length - 1 ? 0 : i + 1;
             let dest = vertices[i]!;
-            if (this.findEdge(origin, dest) == -1) return false;
+            if (this.findEdgeIndex(origin, dest) == -1) return false;
         });
         return true;
     }
@@ -116,11 +119,11 @@ export class HalfEdgeGraph {
         if (!this.validatePolygon(A, B, C)) return false;
         if (!this.validatePolygon(A, C, D)) return false;
 
-        let AC = this.findEdge(A, C);
-        if (AC == -1) { console.error(`flipTriangles: cant find halfline ${A}-${C}`); return false; }
+        let AC = this.findEdgeIndex(A, C);
+        if (AC == -1) { console.error(`flipTriangles: can't find halfEdge ${A}-${C}`); return false; }
         let CA = this.halfEdges[AC]!.twin;
-        if (CA == -1) { console.error(`flipTriangles: cant find twin halfline ${C}-${A}`); return false; }
-        if (this.findEdge(B, D) != -1 || this.findEdge(D, B) != -1) { console.error(`flipTriangles: halfline ${B}-${D} or ${D}-${B} exists`); return false; }
+        if (CA == -1) { console.error(`flipTriangles: can't find twin halfline ${C}-${A}`); return false; }
+        if (this.findEdgeIndex(B, D) != -1 || this.findEdgeIndex(D, B) != -1) { console.error(`flipTriangles: halfEdge ${B}-${D} or ${D}-${B} exists`); return false; }
 
         let ABC = this.halfEdges[CA]!.face;
         let ACD = this.halfEdges[AC]!.face;
