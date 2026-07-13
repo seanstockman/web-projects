@@ -7,6 +7,7 @@ type HalfEdge = {
     v: number,
     used: boolean,
     face: number,
+    dead: boolean;
 }
 
 type Vertex = {
@@ -61,7 +62,7 @@ export class HalfEdgeGraph {
         // for (let i = 0; i < vertices.length; i++)
         vertices.forEach((origin, i) => {
             let nextIndex = i == vertices.length - 1 ? 0 : i + 1;
-            let dest = vertices[i]!;
+            let dest = vertices[nextIndex]!;
             if (this.findEdgeIndex(origin, dest) == -1) return false;
         });
         return true;
@@ -189,6 +190,23 @@ export class HalfEdgeGraph {
 
         return true;
     }
+
+    public removeFace(faceIndex: number): boolean {
+        const ABC = this.faces[faceIndex];
+        if (!ABC) return false;
+        if (ABC.edges.length != 3) return false;
+
+        for (let i = 0; i < 3; i++) {
+            const edgeIndex = ABC.edges[i]!;
+            const removedEdge = this.halfEdges[edgeIndex]!;
+            const v = this.vertices[removedEdge.v];
+            v!.edges.filter(e => e != edgeIndex);
+            removedEdge.dead = true;
+        } 
+        
+        ABC.edges = [];
+        return true;
+    }
 }
 
 function initialiseHalfEdge(A: number): HalfEdge {
@@ -198,6 +216,7 @@ function initialiseHalfEdge(A: number): HalfEdge {
         prev: -1,
         v: A,
         used: false,
-        face: -1
+        face: -1,
+        dead: false
     }
 }

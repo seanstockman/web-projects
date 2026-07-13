@@ -134,11 +134,6 @@ export const delaunay = {
 
         dg.current++;
         return ccs;
-        // we have P_L and P_R defined
-
-        // if (P_M) {pointEventLeftCase(d)}
-
-        // assume middle case for now
     },
 
     /** Returns an array of all the circumcircles of the triangles for checking.
@@ -146,47 +141,34 @@ export const delaunay = {
      * ii) adds the bordering triangles forming the convex hull of V
      */
     finalise(d: DelaunayGraph) {
-        let ccs = [];
+        triangulateChain(d, d.sweepLine);
 
-        for (let i = 1; i < d.sweepLine.length - 3; i++) {
-            let A = d.sweepLine[i]!;
-            let B = d.sweepLine[i + 1]!;
-            let C = d.sweepLine[i + 2]!;
-            let area = geometry2d.getSignedArea(d.points[A]!, d.points[B]!, d.points[C]!); // shoelace formula
-            if (area <= 0) continue;
-            console.log(`finalisation: adding triangle ${A}-${C}-${B}`);
-            d.graph.addTriangle(A, C, B);
-            d.sweepLine.splice(i + 1, 1);
-            ccs.push(legaliseTriangle(d, C, A, B).dccs);
-            ccs.push(legaliseTriangle(d, A, B, C).dccs);
-            i--; // go back to where we started.
+        const baseLine = [d.sweepLine[d.sweepLine.length - 2]!];
+        let edge = d.graph.findEdgeIndex(d.sweepLine[d.sweepLine.length - 2]!, d.sweepLine[d.sweepLine.length - 1]!);
+        console.log(`getting edge ${d.sweepLine[d.sweepLine.length - 2]}->${d.sweepLine[d.sweepLine.length - 1]}`);
+        let prevEdge;
+        while (edge != -1) {
+            prevEdge = d.graph.halfEdges[d.graph.halfEdges[edge]!.prev]!;
+            if (prevEdge.v == d.points.length - 1) { edge = prevEdge.twin; continue; }
+            baseLine.push(prevEdge.v);
+            edge = d.graph.halfEdges[prevEdge.prev]!.twin;
+        }
+        baseLine.splice(baseLine.length - 1);
+
+        for (let i = 0; i < 2; i++) {
+            const v = d.graph.vertices[d.graph.vertices.length - 1 - i]!;
+            v.edges.forEach(e_i => {
+                const e = d.graph.halfEdges[e_i]!;
+                d.graph.removeFace(e.face);
+            });
         }
 
-        // remove connection to 
+        triangulateChain(d, baseLine);
 
-
-        // for (let i = 0; i < d.count; i++) {
-        //     for (let j = 0; j < d.graph[i]!.length; j++) {
-        //         if (d.graph[i]![j]! < d.count) continue;
-        //         d.graph[i]!.splice(j, 1);
-        //         j--;
-        //     }
-        // }
-
-        // for (let i = 0; i < d.graph.length; i++) {
-        //     for (let j = 0; j < d.graph[i]!.length; j++) {
-        //         d.graph[i]![j]! -= 2;
-        //     }
-        // }
-
-        // d.graph.splice(d.count, 2);
-        // d.points.splice(d.count, 2);
+        d.points.splice(d.points.length - 2, 2);
         d.sweepLine = [];
 
-        // return;
-        // return ccs;
-
-        const tris: number[][] = d.graph.faces.map(face => [
+        const tris: number[][] = d.graph.faces.filter(f => f.edges.length == 3).map(face => [
             d.graph.halfEdges[face.edges[0]!]!.v,
             d.graph.halfEdges[face.edges[1]!]!.v,
             d.graph.halfEdges[face.edges[2]!]!.v
@@ -210,14 +192,11 @@ export const delaunay = {
     getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
         const lines = [];
 
-        d.graph.halfEdges.forEach(he => lines.push(new Line([d.points[he.v]!, d.points[d.graph.halfEdges[he.next]!.v]!], null, normalColor)));
-
         // normal
-        // for (let i = 0; i < d.graph.length; i++) {
-        //     for (let j = 0; j < d.graph[i]!.length; j++) {
-        //         lines.push(new Line([d.points[i]!, d.points[d.graph[i]![j]!]!], null, normalColor));
-        //     }
-        // }
+        d.graph.halfEdges.forEach(he => {
+            if (he.dead) return;
+            lines.push(new Line([d.points[he.v]!, d.points[d.graph.halfEdges[he.next]!.v]!], null, normalColor));
+        });
 
         // sweep
         for (let i = 0; i < d.sweepLine.length - 1; i++) {
@@ -226,17 +205,6 @@ export const delaunay = {
 
         return lines;
     }
-}
-
-function getSharedConnections(graph: number[][], a: number, b: number) {
-    const shared: number[] = [];
-    for (let i = 0; i < graph[a]!.length; i++) {
-        let n = graph[a]![i]!;
-        if (shared.includes(n)) continue;
-        if (!graph[b]!.includes(n)) continue;
-        shared.push(n);
-    }
-    return shared;
 }
 
 type DelaunayLegalisationResult = {
@@ -368,35 +336,36 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
     if (basinStartIndex < 0 || basinEndIndex < 0) { console.log("warning: failed to find basin end or start index"); return []; }
     console.log(`Found basin from P_${d.sweepLine[basinStartIndex]} to P_${d.sweepLine[basinEndIndex]}.`);
 
-    let ccs: DelaunayCheckedCircle[] = [];
+    const result = triangulateChain(d, d.sweepLine.slice(basinStartIndex, basinEndIndex + 1));
+    d.sweepLine.splice(basinStartIndex + 1, basinEndIndex - basinStartIndex - 1);
+    return result;
+}
 
-    let verticallySortedSweepIndices = Array.from({ length: basinEndIndex - basinStartIndex + 1 }, (_, i) => basinStartIndex + i).sort((a, b) => d.points[d.sweepLine[a]!]!.y - d.points[d.sweepLine[b]!]!.y);
-    console.log(verticallySortedSweepIndices.map(s_i => d.sweepLine[s_i]));
+/** Triangulates a chain of points (x-sorted, e.g. a full sweep line or any sub-range of one)
+ *  using the stack-based monotone-polygon algorithm. Handles arbitrary undulation. */
+function triangulateChain(d: DelaunayGraph, chain: number[]): DelaunayCheckedCircle[] {
+    const ccs: DelaunayCheckedCircle[] = [];
+    if (chain.length < 3) return ccs;
 
-    for (let i = 0; i < verticallySortedSweepIndices.length - 2; i++) {
-        // because basinStart and basinEnd are the highest points, there will always be an X - 1 and X + 1
-        let sweepX = verticallySortedSweepIndices[i]!;
-        let X = d.sweepLine[sweepX]!;
-        let L = d.sweepLine[sweepX - 1]!;
-        let R = d.sweepLine[sweepX + 1]!;
+    const stack: number[] = [chain[0]!, chain[1]!];
 
-        console.log(`basin fill: adding triangle ${L}-${R}-${X}`);
-        d.graph.addTriangle(L, R, X);
-        // connectPoints(d.graph, L, R);
+    for (let i = 2; i < chain.length; i++) {
+        const v = chain[i]!;
 
-        d.sweepLine.splice(sweepX, 1);
-        verticallySortedSweepIndices.forEach((s_i, i) => {
-            if (s_i < sweepX) return;
-            verticallySortedSweepIndices[i] = s_i - 1;
-        });
+        while (stack.length >= 2) {
+            const top = stack[stack.length - 1]!;
+            const second = stack[stack.length - 2]!;
 
-        let legalisationResult = legaliseTriangle(d, R, L, X);
-        ccs.push(...legalisationResult.dccs);
-        if (legalisationResult.flipped) continue;
+            const area = geometry2d.getSignedArea(d.points[second]!, d.points[top]!, d.points[v]!);
+            if (area <= 0) break; // not a valid ear here — stop popping
 
-        legalisationResult = legaliseTriangle(d, L, X, R);
-        ccs.push(...legalisationResult.dccs);
-
+            console.log(`chain fill: adding triangle ${second}-${v}-${top}`);
+            d.graph.addTriangle(second, v, top); // matches your CW winding convention
+            ccs.push(...legaliseTriangle(d, v, second, top).dccs);
+            ccs.push(...legaliseTriangle(d, second, top, v).dccs);
+            stack.pop();
+        }
+        stack.push(v);
     }
 
     return ccs;
