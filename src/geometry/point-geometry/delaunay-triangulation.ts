@@ -149,11 +149,12 @@ export const delaunay = {
         let prevEdge;
         while (edge != -1) {
             prevEdge = d.graph.halfEdges[d.graph.halfEdges[edge]!.prev]!;
-            if (prevEdge.origin == d.points.length - 1) { edge = prevEdge.twin; continue; }
+            if (prevEdge.origin == d.points.length - 2) { edge = prevEdge.twin; continue; }
             baseLine.push(prevEdge.origin);
             edge = d.graph.halfEdges[prevEdge.prev]!.twin;
         }
-        baseLine.splice(baseLine.length - 1);
+        // console.log(`last point: ` + baseLine[baseLine.length - 1]);
+        // baseLine.splice(baseLine.length - 1);
 
         for (let i = 0; i < 2; i++) {
             const v = d.graph.vertices[d.graph.vertices.length - 1 - i]!;
@@ -163,6 +164,8 @@ export const delaunay = {
             });
         }
 
+        console.log(`baseLine:`);
+        console.log(baseLine);
         triangulateChain(d, baseLine);
 
         d.points.splice(d.points.length - 2, 2);

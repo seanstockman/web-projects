@@ -284,6 +284,17 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
             const traversedFaces = halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1);
             console.log(`traversed faces:`);
             console.log(traversedFaces);
+            
+            
+            const l = new Line(
+                [new Vec2(savedDelaunay.points[0]!.x, savedDelaunay.points[0]!.y),
+                new Vec2(savedDelaunay.points[savedDelaunay.count - 1]!.x, savedDelaunay.points[savedDelaunay.count - 1]!.y)],
+                null,
+                `orange`,
+                3,
+                true
+            )
+            setOverlayLines(e => [...e, { line: l, text: null }])
 
             console.log(`~~~~~~~~~~~~~~ final result  ~~~~~~~~~~~~~~`);
             console.log(savedDelaunay);
