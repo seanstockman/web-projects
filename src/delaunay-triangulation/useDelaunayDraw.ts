@@ -80,15 +80,18 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
 
         overlayLines.forEach(l => {
             if (!l.text) return;
+            const pos = geometry2d.getMidpoint(l.line.points[0]!, geometry2d.getMidpoint(l.line.points[0]!, l.line.points[1]!));
+            // pos.x -= 5;
+            // pos.x += 5;
             drawer.drawText(ctx,
                 l.text,
-                geometry2d.getMidpoint(l.line.points[0]!, geometry2d.getMidpoint(l.line.points[0]!, l.line.points[1]!)),
-                { x: 5, y: -5 },
+                pos,
+                { x: 0, y: 0 },
                 20
             )
         });
 
-        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.textPosition!, { x: 5, y: -5 }, 20) });
+        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.textPosition!, { x: 0, y: 0 }, 20) });
 
 
         if (cursor != null) {
@@ -346,7 +349,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
                 filled: false,
                 lineWidth: 1,
                 text: index >= savedDelaunay!.count ? (-index - 1 + savedDelaunay!.count).toString() : index.toString(),
-                textPosition: p
+                textPosition: new Vec2(p.x + 5, p.y - 5)
             })) ?? [])
         ]);
     }

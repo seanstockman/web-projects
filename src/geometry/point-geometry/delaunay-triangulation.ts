@@ -176,7 +176,7 @@ export const delaunay = {
             d.graph.halfEdges[face.edges[2]!]!.origin
         ]);
 
-        const centrepoints = tris.map(tri => geometry2d.getTriangleMidpoint(
+        const centrepoints = tris.map(tri => geometry2d.getWeightedCentre(
             d.points[tri[0]!]!,
             d.points[tri[1]!]!,
             d.points[tri[2]!]!,

@@ -42,9 +42,14 @@ export const geometry2d = {
         }
     },
 
-    getTriangleMidpoint(A: Point, B: Point, C: Point) {
+    getWeightedCentre(A: Point, B: Point, C: Point): Point {
         const midpointAB = this.getMidpoint(A, B);
-        return this.getMidpoint(midpointAB, C);
+        const midpointBC = this.getMidpoint(C, B);
+        const midpointCA = this.getMidpoint(A, C);
+        return {
+            x: (midpointAB.x + midpointBC.x + midpointCA.x) / 3,
+            y: (midpointAB.y + midpointBC.y + midpointCA.y) / 3,
+        };
     },
 
     /** Returns the Point or undefined from the lines defined by (p1-p2) and (p3-p4) */

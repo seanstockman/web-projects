@@ -349,7 +349,7 @@ export class HalfEdgeGraph {
 
             e.twin = updatedEdgeMap.get(e.twin)!;
             e.prev = updatedEdgeMap.get(e.prev)!;
-            e.next = updatedEdgeMap.get(e.next)!;            
+            e.next = updatedEdgeMap.get(e.next)!;
         });
 
         removedEdges.reverse().forEach(i => {
@@ -372,7 +372,7 @@ export const halfEdgeTriangular = {
      * Will return if it hits the `endVertexIndex`. */
     traverseStartingAtPoint(g: HalfEdgeGraph, M: number, startVertex: Vertex, angleAB: number, endVertexIndex: number): number[] {
         // find angle to target
-        console.log(`Traversing starting at vertex ${M}.`);
+        console.log(`~~\nTraversal iteration starting at vertex ${M}.`);
         const angleMapM = g.getAngleMap(M);
         if (!g.vertices[M]) { console.error(`Vertex ${M} does not exist.`); return []; }
         let nextEdgeIndex = -1;
@@ -381,29 +381,31 @@ export const halfEdgeTriangular = {
         // console.log(angleMapM.map(a => (a * 180 / Math.PI).toFixed(1)));
         // console.log(g.vertices[M].edges.map(e => g.halfEdges[e]?.target));
         for (let i = 0; i < angleMapM.length; i++) {
-            console.log(`edge ${g.vertices[M].edges[i]} target = ${g.halfEdges[g.vertices[M]!.edges[i]!]!.target}`);
+            // console.log(`edge ${g.vertices[M].edges[i]} target = ${g.halfEdges[g.vertices[M]!.edges[i]!]!.target}`);
 
-            console.log(`anglemap[i]: ${angleMapM[i]}, angleAB: ${angleAB}`);
+            // console.log(`anglemap[i]: ${angleMapM[i]}, angleAB: ${angleAB}`);
             if (angleMapM[i]! == angleAB) {
-                console.log(`equal!`);
+                // console.log(`equal!`);
                 const nextEdge = g.halfEdges[g.vertices[M].edges[i]!]!;
                 const result = [nextEdge.face];
                 if (nextEdge.twin != -1) {
                     result.push(g.halfEdges[nextEdge.twin]!.face);
                 }
-                if (nextEdge.target == endVertexIndex) return result;
-
+                if (nextEdge.target == endVertexIndex) {
+                    console.log(`found end (vertex ${endVertexIndex})`);
+                    return result;
+                }
                 return [...result, ...this.traverseStartingAtPoint(g, nextEdge.target, startVertex, angleAB, endVertexIndex)];
             }
-
             if (angleMapM[i]! < angleAB) continue;
 
             nextEdgeIndex = i;
             break;
         }
         if (nextEdgeIndex == -1) nextEdgeIndex = 0;
-
         const nextEdge = g.halfEdges[g.vertices[M].edges[nextEdgeIndex]!]!;
+
+        // console.log(`found next edge: ${nextEdge.origin}-${nextEdge.target}`);
         const farEdge = g.halfEdges[nextEdge.next];
         if (!farEdge) { console.error(`far edge ${nextEdge.next} doesn't exist`); return []; }
         if (farEdge.twin == -1) { console.error(`far edge ${nextEdge.next} has no twin. Returning.`); return [farEdge.face]; }
@@ -411,7 +413,15 @@ export const halfEdgeTriangular = {
     },
 
     traverseStartingAtEdge(g: HalfEdgeGraph, E: HalfEdge, startVertex: Vertex, angleAB: number, endVertexIndex: number): number[] {
-        console.log(`traversing starting at edge ${E.origin}-${E.target}`);
+        console.log(`~~\nTraversal iteration starting at edge ${E.origin}-${E.target}`);
+        const oppositeVertex = g.halfEdges[E.next]!.target;
+        console.log(`- opposite vertex: ${oppositeVertex}`);
+        if (oppositeVertex == endVertexIndex) {
+            console.log(`found end (vertex ${endVertexIndex})`);
+            return [E.face];
+        }
+        //
+        
         return [];
     }
 }
