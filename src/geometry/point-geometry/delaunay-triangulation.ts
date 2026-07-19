@@ -168,11 +168,19 @@ export const delaunay = {
         d.points.splice(d.points.length - 2, 2);
         d.sweepLine = [];
 
+        d.graph.clean();
+
         const tris: number[][] = d.graph.faces.filter(f => f.edges.length == 3).map(face => [
             d.graph.halfEdges[face.edges[0]!]!.origin,
             d.graph.halfEdges[face.edges[1]!]!.origin,
             d.graph.halfEdges[face.edges[2]!]!.origin
         ]);
+
+        const centrepoints = tris.map(tri => geometry2d.getTriangleMidpoint(
+            d.points[tri[0]!]!,
+            d.points[tri[1]!]!,
+            d.points[tri[2]!]!,
+        ));
 
         let triCircles = tris.map(tri => geometry2d.getCircumcircle(d.points[tri[0]!]!, d.points[tri[1]!]!, d.points[tri[2]!]!));
 
@@ -186,7 +194,7 @@ export const delaunay = {
             }
         }
 
-        return triCircles;
+        return { circles: triCircles, centrepoints: centrepoints };
     },
 
     getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
@@ -194,7 +202,7 @@ export const delaunay = {
 
         // normal
         d.graph.halfEdges.forEach(he => {
-            if (he.dead) return;
+            if (he.dead) { lines.push(); return; }
             lines.push(new Line([d.points[he.origin]!, d.points[d.graph.halfEdges[he.next]!.origin]!], null, normalColor));
         });
 

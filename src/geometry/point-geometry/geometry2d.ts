@@ -42,6 +42,11 @@ export const geometry2d = {
         }
     },
 
+    getTriangleMidpoint(A: Point, B: Point, C: Point) {
+        const midpointAB = this.getMidpoint(A, B);
+        return this.getMidpoint(midpointAB, C);
+    },
+
     /** Returns the Point or undefined from the lines defined by (p1-p2) and (p3-p4) */
     getInterceptFromPoints(p1: Point, p2: Point, p3: Point, p4: Point): Point | undefined {
         const denominator = (p1.x - p2.x) * (p3.y = p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
@@ -74,10 +79,10 @@ export const geometry2d = {
     pointToFromScreen(p: Point) {
         p.y *= -1;
     },
-    
+
     getSignedArea(A: Point, B: Point, C: Point) {
         // shoelace formula
-        return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y)-(A.y * B.x + B.y * C.x + C.y * A.x));
+        return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y) - (A.y * B.x + B.y * C.x + C.y * A.x));
     }
 }
 
