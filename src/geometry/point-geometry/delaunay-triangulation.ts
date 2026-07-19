@@ -149,8 +149,8 @@ export const delaunay = {
         let prevEdge;
         while (edge != -1) {
             prevEdge = d.graph.halfEdges[d.graph.halfEdges[edge]!.prev]!;
-            if (prevEdge.v == d.points.length - 1) { edge = prevEdge.twin; continue; }
-            baseLine.push(prevEdge.v);
+            if (prevEdge.origin == d.points.length - 1) { edge = prevEdge.twin; continue; }
+            baseLine.push(prevEdge.origin);
             edge = d.graph.halfEdges[prevEdge.prev]!.twin;
         }
         baseLine.splice(baseLine.length - 1);
@@ -169,9 +169,9 @@ export const delaunay = {
         d.sweepLine = [];
 
         const tris: number[][] = d.graph.faces.filter(f => f.edges.length == 3).map(face => [
-            d.graph.halfEdges[face.edges[0]!]!.v,
-            d.graph.halfEdges[face.edges[1]!]!.v,
-            d.graph.halfEdges[face.edges[2]!]!.v
+            d.graph.halfEdges[face.edges[0]!]!.origin,
+            d.graph.halfEdges[face.edges[1]!]!.origin,
+            d.graph.halfEdges[face.edges[2]!]!.origin
         ]);
 
         let triCircles = tris.map(tri => geometry2d.getCircumcircle(d.points[tri[0]!]!, d.points[tri[1]!]!, d.points[tri[2]!]!));
@@ -195,7 +195,7 @@ export const delaunay = {
         // normal
         d.graph.halfEdges.forEach(he => {
             if (he.dead) return;
-            lines.push(new Line([d.points[he.v]!, d.points[d.graph.halfEdges[he.next]!.v]!], null, normalColor));
+            lines.push(new Line([d.points[he.origin]!, d.points[d.graph.halfEdges[he.next]!.origin]!], null, normalColor));
         });
 
         // sweep
@@ -220,7 +220,7 @@ type DelaunayLegalisationResult = {
 */
 function legaliseTriangle(dg: DelaunayGraph, B: number, A: number, C: number): { dccs: DelaunayCheckedCircle[], flipped: boolean } {
     const edgeAC = dg.graph.halfEdges[dg.graph.findEdgeIndex(A, C)]!;
-    const D = dg.graph.halfEdges[edgeAC.prev]!.v;
+    const D = dg.graph.halfEdges[edgeAC.prev]!.origin;
 
     // console.log(`checking triangle pairs along ${A}-${C}`);
     const P_B = dg.points[B]!, P_A = dg.points[A]!, P_C = dg.points[C]!, P_D = dg.points[D]!;
@@ -370,3 +370,6 @@ function triangulateChain(d: DelaunayGraph, chain: number[]): DelaunayCheckedCir
 
     return ccs;
 }
+
+/** CONSTRAINED DELAUNAY TRIANGULATION */
+

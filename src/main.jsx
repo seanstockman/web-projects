@@ -2,7 +2,7 @@ import { StrictMode, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import './index.css';
-import App from './App.jsx';
+import App from './App.tsx';
 import Interlining from './interlining/Interlining.jsx';
 import DelaunayTriangulation from './delaunay-triangulation/DelaunayTriangulation.tsx';
 import { Container, createTheme, ThemeProvider } from '@mui/material';
@@ -63,16 +63,16 @@ function Root() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ResponsiveAppBar />
-      <Container maxWidth="lg">
-        <BrowserRouter>
+      <BrowserRouter basename='/web-projects'>
+        <ResponsiveAppBar />
+        <Container maxWidth="lg">
           <Routes>
             <Route index element={<App />} />
-            <Route path="projects/interlining" element={<Interlining />} />
-            <Route path="projects/delaunay" element={<DelaunayTriangulation />} />
+            {/* <Route path="/interlining" element={<Interlining />} /> */}
+            <Route path="/delaunay" element={<DelaunayTriangulation />} />
           </Routes>
-        </BrowserRouter>
-      </Container>
+        </Container>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

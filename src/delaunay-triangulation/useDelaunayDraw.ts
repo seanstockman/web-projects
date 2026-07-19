@@ -6,6 +6,7 @@ import { drawer } from '../interlining/Drawer.tsx'
 import { geometry2d } from '../geometry/point-geometry/geometry2d.ts';
 import { Point } from '../geometry/classes/point.ts';
 import { delaunay, type DelaunayGraph } from '../geometry/point-geometry/delaunay-triangulation.ts';
+import { halfEdgeTriangular } from '../geometry/point-geometry/halfedge.ts';
 
 export enum Mode {
     Manipulate,
@@ -71,11 +72,11 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         overlayLines.forEach(l => drawer.drawLine(ctx, l));
 
         overlayPoints.forEach(p => drawer.drawCircle(ctx, p.centre, p.filled, p.lineWidth, p.radius, p.colour));
-        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 10) });
+        overlayPoints.forEach(p => { if (p.text) drawer.drawText(ctx, p.text, p.centre, { x: 5, y: -5 }, 20) });
 
 
         if (cursor != null) {
-            drawer.drawCircle(ctx, cursor, true, 0, 2, '#005effd4');
+            drawer.drawCircle(ctx, cursor, true, 0, 4, '#005effd4');
         }
     }, [canvasRef, getMousePos, cursor, movedPoint, mode, lines, overlayPoints])
 
@@ -249,16 +250,19 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         } else if (savedDelaunay.current >= savedDelaunay.count) {
             console.log(`~~~~~~~~~~~~~~ finalising ~~~~~~~~~~~~~~`);
             const ccs = delaunay.finalise(savedDelaunay);
-            setOverlayPoints(e => [...e, ...ccs.map(c => ({
+            setOverlayPoints(e => [...e, ...ccs.map((c, i) => ({
                 centre: new Vec2(c.centre.x, c.centre.y),
                 radius: c.radius,
                 colour: '#009a15',
                 filled: false,
                 lineWidth: 0.2,
-                text: null
+                text: i.toString()
             }))]);
             console.log(savedDelaunay);
             savedDelaunay.finished = true;
+
+            console.log(`traversed faces:`);
+            console.log(halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1));
         } else {
             console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
             const ccs = delaunay.iterate(savedDelaunay!);

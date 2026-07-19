@@ -66,6 +66,11 @@ export const geometry2d = {
         return angleBetween;
     },
 
+    /** Returns the angle in radians of the vector AB. Angles will be in the range [0, 2π). */
+    getAngleAB(A: Point, B: Point) {
+        return (Math.atan2(B.y - A.y, B.x - A.x) + Math.PI * 2) % (Math.PI * 2);
+    },
+
     pointToFromScreen(p: Point) {
         p.y *= -1;
     },

@@ -141,7 +141,7 @@ export const drawer = {
         // });
     },
     drawLinesStartOnly: function (ctx: CanvasRenderingContext2D, lines: Line[]) {
-        lines.forEach(l => l.points.forEach(p => drawer.drawCircle(ctx, p, true, 0, 1, '#0095ff')));
+        lines.forEach(l => l.points.forEach(p => drawer.drawCircle(ctx, p, true, 0, 4, '#0095ff')));
     },
     drawCircle: function (ctx: CanvasRenderingContext2D, p: Vec2, filled = true,
         lineWidth = 2, radius = 5, colour = '#aabbcc') {
@@ -172,6 +172,7 @@ export const drawer = {
     },
     drawText: function (ctx: CanvasRenderingContext2D,text: string,  position: {x: number, y:number}, offset: {x: number, y: number} = {x:0,y:0}, size: number = 10) {
         ctx.fillStyle = "#000000";
+        // ctx.font
         ctx.fillText(text, position.x + offset.x, position.y + offset.y, size);
     },
 }

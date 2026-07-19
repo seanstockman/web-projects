@@ -20,8 +20,8 @@ const navItems = [
   {
     label: 'Projects',
     children: [
-      { label: 'Interlining', to: '/projects/interlining' },
-      { label: 'Delaunay Triangulation', to: '/projects/delaunay' },
+      // { label: 'Interlining', to: '/web-projects/interlining' },
+      { label: 'Delaunay Triangulation', to: '/web-projects/delaunay' },
     ],
   },
   // { label: 'Pricing', to: '/pricing' },

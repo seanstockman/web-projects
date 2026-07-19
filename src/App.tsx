@@ -1,121 +1,58 @@
-import { useState } from 'react';
-import reactLogo from "./assets/react.svg";
-import viteLogo from './assets/vite.svg';
-import heroImg from './assets/hero.png';
+import { Typography, Stack, Divider, ToggleButtonGroup, Tooltip, ToggleButton, ButtonGroup, Button, Slider } from '@mui/material';
 import './App.css';
+import { PageStack } from './components/PageComponents.tsx';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section className="flex flex-col grow items-center justify-center gap-6.25 lg:p-[32px_20px_24px] lg:gap-4.5">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <PageStack>
+      <Typography variant='h4'>Work in progress...Choose a project under Projects to check out!</Typography>
 
-      <div className="ticks"></div>
+      {/* <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+        <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => setMode(val)}>
+          {modeButtons.map(b => (
+            <Tooltip title={b.label} key={b.mode}>
+              <ToggleButton value={b.mode}>{b.icon}</ToggleButton>
+            </Tooltip>
+          ))}
+        </ToggleButtonGroup>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <Tooltip title="Pick Line Colour">
+          <input type="color" value={currentColor} className='self-center' onChange={e => setCurrentColor(e.target.value)} />
+        </Tooltip>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        <ButtonGroup>
+          {actions.map(a => (
+            <Tooltip title={a.label} key={a.label}>
+              <Button onClick={a.action}>{a.icon}</Button>
+            </Tooltip>
+          ))}
+        </ButtonGroup>
+
+        <ToggleButtonGroup value={options} onChange={(e, v) => { setOptions(v); console.log(`set options to ${v}`) }}>
+          {toggles.map(t => (
+            <Tooltip title={t.label} key={t.value}>
+              <ToggleButton disabled={t.disabled} value={t.value}>{options.includes(t.value) ? t.iconOn : t.iconOff}</ToggleButton>
+            </Tooltip>
+          ))}
+        </ToggleButtonGroup>
+
+        <Tooltip title="Curve Radius">
+          <Slider min={1} max={100} value={radius} onChange={(e, r) => setRadius(r)} valueLabelDisplay="auto" />
+        </Tooltip>
+      </Stack>
+
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={400}
+        className="bg-gray-200 block touch-none max-w-full h-auto"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onContextMenu={handleRightClick}
+      /> */}
+    </PageStack>
   )
 }
 
