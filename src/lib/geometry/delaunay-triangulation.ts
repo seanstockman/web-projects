@@ -1,8 +1,6 @@
 // implementation of Domiter & Zalik constrained sweep-line algorithm (2008).
 
-import { Line } from "../classes/line.ts";
-import { geometry2d, type Circle } from "./geometry2d.ts";
-import { Point } from "../classes/point.ts";
+import { geometry2d, type Circle, type Point } from "./geometry2d.ts";
 import { HalfEdgeGraph } from "./halfedge.ts";
 
 export type DelaunayGraph = {
@@ -43,8 +41,8 @@ export const delaunay = {
         const deltaX = alpha * (xMax - xMin);
         const deltaY = alpha * (yMax - yMin);
 
-        const Pm1 = new Point(xMin - deltaX, yMin - deltaY);
-        const Pm2 = new Point(xMax + deltaX, yMin - deltaY);
+        const Pm1 = {x: xMin - deltaX, y: yMin - deltaY};
+        const Pm2 = {x: xMax + deltaX, y: yMin - deltaY};
 
         sorted.push(Pm1, Pm2);
 
@@ -175,7 +173,7 @@ export const delaunay = {
             d.graph.halfEdges[face.edges[2]!]!.origin
         ]);
 
-        const centrepoints = tris.map(tri => geometry2d.getWeightedCentre(
+        const centrepoints = tris.map(tri => geometry2d.getMeanOfPoints(
             d.points[tri[0]!]!,
             d.points[tri[1]!]!,
             d.points[tri[2]!]!,
@@ -188,7 +186,7 @@ export const delaunay = {
             for (let j = 0; j < d.points.length; j++) {
                 if (tris[i]!.includes(j)) continue;
                 let X = d.points[j]!;
-                if (geometry2d.distance(X, c.centre) > c.radius) continue;
+                if (geometry2d.distance(X, c.center) > c.radius) continue;
                 console.error(`triangle ${tris[i]} includes point ${j}`);
             }
         }
@@ -196,18 +194,24 @@ export const delaunay = {
         return { circles: triCircles, centrepoints: centrepoints };
     },
 
-    getResultToLines(d: DelaunayGraph, normalColor: string, sweepColor: string): Line[] {
-        const lines = [];
+    getResultToLines(d: DelaunayGraph): {points: Point[], sweep: boolean}[] {
+        const lines: {points: Point[], sweep: boolean}[] = [];
 
         // normal
         d.graph.halfEdges.forEach(he => {
             if (he.dead) { lines.push(); return; }
-            lines.push(new Line([d.points[he.origin]!, d.points[d.graph.halfEdges[he.next]!.origin]!], null, normalColor));
+            lines.push({
+                points: [d.points[he.origin]!, d.points[d.graph.halfEdges[he.next]!.origin]!], 
+                sweep: false
+            });
         });
 
         // sweep
         for (let i = 0; i < d.sweepLine.length - 1; i++) {
-            lines.push(new Line([d.points[d.sweepLine[i]!]!, d.points[d.sweepLine[i + 1]!]!], null, sweepColor, 2, true));
+            lines.push({
+                points: [d.points[d.sweepLine[i]!]!, d.points[d.sweepLine[i + 1]!]!], 
+                sweep: true
+            });
         }
 
         return lines;
@@ -247,10 +251,10 @@ function legaliseTriangle(dg: DelaunayGraph, B: number, A: number, C: number): {
         removedLine: null
     }];
 
-    if (geometry2d.distance(P_D, ccs[0]!.circle.centre) < ccs[0]!.circle.radius) {
+    if (geometry2d.distance(P_D, ccs[0]!.circle.center) < ccs[0]!.circle.radius) {
         ccs[0]!.legal = false;
     }
-    if (geometry2d.distance(P_B, ccs[1]!.circle.centre) < ccs[1]!.circle.radius) {
+    if (geometry2d.distance(P_B, ccs[1]!.circle.center) < ccs[1]!.circle.radius) {
         ccs[1]!.legal = false;
     }
 

@@ -240,11 +240,12 @@ export class HalfEdgeGraph {
             if (!edge) { return; }
             const target = this.vertices[edge.target];
             if (!target) { return; }
-            angleMap.set(geometry2d.getAngleFromAToB(origin, target), edge);
+            angleMap.set(geometry2d.getDirectionFromAToB(origin, target), edge);
         });
 
+        // return angleMap;
+        
         const sortedAngleMap = new Map([...angleMap].sort((a, b) => a[0] - b[0]));
-
         return sortedAngleMap;
     }
 
@@ -370,7 +371,7 @@ export const halfEdgeTriangular = {
     traverse(g: HalfEdgeGraph, A: number, B: number): number[] {
         console.log(`Starting traversal from vertices ${A}->${B}.`);
         if (!g.vertices[A] || !g.vertices[B]) return [];
-        const angleAB = geometry2d.getAngleFromAToB(g.vertices[A], g.vertices[B]);
+        const angleAB = geometry2d.getDirectionFromAToB(g.vertices[A], g.vertices[B]);
         return halfEdgeTriangular.traverseStartingAtPoint(g, A, g.vertices[A]!, angleAB, B);
     },
 
@@ -382,8 +383,15 @@ export const halfEdgeTriangular = {
         if (!g.vertices[M]) { console.error(`Vertex ${M} does not exist.`); return []; }
         const angleMapM = [...g.getAngleMap(M)];
 
+        console.log(`- target angle theta: ${(theta * 180 / Math.PI).toFixed(1)}`);
 
         let nextEdge: HalfEdge | undefined;
+
+        console.log(`- anglemap ${M}:`);
+        angleMapM.forEach((v, i) => {
+            console.log(`--- ${i}: E${v[0]} (${M}-${v[1].target})`);
+        })
+
         for (let i = 0; i < angleMapM.length; i++) {
             // console.log(`edge ${g.vertices[M].edges[i]} target = ${g.halfEdges[g.vertices[M]!.edges[i]!]!.target}`);
             const alpha = angleMapM[i]![0]!;
@@ -393,14 +401,14 @@ export const halfEdgeTriangular = {
 
             // specific case
             const loopCheckVertex = g.halfEdges[edge.prev]!.origin;
-            if (geometry2d.getAngleFromAToB(g.vertices[M], g.vertices[loopCheckVertex]!) == theta) {
+            if (geometry2d.getDirectionFromAToB(g.vertices[M], g.vertices[loopCheckVertex]!) == theta) {
                 if (loopCheckVertex == endVertexIndex) {
                     console.log(`- found end (vertex ${endVertexIndex})`);
                     return [edge.face];
                 }
                 return [edge.face, ...this.traverseStartingAtPoint(g, loopCheckVertex, startVertex, theta, endVertexIndex)];
             }
-
+            
             if (alpha == theta) {
                 // console.log(`equal!`);
                 const result = [edge.face];
@@ -440,7 +448,7 @@ export const halfEdgeTriangular = {
             return [E.face];
         }
 
-        const alpha = geometry2d.getAngleFromAToB(startVertex, g.vertices[oppositeVertex]!);
+        const alpha = geometry2d.getDirectionFromAToB(startVertex, g.vertices[oppositeVertex]!);
         if (alpha == theta) {
             return [E.face, ...this.traverseStartingAtPoint(g, oppositeVertex, startVertex, theta, endVertexIndex)];
         }

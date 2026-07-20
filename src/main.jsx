@@ -10,6 +10,7 @@ import { lime, red } from '@mui/material/colors';
 import ResponsiveAppBar from './components/ResponsiveAppBar.jsx';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CssBaseline from '@mui/material/CssBaseline';
+import TestPage from './components/drawingCanvas/Test.tsx'
 
 function Root() {
   // const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -68,8 +69,9 @@ function Root() {
         <Container maxWidth="lg">
           <Routes>
             <Route index element={<App />} />
-            {/* <Route path="/interlining" element={<Interlining />} /> */}
+            <Route path="/interlining" element={<Interlining />} />
             <Route path="/delaunay" element={<DelaunayTriangulation />} />
+            <Route path="/test" element={<TestPage />} />
           </Routes>
         </Container>
       </BrowserRouter>

@@ -1,6 +1,6 @@
 import { Button, ButtonGroup, Divider, Slider, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { PageStack } from '../components/PageComponents.tsx';
-import { useDelaunayDraw, Mode } from './useDelaunayDraw.ts';
+import { useDelaunayDraw } from './useDelaunayDraw.ts';
 import { useEffect, useRef } from 'react';
 
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -12,27 +12,37 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
+import { manipulateMode } from '../components/drawingCanvas/draw_modes/manipulate.ts';
+import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
+import { polygonStartMode } from '../components/drawingCanvas/draw_modes/polygonTool.ts';
+import type { Mode } from '../interlining/useInterliningDraw.ts';
 
 export default function DelaunayTriangulation() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
+    const drawModes = [pointDrawMode, lineStartMode, polygonStartMode, manipulateMode];
+
     const {
-        handleMouseMove, handleMouseDown, drawCanvas,
-        setLines, setMode, setOverlayPoints, setOverlayLines,
+        handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
+        redrawCanvas,
+        drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         iterateDelaunay, runDelaunayTimelapse, fullDelaunayTriangulation,
         binDelaunay
-    } = useDelaunayDraw(canvasRef);
+    } = useDelaunayDraw(canvasRef, drawModes);
 
-    const actions = [
+    const drawActions = [
         {
             label: "Clear", icon: <DeleteIcon />, action: () => {
-                setLines([]);
-                setOverlayPoints([]);
-                setOverlayLines([]);
-                setMode(Mode.NewLine);
+                clearCanvasOverlays();
+                clearCanvas();
+                setDrawMode(drawModes[0]!);
                 binDelaunay();
             }
         },
+    ];
+
+    const delaunayActions = [
         {
             label: "Runs the full Delaunay Triangulation process and only shows the result.", icon: <ChangeHistoryIcon />, action: () => {
                 fullDelaunayTriangulation();
@@ -42,7 +52,7 @@ export default function DelaunayTriangulation() {
             label: "Iterate Delaunay", icon: <PlayArrowIcon />, action: () => {
                 iterateDelaunay();
             }
-        }, 
+        },
         {
             label: "Run Delaunay Triangulation Timelapse", icon: <FastForwardIcon />, action: () => {
                 runDelaunayTimelapse(50);
@@ -51,19 +61,18 @@ export default function DelaunayTriangulation() {
         {
             label: "Reset Delaunay", icon: <RestartAltIcon />, action: () => {
                 binDelaunay();
-                setOverlayLines([]);
-                setOverlayPoints([]);
+                clearCanvasOverlays();
             }
-        }, 
+        },
         // {
         //     label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
         //         setOverlayLines([]);
-        //         setOverlayPoints([]);
+        //         setOverlayCircles([]);
         //     }
         // }
     ]
 
-    useEffect(() => drawCanvas(), [drawCanvas]);
+    useEffect(() => redrawCanvas(), [redrawCanvas]);
     return (
 
 
@@ -71,20 +80,32 @@ export default function DelaunayTriangulation() {
             <Typography variant='h3'>Delaunay Triangulation Demo</Typography>
 
             <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
-                {/* <ToggleButtonGroup value={mode} exclusive onChange={(e, val) => setMode(val)}>
-                    {modeButtons.map(b => (
-                        <Tooltip title={b.label} key={b.mode}>
-                            <ToggleButton value={b.mode}>{b.icon}</ToggleButton>
+                <ButtonGroup>
+                    {drawActions.map(a => (
+                        <Tooltip title={a.label} key={a.label}>
+                            <Button onClick={a.action}>{a.icon}</Button>
                         </Tooltip>
                     ))}
+                </ButtonGroup>
+
+                <ToggleButtonGroup value={'id' in drawMode ? drawMode.id : null}
+                    exclusive
+                    onChange={(_e, val) => {
+                        const next = drawModes.find(m => m.id === val);
+                        if (next) setDrawMode(next);
+                    }}>
+                    {drawModes.map(m => {
+                        const Icon = m.icon;
+                        return (
+                            <Tooltip title={m.label} key={m.id}>
+                                <ToggleButton value={m.id}><Icon /></ToggleButton>
+                            </Tooltip>
+                        )
+                    })}
                 </ToggleButtonGroup>
 
-                <Tooltip title="Pick Line Colour">
-                    <input type="color" value={currentColor} className='self-center' onChange={e => setCurrentColor(e.target.value)} />
-                </Tooltip> */}
-
                 <ButtonGroup>
-                    {actions.map(a => (
+                    {delaunayActions.map(a => (
                         <Tooltip title={a.label} key={a.label}>
                             <Button onClick={a.action}>{a.icon}</Button>
                         </Tooltip>
@@ -111,9 +132,9 @@ export default function DelaunayTriangulation() {
                 className="bg-gray-200 block touch-none max-w-full h-auto"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
-            // onMouseUp={handleMouseUp}
-            // onMouseLeave={handleMouseLeave}
-            // onContextMenu={handleRightClick}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                onContextMenu={handleRightClick}
             />
         </PageStack>
     );

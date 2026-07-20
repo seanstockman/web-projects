@@ -3,9 +3,9 @@ import { Line } from '../geometry/classes/line.ts';
 import { Segment } from '../geometry/classes/segment.ts';
 import { Vector2 as Vec2, Vector2 } from '../geometry/classes/vector-2.ts';
 import { drawer } from '../interlining/Drawer.tsx'
-import { geometry2d } from '../geometry/point-geometry/geometry2d.ts';
+import { geometry2d } from '../lib/geometry/geometry2d.ts';
 import { Point } from '../geometry/classes/point.ts';
-import { delaunay, type DelaunayGraph } from '../geometry/point-geometry/delaunay-triangulation.ts';
+import { delaunay, type DelaunayGraph } from '../lib/geometry/delaunay-triangulation.ts';
 
 export enum Mode {
     Manipulate,
@@ -197,7 +197,7 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
             const c = geometry2d.getCircumcircle(l.points[0]!, l.points[1]!, l.points[2]!);
             if (c) {
                 const outline: customCircle = {
-                    centre: new Vec2(c.centre.x, c.centre.y),
+                    centre: new Vec2(c.center.x, c.center.y),
                     radius: c.radius,
                     colour: "#272727",
                     filled: false,
@@ -205,7 +205,7 @@ export function useMedialDraw(canvasRef: RefObject<HTMLCanvasElement | null>) {
                     text: null
                 }
                 const centre: customCircle = {
-                    centre: new Vec2(c.centre.x, c.centre.y),
+                    centre: new Vec2(c.center.x, c.center.y),
                     radius: 1,
                     colour: "#272727",
                     filled: true,

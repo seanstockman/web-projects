@@ -1,11 +1,16 @@
 export interface Circle {
-    centre: Point;
+    center: Point;
     radius: number;
 }
 
 export interface Point {
     x: number,
     y: number
+}
+
+export interface Vector {
+    direction: number,
+    magnitude: number
 }
 
 export const geometry2d = {
@@ -30,7 +35,7 @@ export const geometry2d = {
         const radius = Math.sqrt((ux - A.x) ** 2 + (uy - A.y) ** 2);
 
         return {
-            centre: { x: ux, y: uy },
+            center: { x: ux, y: uy },
             radius: radius
         };
     },
@@ -42,13 +47,20 @@ export const geometry2d = {
         }
     },
 
-    getWeightedCentre(A: Point, B: Point, C: Point): Point {
-        const midpointAB = this.getMidpoint(A, B);
-        const midpointBC = this.getMidpoint(C, B);
-        const midpointCA = this.getMidpoint(A, C);
+    // getMidpointOfLine(ab: Line): Point {
+    //     return this.getMidpoint(ab.start, ab.end);
+    // },
+
+    getMeanOfPoints(...points: Point[]): Point {
+        let sumX = 0, sumY = 0;
+        points.forEach(p => {
+            sumX += p.x;
+            sumY += p.y;
+        });
+
         return {
-            x: (midpointAB.x + midpointBC.x + midpointCA.x) / 3,
-            y: (midpointAB.y + midpointBC.y + midpointCA.y) / 3,
+            x: (sumX) / points.length,
+            y: (sumY) / points.length,
         };
     },
 
@@ -77,7 +89,7 @@ export const geometry2d = {
     },
 
     /** Returns the angle in radians of the vector AB. Angles will be in the range [0, 2π). */
-    getAngleFromAToB(A: Point, B: Point) {
+    getDirectionFromAToB(A: Point, B: Point) {
         return (Math.atan2(B.y - A.y, B.x - A.x) + Math.PI * 2) % (Math.PI * 2);
     },
 
@@ -88,6 +100,13 @@ export const geometry2d = {
     getSignedArea(A: Point, B: Point, C: Point) {
         // shoelace formula
         return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y) - (A.y * B.x + B.y * C.x + C.y * A.x));
+    },
+
+    getVectorFromAToB(A: Point, B: Point): Vector {
+        return {
+            direction: this.getDirectionFromAToB(A, B),
+            magnitude: this.distance(A, B)
+        }
     }
 }
 
