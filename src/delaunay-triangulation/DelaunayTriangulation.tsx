@@ -39,7 +39,7 @@ export default function DelaunayTriangulation() {
         // },
         {
             label: "Run Delaunay Triangulation", icon: <PlayArrowIcon />, action: () => {
-                runDelaunayTimelapse(50);
+                runDelaunayTimelapse(0);
             }
         },
         {

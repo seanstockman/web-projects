@@ -33,6 +33,11 @@ type CustomLine = {
     text: string | null
 }
 
+type CustomDrawBundle = {
+    lines: CustomLine[],
+    circles: CustomCircle[],
+}
+
 let savedDelaunay: DelaunayGraph | undefined = undefined;
 
 
@@ -210,50 +215,23 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         }
     }, [mode, getMousePos, movedPoint]);
 
-    // function showCircumcircle() {
-    //     if (lines.length < 1) { console.error('lines length < 1'); return null; }
-    //     const l = lines[lines.length - 1];
-    //     if (!l?.points.length) { console.error('l.p.len not found'); return null };
-    //     if (l.points.length < 3) { console.error('l.p.len != 3'); console.log(l); return null; }
-    //     setOverlayPoints(extraPoints => {
-    //         const c = geometry2d.getCircumcircle(l.points[0]!, l.points[1]!, l.points[2]!);
-    //         if (c) {
-    //             const outline: customCircle = {
-    //                 centre: new Vec2(c.centre.x, c.centre.y),
-    //                 radius: c.radius,
-    //                 colour: "#272727",
-    //                 filled: false,
-    //                 lineWidth: 1,
-    //                 text: null
-    //             }
-    //             const centre: customCircle = {
-    //                 centre: new Vec2(c.centre.x, c.centre.y),
-    //                 radius: 1,
-    //                 colour: "#272727",
-    //                 filled: true,
-    //                 lineWidth: 0,
-    //                 text: null
-    //             }
-    //             return [...extraPoints, outline, centre]
-    //         }
-    //         console.error('find failure');
-    //         return extraPoints;
-    //     });
-    // }
-
     const wait = (ms: number): Promise<void> => {
         return new Promise((resolve) => setTimeout(resolve, ms));
     };
 
 
     async function runDelaunayTimelapse(deltaMs: number) {
+        setOverlayPoints([]);
+        setOverlayLines([]);
         savedDelaunay = initialiseDelaunay();
         if (!savedDelaunay) return;
-        await wait(deltaMs);
-        for (let i = 0; i < savedDelaunay.points.length; i++) {
-            iterateDelaunay();
-            await wait(deltaMs);
-        }
+        delaunay.delaunayTriangulation(savedDelaunay);
+        // halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1);
+
+        addDrawBundleToCanvas(extractFacesFromDelaunay(savedDelaunay, true));
+        addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
+
+        showDelaunay(savedDelaunay);
     }
 
     function iterateDelaunay() {
@@ -262,71 +240,51 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         setOverlayLines([]);
         setOverlayPoints([]);
 
-
         if (savedDelaunay == undefined) {
             console.log(`~~~~~~~~~~~~~~ initialising ~~~~~~~~~~~~~~`);
             savedDelaunay = initialiseDelaunay();
+            if (savedDelaunay) showDelaunay(savedDelaunay);
+            return;
         } else if (savedDelaunay.current >= savedDelaunay.count) {
             console.log(`~~~~~~~~~~~~~~ finalising ~~~~~~~~~~~~~~`);
-            const ccs = delaunay.finalise(savedDelaunay);
-            setOverlayPoints(e => [...e, ...ccs.circles.map((c, i) => ({
-                centre: new Vec2(c.centre.x, c.centre.y),
-                radius: c.radius,
-                colour: '#009a15',
-                filled: false,
-                lineWidth: 0.2,
-                text: `F` + i.toString(),
-                textPosition: new Vec2(ccs.centrepoints[i]!.x, ccs.centrepoints[i]!.y),
-            }))]);
-            savedDelaunay.finished = true;
+            addDrawBundleToCanvas(finaliseDelaunay(savedDelaunay));
 
-            console.log(`~~~~~~~~~~~~~~   traversing  ~~~~~~~~~~~~~~`);
-            const traversedFaces = halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1);
-            console.log(`traversed faces:`);
-            console.log(traversedFaces);
-            
-            
-            const l = new Line(
-                [new Vec2(savedDelaunay.points[0]!.x, savedDelaunay.points[0]!.y),
-                new Vec2(savedDelaunay.points[savedDelaunay.count - 1]!.x, savedDelaunay.points[savedDelaunay.count - 1]!.y)],
-                null,
-                `orange`,
-                3,
-                true
-            )
-            setOverlayLines(e => [...e, { line: l, text: null }])
+            addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
 
             console.log(`~~~~~~~~~~~~~~ final result  ~~~~~~~~~~~~~~`);
             console.log(savedDelaunay);
-        } else {
-            console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
-            const ccs = delaunay.iterate(savedDelaunay!);
+            showDelaunay(savedDelaunay);
+            return;
+        }
 
-            if (!ccs) return; // end of iterations (?)
+        console.log(`~~~~~~~~~~~~~~ new iteration ~~~~~~~~~~~~~~`);
+        const ccs = delaunay.iterate(savedDelaunay!);
 
-            // display explored circumcircles
-            setOverlayPoints(e => [...e, ...ccs.map(c => ({
-                centre: new Vec2(c.circle.centre.x, c.circle.centre.y),
-                radius: c.circle.radius,
-                colour: c.legal ? '#00ff8c' : '#ff0000',
-                filled: false,
-                lineWidth: 1,
-                text: null,
-                textPosition: new Vec2(c.circle.centre.x, c.circle.centre.y)
-            }))]);
+        if (!ccs) return; // end of iterations (?)
 
-            setOverlayLines(e => [...e, ...ccs.filter(c => c.removedLine != null).map(c => ({
-                line: new Line(
-                    [savedDelaunay!.points[c.removedLine![0]!]!, savedDelaunay!.points[c.removedLine![1]!]!],
-                    null,
-                    '#ff0000',
-                    1,
-                    true
-                ),
-                text: null
-            }))])
-        };
-        showDelaunay();
+        // display explored circumcircles
+        setOverlayPoints(e => [...e, ...ccs.map(c => ({
+            centre: new Vec2(c.circle.centre.x, c.circle.centre.y),
+            radius: c.circle.radius,
+            colour: c.legal ? '#00ff8c' : '#ff0000',
+            filled: false,
+            lineWidth: 1,
+            text: null,
+            textPosition: new Vec2(c.circle.centre.x, c.circle.centre.y)
+        }))]);
+
+        setOverlayLines(e => [...e, ...ccs.filter(c => c.removedLine != null).map(c => ({
+            line: new Line(
+                [savedDelaunay!.points[c.removedLine![0]!]!, savedDelaunay!.points[c.removedLine![1]!]!],
+                null,
+                '#ff0000',
+                1,
+                true
+            ),
+            text: null
+        }))])
+
+        showDelaunay(savedDelaunay);
     }
 
     function initialiseDelaunay() {
@@ -339,27 +297,76 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         return delaunay.initialise(points);
     }
 
+    function finaliseDelaunay(d: DelaunayGraph): CustomDrawBundle {
+        delaunay.finalise(d);
+        return extractFacesFromDelaunay(d);
+    }
+
+    function extractFacesFromDelaunay(d: DelaunayGraph, hideCircumCircles: boolean = false) : CustomDrawBundle {
+        const ccs = delaunay.getFacesAsCircumcircles(d);
+        const result: CustomDrawBundle = { circles: [], lines: [] };
+
+        result.circles = ccs.circles.map((c, i) => ({
+            centre: new Vec2(c.centre.x, c.centre.y),
+            radius: hideCircumCircles ? 0 : c.radius,
+            colour: '#009a15',
+            filled: false,
+            lineWidth: hideCircumCircles ? 0 : 0.2,
+            text: `F` + i.toString(),
+            textPosition: new Vec2(ccs.centrepoints[i]!.x, ccs.centrepoints[i]!.y),
+        }));
+        d.finished = true;
+        return result;
+    }
+
+    function traverseDelaunay(d: DelaunayGraph, origin: number, target: number): CustomDrawBundle {
+        const result: CustomDrawBundle = { lines: [], circles: [] };
+        console.log(`~~~~~~~~~~~~~~   traversing  ~~~~~~~~~~~~~~`);
+        const traversedFaces = halfEdgeTriangular.traverse(d.graph, origin, target);
+        console.log(`traversed faces:`);
+        console.log(traversedFaces);
+
+        result.lines = [
+            {
+                line: new Line(
+                    [new Vec2(d.points[origin]!.x, d.points[origin]!.y),
+                    new Vec2(d.points[target]!.x, d.points[target]!.y)],
+                    null,
+                    `orange`,
+                    3,
+                    true
+                ),
+                text: null
+            }
+        ];
+        return result;
+    }
+
+    function addDrawBundleToCanvas(bundle: CustomDrawBundle) {
+        setOverlayLines(e => [...e, ...bundle.lines]);
+        setOverlayPoints(e => [...e, ...bundle.circles]);
+    }
+
     function binDelaunay() {
         savedDelaunay = undefined;
     }
 
-    function showDelaunay() {
-        if (savedDelaunay == undefined) { console.log('reyurnings'); return; }
-
+    /** Appends all lines and points from the computed DelaunayGraph object to the canvas. */
+    function showDelaunay(d: DelaunayGraph) {
         setOverlayLines(e => [
             ...e,
-            ...delaunay.getResultToLines(savedDelaunay!, drawingColour, "#9e22fd").map((l, i) => ({ line: l, text: `E` + i.toString() }))
+            ...delaunay.getResultToLines(d, drawingColour, "#9e22fd").map((l, i) => ({ line: l, text: `E` + i.toString() }))
         ]);
 
         setOverlayPoints(e => [
             ...e,
-            ...(savedDelaunay!.points.map((p, index) => ({ //?.slice(0,2)
+            ...(d.points.map((p, index) => ({ //?.slice(0,2)
                 centre: p,
                 radius: 2,
                 colour: '#9e22fd',
                 filled: false,
                 lineWidth: 1,
-                text: index >= savedDelaunay!.count ? (-index - 1 + savedDelaunay!.count).toString() : index.toString(),
+                text: index >= d!.count ? (-index - 1 + d.count).toString() : index.toString(),
                 textPosition: new Vec2(p.x + 5, p.y - 5)
             })) ?? [])
         ]);

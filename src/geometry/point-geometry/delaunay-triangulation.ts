@@ -21,12 +21,11 @@ export type DelaunayCheckedCircle = {
 }
 
 export const delaunay = {
-    delaunayTriangulation(points: Point[]) {
-        if (points.length < 3) return null;
-
-        const initialised = delaunay.initialise(points);
-
-        return initialised;
+    delaunayTriangulation(dg: DelaunayGraph) {
+        while (dg.current < dg.count) {
+            this.iterate(dg);
+        }
+        this.finalise(dg);
     },
 
     initialise(points: Point[]): DelaunayGraph {
@@ -172,7 +171,9 @@ export const delaunay = {
         d.sweepLine = [];
 
         d.graph.clean();
+    },
 
+    getFacesAsCircumcircles(d: DelaunayGraph) {
         const tris: number[][] = d.graph.faces.filter(f => f.edges.length == 3).map(face => [
             d.graph.halfEdges[face.edges[0]!]!.origin,
             d.graph.halfEdges[face.edges[1]!]!.origin,
