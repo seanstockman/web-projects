@@ -9,6 +9,7 @@ import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import FastForwardIcon from '@mui/icons-material/FastForward';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 
@@ -18,7 +19,7 @@ export default function DelaunayTriangulation() {
     const {
         handleMouseMove, handleMouseDown, drawCanvas,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        iterateDelaunay, runDelaunayTimelapse,
+        iterateDelaunay, runDelaunayTimelapse, fullDelaunayTriangulation,
         binDelaunay
     } = useDelaunayDraw(canvasRef);
 
@@ -32,21 +33,22 @@ export default function DelaunayTriangulation() {
                 binDelaunay();
             }
         },
-        // {
-        //     label: "Show the circumcircle of the last drawn polygon", icon: <PanoramaFishEyeIcon />, action: () => {
-        //         showCircumcircle();
-        //     }
-        // },
         {
-            label: "Run Delaunay Triangulation", icon: <PlayArrowIcon />, action: () => {
-                runDelaunayTimelapse(0);
+            label: "Runs the full Delaunay Triangulation process and only shows the result.", icon: <ChangeHistoryIcon />, action: () => {
+                fullDelaunayTriangulation();
             }
         },
         {
-            label: "Iterate Delaunay", icon: <SkipNextIcon />, action: () => {
+            label: "Iterate Delaunay", icon: <PlayArrowIcon />, action: () => {
                 iterateDelaunay();
             }
-        }, {
+        }, 
+        {
+            label: "Run Delaunay Triangulation Timelapse", icon: <FastForwardIcon />, action: () => {
+                runDelaunayTimelapse(50);
+            }
+        },
+        {
             label: "Reset Delaunay", icon: <RestartAltIcon />, action: () => {
                 binDelaunay();
                 setOverlayLines([]);

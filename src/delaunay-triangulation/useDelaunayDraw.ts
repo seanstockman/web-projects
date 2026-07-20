@@ -219,14 +219,35 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         return new Promise((resolve) => setTimeout(resolve, ms));
     };
 
-
     async function runDelaunayTimelapse(deltaMs: number) {
         setOverlayPoints([]);
         setOverlayLines([]);
         savedDelaunay = initialiseDelaunay();
         if (!savedDelaunay) return;
+        showDelaunay(savedDelaunay);
+        await wait(deltaMs);
+
+        for (let i = 0; i <= savedDelaunay.count; i++) {
+            iterateDelaunay();
+            await wait(deltaMs);
+        }
+
+        // if (!savedDelaunay) return;
+        // delaunay.delaunayTriangulation(savedDelaunay);
+        // // halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1);
+
+        // addDrawBundleToCanvas(extractFacesFromDelaunay(savedDelaunay, true));
+        // addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
+
+        // showDelaunay(savedDelaunay);
+    }
+
+    function fullDelaunayTriangulation() {
+        setOverlayPoints([]);
+        setOverlayLines([]);
+        savedDelaunay = initialiseDelaunay();
+        if (!savedDelaunay) return;
         delaunay.delaunayTriangulation(savedDelaunay);
-        // halfEdgeTriangular.traverse(savedDelaunay.graph, 0, savedDelaunay.count - 1);
 
         addDrawBundleToCanvas(extractFacesFromDelaunay(savedDelaunay, true));
         addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
@@ -302,7 +323,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         return extractFacesFromDelaunay(d);
     }
 
-    function extractFacesFromDelaunay(d: DelaunayGraph, hideCircumCircles: boolean = false) : CustomDrawBundle {
+    function extractFacesFromDelaunay(d: DelaunayGraph, hideCircumCircles: boolean = false): CustomDrawBundle {
         const ccs = delaunay.getFacesAsCircumcircles(d);
         const result: CustomDrawBundle = { circles: [], lines: [] };
 
@@ -377,7 +398,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>) 
         handleMouseMove,
         handleMouseDown,
         setLines, setMode, setOverlayPoints, setOverlayLines,
-        iterateDelaunay, runDelaunayTimelapse,
+        iterateDelaunay, runDelaunayTimelapse, fullDelaunayTriangulation,
         binDelaunay
     };
 }
