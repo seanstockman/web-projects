@@ -244,7 +244,7 @@ export class HalfEdgeGraph {
         });
 
         // return angleMap;
-        
+
         const sortedAngleMap = new Map([...angleMap].sort((a, b) => a[0] - b[0]));
         return sortedAngleMap;
     }
@@ -369,7 +369,7 @@ export const halfEdgeTriangular = {
     /** Traverses the graph from the vertex at index A to the point at index B along a straight line, and returns the 
      * list of faces traversed. Assumes that a continuous list of triangles exists. */
     traverse(g: HalfEdgeGraph, A: number, B: number): number[] {
-        console.log(`Starting traversal from vertices ${A}->${B}.`);
+        // console.log(`Starting traversal from vertices ${A}->${B}.`);
         if (!g.vertices[A] || !g.vertices[B]) return [];
         const angleAB = geometry2d.getDirectionFromAToB(g.vertices[A], g.vertices[B]);
         return halfEdgeTriangular.traverseStartingAtPoint(g, A, g.vertices[A]!, angleAB, B);
@@ -379,36 +379,36 @@ export const halfEdgeTriangular = {
      * Will return if it hits the `endVertexIndex`. */
     traverseStartingAtPoint(g: HalfEdgeGraph, M: number, startVertex: Vertex, theta: number, endVertexIndex: number): number[] {
         // find angle to target
-        console.log(`Traversal iteration starting at vertex ${M}.`);
+        // console.log(`Traversal iteration starting at vertex ${M}.`);
         if (!g.vertices[M]) { console.error(`Vertex ${M} does not exist.`); return []; }
         const angleMapM = [...g.getAngleMap(M)];
 
-        console.log(`- target angle theta: ${(theta * 180 / Math.PI).toFixed(1)}`);
+        // console.log(`- target angle theta: ${(theta * 180 / Math.PI).toFixed(1)}`);
 
         let nextEdge: HalfEdge | undefined;
 
-        console.log(`- anglemap ${M}:`);
-        angleMapM.forEach((v, i) => {
-            console.log(`--- ${i}: E${v[0]} (${M}-${v[1].target})`);
-        })
+        // console.log(`- anglemap ${M}:`);
+        // angleMapM.forEach((v, i) => {
+            // console.log(`--- ${i}: E${v[0]} (${M}-${v[1].target})`);
+        // })
 
         for (let i = 0; i < angleMapM.length; i++) {
             // console.log(`edge ${g.vertices[M].edges[i]} target = ${g.halfEdges[g.vertices[M]!.edges[i]!]!.target}`);
             const alpha = angleMapM[i]![0]!;
             const edge = angleMapM[i]![1]!;
 
-            console.log(`- v${M}: angle: ${(alpha * 180 / Math.PI).toFixed(1)}, edge: ${edge.origin}-${edge.target}`);
+            // console.log(`- v${M}: angle: ${(alpha * 180 / Math.PI).toFixed(1)}, edge: ${edge.origin}-${edge.target}`);
 
             // specific case
             const loopCheckVertex = g.halfEdges[edge.prev]!.origin;
             if (geometry2d.getDirectionFromAToB(g.vertices[M], g.vertices[loopCheckVertex]!) == theta) {
                 if (loopCheckVertex == endVertexIndex) {
-                    console.log(`- found end (vertex ${endVertexIndex})`);
+                    // console.log(`- found end (vertex ${endVertexIndex})`);
                     return [edge.face];
                 }
                 return [edge.face, ...this.traverseStartingAtPoint(g, loopCheckVertex, startVertex, theta, endVertexIndex)];
             }
-            
+
             if (alpha == theta) {
                 // console.log(`equal!`);
                 const result = [edge.face];
@@ -427,24 +427,32 @@ export const halfEdgeTriangular = {
 
             if (alpha < theta) continue;
             nextEdge = edge;
-            console.log(`- angle > theta, setting edge as edge ${edge.origin}-${edge.target}`);
+            // console.log(`- angle > theta, setting edge as edge ${edge.origin}-${edge.target}`);
             break;
         }
-        if (!nextEdge) nextEdge = angleMapM[0]![1]!;
 
-        console.log(`- found next edge: ${nextEdge.origin}-${nextEdge.target}`);
+        if (!nextEdge) {
+            const newNextEdgeAngleInfo = angleMapM[0];
+            if (!newNextEdgeAngleInfo) return [];
+            nextEdge = newNextEdgeAngleInfo[1];
+            if (!nextEdge) return [];
+        }
+
+        // console.log(`- found next edge: ${nextEdge.origin}-${nextEdge.target}`);
         const farEdge = g.halfEdges[nextEdge.next];
         if (!farEdge) { console.error(`far edge ${nextEdge.next} doesn't exist`); return []; }
         if (farEdge.twin == -1) { console.error(`far edge ${nextEdge.next} has no twin. Returning.`); return [farEdge.face]; }
-        return [farEdge.face, ...this.traverseStartingAtEdge(g, g.halfEdges[farEdge.twin]!, startVertex, theta, endVertexIndex)];
+        const newIterationStartEdge = g.halfEdges[farEdge.twin];
+        if (!newIterationStartEdge) { console.error(`far edge ${nextEdge.twin} (twin of ${nextEdge.next} does not exist.`); return [farEdge.face]; }
+        return [farEdge.face, ...this.traverseStartingAtEdge(g, newIterationStartEdge, startVertex, theta, endVertexIndex)];
     },
 
     traverseStartingAtEdge(g: HalfEdgeGraph, E: HalfEdge, startVertex: Vertex, theta: number, endVertexIndex: number): number[] {
-        console.log(`Traversal iteration starting at edge ${E.origin}-${E.target}`);
+        // console.log(`Traversal iteration starting at edge ${E.origin}-${E.target}`);
         const oppositeVertex = g.halfEdges[E.next]!.target;
-        console.log(`- opposite vertex: ${oppositeVertex}`);
+        // console.log(`- opposite vertex: ${oppositeVertex}`);
         if (oppositeVertex == endVertexIndex) {
-            console.log(`- found end (vertex ${endVertexIndex})`);
+            // console.log(`- found end (vertex ${endVertexIndex})`);
             return [E.face];
         }
 
@@ -455,7 +463,8 @@ export const halfEdgeTriangular = {
 
         const whichEdgeTest = ((alpha - theta + Math.PI * 2) % (Math.PI * 2)) < Math.PI;
         const newEdgeTwinIndex = whichEdgeTest ? E.prev : E.next;
-        const newIterationStartEdge = g.halfEdges[g.halfEdges[newEdgeTwinIndex]!.twin]!;
+        const newIterationStartEdge = g.halfEdges[g.halfEdges[newEdgeTwinIndex]!.twin];
+        if (!newIterationStartEdge) { console.error(`far edge ${g.halfEdges[newEdgeTwinIndex]!.twin} (twin of ${newEdgeTwinIndex} does not exist.`); return [E.face]; }
         return [E.face, ...this.traverseStartingAtEdge(g, newIterationStartEdge, startVertex, theta, endVertexIndex)];
     }
 }

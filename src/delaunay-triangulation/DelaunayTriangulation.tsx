@@ -72,7 +72,7 @@ export default function DelaunayTriangulation() {
         // }
     ]
 
-    useEffect(() => redrawCanvas(), [redrawCanvas]);
+    useEffect(() => {redrawCanvas(); }, [redrawCanvas]);
     return (
 
 

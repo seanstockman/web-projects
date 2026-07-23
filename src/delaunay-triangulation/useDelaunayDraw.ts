@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type RefObject } from 'react';
 import { drawer } from '../components/drawingCanvas/CanvasDrawer.tsx';
-import { geometry2d } from '../lib/geometry/geometry2d.ts';
+import { geometry2d, type Point } from '../lib/geometry/geometry2d.ts';
 import { delaunay, type DelaunayGraph } from '../lib/geometry/delaunay-triangulation.ts';
 import { halfEdgeTriangular } from '../lib/geometry/halfedge.ts';
 import { useCanvasDraw, type DefaultCanvasProps, type OverlayCircle, type OverlayLine, type OverlayText } from '../components/drawingCanvas/useCanvasDraw.tsx';
@@ -37,11 +37,17 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         drawMode, setDrawMode,
         points, setPoints,
         lines, setLines,
+        movedPoint,
         clearCanvas, clearCanvasOverlays, redrawCanvas,
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         setOverlayLines, setOverlayCircles, setOverlayTexts,
     } = useCanvasDraw(canvasRef, defaultCanvasProps, canvasModes);
 
+    useEffect(() => {
+        if (points.length < 3) return;
+        // binDelaunay();
+        fullDelaunayTriangulation();
+    }, [points, movedPoint]);
 
     const wait = (ms: number): Promise<void> => {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,7 +55,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
     async function runDelaunayTimelapse(deltaMs: number) {
         clearCanvasOverlays();
-        savedDelaunay = initialiseDelaunay();
+        savedDelaunay = initialiseDelaunay(points);
         if (!savedDelaunay) return;
         showDelaunay(savedDelaunay);
         await wait(deltaMs);
@@ -71,7 +77,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
     function fullDelaunayTriangulation() {
         clearCanvasOverlays();
-        savedDelaunay = initialiseDelaunay();
+        savedDelaunay = initialiseDelaunay(points);
         if (!savedDelaunay) return;
         delaunay.delaunayTriangulation(savedDelaunay);
 
@@ -88,7 +94,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
         if (savedDelaunay == undefined) {
             console.log(`~~~~~~~~~~~~~~ initialising ~~~~~~~~~~~~~~`);
-            savedDelaunay = initialiseDelaunay();
+            savedDelaunay = initialiseDelaunay(points);
             if (savedDelaunay) showDelaunay(savedDelaunay);
             return;
         } else if (savedDelaunay.current >= savedDelaunay.count) {
@@ -130,7 +136,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         showDelaunay(savedDelaunay);
     }
 
-    function initialiseDelaunay() {
+    function initialiseDelaunay(vertices: Point[], connections?: Point[][]) {
         // two types. lets just consider points.
 
         // if (lines.length == 0) return undefined;
@@ -172,7 +178,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
     }
 
     function traverseDelaunay(d: DelaunayGraph, origin: number, target: number): CustomDrawBundle {
-        console.log(`~~~~~~~~~~~~~~   traversing  ~~~~~~~~~~~~~~`);
+        // console.log(`~~~~~~~~~~~~~~   traversing  ~~~~~~~~~~~~~~`);
         const traversedFaces = halfEdgeTriangular.traverse(d.graph, origin, target);
         console.log(`traversed faces:`);
         console.log(traversedFaces);

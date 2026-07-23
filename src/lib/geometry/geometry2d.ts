@@ -16,6 +16,7 @@ export interface Vector {
 export const geometry2d = {
     getCircumcircle(A: Point, B: Point, C: Point): Circle {
         // Common denominator calculation
+        if (geometry2d.arePointsCollinear(A, B, C)) return { center: { x: 0, y: 0 }, radius: 0 };
         const d = 2.0 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
 
         // Check for collinearity (Vec2s on a straight line or overlapping)
@@ -107,6 +108,11 @@ export const geometry2d = {
             direction: this.getDirectionFromAToB(A, B),
             magnitude: this.distance(A, B)
         }
+    },
+
+    /** Tests if the three points are collinear. */
+    arePointsCollinear(A: Point, B: Point, C: Point): boolean {
+        return ((B.y - A.y) * (C.x - B.x) == (C.y - B.y) * (B.x - A.x));
     }
 }
 

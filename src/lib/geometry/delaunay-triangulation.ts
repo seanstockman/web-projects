@@ -4,12 +4,12 @@ import { geometry2d, type Circle, type Point } from "./geometry2d.ts";
 import { HalfEdgeGraph } from "./halfedge.ts";
 
 export type DelaunayGraph = {
-    points: Point[],
+    points: (Point & {connectingVertices?: number[]})[],
     count: number,
     graph: HalfEdgeGraph,
     sweepLine: number[],
     current: number,
-    finished: boolean
+    finished: boolean,
 }
 
 export type DelaunayCheckedCircle = {
@@ -26,8 +26,16 @@ export const delaunay = {
         this.finalise(dg);
     },
 
-    initialise(points: Point[]): DelaunayGraph {
-        const sorted = [...points];
+    initialise(points: Point[], connections?: number[][]): DelaunayGraph {
+        let updatedPoints = points;
+        
+        if (connections) {
+            
+
+
+        }
+
+        const sorted = [...updatedPoints];
         sorted.sort((a, b) => a.x - b.x);
         const xMin = sorted[0]!.x;
         const xMax = sorted[sorted.length - 1]!.x;
@@ -41,8 +49,8 @@ export const delaunay = {
         const deltaX = alpha * (xMax - xMin);
         const deltaY = alpha * (yMax - yMin);
 
-        const Pm1 = {x: xMin - deltaX, y: yMin - deltaY};
-        const Pm2 = {x: xMax + deltaX, y: yMin - deltaY};
+        const Pm1 = { x: xMin - deltaX, y: yMin - deltaY };
+        const Pm2 = { x: xMax + deltaX, y: yMin - deltaY };
 
         sorted.push(Pm1, Pm2);
 
@@ -52,7 +60,7 @@ export const delaunay = {
             graph: new HalfEdgeGraph(sorted),
             sweepLine: [points.length, 0, points.length + 1],
             current: 1,
-            finished: false
+            finished: false,
         };
 
         dg.graph.addTriangle(dg.count, 0, dg.count + 1);
@@ -137,8 +145,8 @@ export const delaunay = {
      * i) removes triangles defined by at least one artificial point
      * ii) adds the bordering triangles forming the convex hull of V
      */
-    finalise(d: DelaunayGraph) {
-        triangulateChain(d, d.sweepLine);
+    finalise(d: DelaunayGraph) {        
+        triangulateChain(d, d.sweepLine.slice(1, d.sweepLine.length - 1));
 
         const baseLine = [d.sweepLine[d.sweepLine.length - 2]!];
         let edge = d.graph.findEdgeIndex(d.sweepLine[d.sweepLine.length - 2]!, d.sweepLine[d.sweepLine.length - 1]!);
@@ -194,14 +202,14 @@ export const delaunay = {
         return { circles: triCircles, centrepoints: centrepoints };
     },
 
-    getResultToLines(d: DelaunayGraph): {points: Point[], sweep: boolean}[] {
-        const lines: {points: Point[], sweep: boolean}[] = [];
+    getResultToLines(d: DelaunayGraph): { points: Point[], sweep: boolean }[] {
+        const lines: { points: Point[], sweep: boolean }[] = [];
 
         // normal
         d.graph.halfEdges.forEach(he => {
             if (he.dead) { lines.push(); return; }
             lines.push({
-                points: [d.points[he.origin]!, d.points[d.graph.halfEdges[he.next]!.origin]!], 
+                points: [d.points[he.origin]!, d.points[he.target]!],
                 sweep: false
             });
         });
@@ -209,7 +217,7 @@ export const delaunay = {
         // sweep
         for (let i = 0; i < d.sweepLine.length - 1; i++) {
             lines.push({
-                points: [d.points[d.sweepLine[i]!]!, d.points[d.sweepLine[i + 1]!]!], 
+                points: [d.points[d.sweepLine[i]!]!, d.points[d.sweepLine[i + 1]!]!],
                 sweep: true
             });
         }
@@ -230,6 +238,7 @@ type DelaunayLegalisationResult = {
  * - Returns an array of circumcircles in the order they are explored (including ABD & BDC if they are switched).
 */
 function legaliseTriangle(dg: DelaunayGraph, B: number, A: number, C: number): { dccs: DelaunayCheckedCircle[], flipped: boolean } {
+
     const edgeAC = dg.graph.halfEdges[dg.graph.findEdgeIndex(A, C)]!;
     const D = dg.graph.halfEdges[edgeAC.prev]!.origin;
 
@@ -259,8 +268,11 @@ function legaliseTriangle(dg: DelaunayGraph, B: number, A: number, C: number): {
     }
 
     if (!ccs[0]!.legal || !ccs[1]!.legal) {
-        console.log(`legalising triangle ${A}-${B}-${C}, adding and checking ${A}-${B}-${D} & ${D}-${B}-${C}`);
-        dg.graph.flipTriangles(A, B, C, D);
+        // console.log(`legalising triangle ${A}-${B}-${C}, adding and checking ${A}-${B}-${D} & ${D}-${B}-${C}`);
+        if (!dg.graph.flipTriangles(A, B, C, D)) {
+            console.error(`could not flip triangle ${A}-${B}-${C}`);
+            return result;
+        }
         ccs.push({
             circle: geometry2d.getCircumcircle(P_D, P_B, P_C),
             legal: true,
@@ -291,7 +303,7 @@ function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: numbe
     const a = geometry2d.getAngleBetweenPoints(d.points[pointIndices[0]!]!, d.points[pointIndices[1]!]!,
         d.points[pointIndices[2]!]!);
     if (a > sweepAddThreshold) return null;
-    console.log(`adjacency angle < pi/2, adding triangle ${pointIndices[0]}-${pointIndices[2]}-${pointIndices[1]}`);
+    // console.log(`adjacency angle < pi/2, adding triangle ${pointIndices[0]}-${pointIndices[2]}-${pointIndices[1]}`);
 
     d.sweepLine.splice(leftSweepIndex + 1, 1);
 
@@ -320,7 +332,7 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
         if (P_basin_end.y <= d.points[d.sweepLine[basinEndIndex - 1]!]!.y) return [];
 
         const angle = Math.atan2(P_i.y - P_basin_end.y, P_i.x - P_basin_end.x);
-        console.log(`checking angle ${angle * 180 / Math.PI}`);
+        // console.log(`checking angle ${angle * 180 / Math.PI}`);
         if (angle > Math.PI / 4) return [];
         for (let i = basinEndIndex - 2; i >= 0; i--) {
             if (d.points[d.sweepLine[i]!]!.y < P_basin_end.y) continue;
@@ -335,7 +347,7 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
         if (P_basin_start.y <= d.points[d.sweepLine[basinStartIndex + 1]!]!.y) return [];
 
         const angle = Math.atan2(P_i.y - P_basin_start.y, P_i.x - P_basin_start.x);
-        console.log(`checking angle ${angle * 180 / Math.PI}`);
+        // console.log(`checking angle ${angle * 180 / Math.PI}`);
         if (angle < 3 / 4 * Math.PI) return [];
         for (let i = basinStartIndex + 2; i < d.sweepLine.length; i++) {
             if (d.points[d.sweepLine[i]!]!.y < P_basin_start.y) continue;
@@ -345,7 +357,7 @@ function checkForBasins(d: DelaunayGraph, sweep_i: number, leftSideCheck: boolea
     }
 
     if (basinStartIndex < 0 || basinEndIndex < 0) { console.log("warning: failed to find basin end or start index"); return []; }
-    console.log(`Found basin from P_${d.sweepLine[basinStartIndex]} to P_${d.sweepLine[basinEndIndex]}.`);
+    // console.log(`Found basin from P_${d.sweepLine[basinStartIndex]} to P_${d.sweepLine[basinEndIndex]}.`);
 
     const result = triangulateChain(d, d.sweepLine.slice(basinStartIndex, basinEndIndex + 1));
     d.sweepLine.splice(basinStartIndex + 1, basinEndIndex - basinStartIndex - 1);
@@ -370,7 +382,7 @@ function triangulateChain(d: DelaunayGraph, chain: number[]): DelaunayCheckedCir
             const area = geometry2d.getSignedArea(d.points[second]!, d.points[top]!, d.points[v]!);
             if (area <= 0) break; // not a valid ear here — stop popping
 
-            console.log(`chain fill: adding triangle ${second}-${v}-${top}`);
+            // console.log(`chain fill: adding triangle ${second}-${v}-${top}`);
             d.graph.addTriangle(second, v, top); // matches your CW winding convention
             ccs.push(...legaliseTriangle(d, v, second, top).dccs);
             ccs.push(...legaliseTriangle(d, second, top, v).dccs);
