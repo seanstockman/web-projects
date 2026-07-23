@@ -15,6 +15,7 @@ export class PolygonStart implements SelectableDrawMode {
 
     handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
         ctx.setCursor(null);
+        ctx.setPoints(prev => [...prev, mouse, { ...mouse }]);
         ctx.setLines(prev => [...prev, [mouse, { ...mouse }, mouse]]);
         ctx.setDrawMode(polygonContinueMode);
     }
@@ -37,6 +38,11 @@ export class PolygonContinue implements DrawMode {
             updated[updated.length - 1] = last;
             return updated;
         });
+        ctx.setPoints(prev => {
+            const updated = prev;
+            updated[prev.length - 1] = mouse;
+            return updated;
+        });
         ctx.setMovedPoint(mouse);
     }
 
@@ -45,9 +51,14 @@ export class PolygonContinue implements DrawMode {
             if (prev.length === 0) return prev;
             const updated = [...prev];
             const last = updated[updated.length - 1]!;
-            updated[updated.length - 1]!.splice(last.length - 1, 0, { ...mouse });
+            updated[updated.length - 1]!.splice(last.length - 2, 0, mouse);
             return updated;
         });
+        ctx.setPoints(prev => {
+            const updated = [...prev];
+            updated.splice(updated.length - 1, 0, mouse);
+            return updated;
+        })
     }
 
     handleRightClick(ctx: CanvasDrawContext) {
@@ -61,6 +72,18 @@ export class PolygonContinue implements DrawMode {
             } else {
                 updated[updated.length - 1] = last;
             }
+            console.log(`updated line`);
+            console.log(last);
+            return updated;
+        });
+        ctx.setPoints(prev => {
+            return prev.slice(0, -1);
+
+            const updated = [...prev];
+            updated.splice(-2, 1);
+            // console.log(updated);
+            console.log(`updated points`);
+            console.log(updated);
             return updated;
         });
         ctx.setDrawMode(polygonStartMode);

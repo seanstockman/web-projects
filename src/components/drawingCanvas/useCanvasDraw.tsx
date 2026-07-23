@@ -84,15 +84,15 @@ export function useCanvasDraw(
             }
         });
 
-        lines.forEach((line, lineIndex) => {
-            line.forEach((p, pointIndex) => {
-                const d = dist(p, mouse);
-                if (d < minDist) {
-                    closest = p;
-                    minDist = d;
-                }
-            });
-        });
+        // lines.forEach((line, lineIndex) => {
+        //     line.forEach((p, pointIndex) => {
+        //         const d = dist(p, mouse);
+        //         if (d < minDist) {
+        //             closest = p;
+        //             minDist = d;
+        //         }
+        //     });
+        // });
 
         return closest;
     }, [points, lines, grabRadius]);
@@ -128,7 +128,7 @@ export function useCanvasDraw(
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         lines.forEach(l => drawer.drawPolyline(ctx, l, defaultProps.lineProps));
-        lines.forEach(l => l.forEach(p => drawer.drawCircle(ctx, { center: p, radius: defaultProps.pointRadius }, defaultProps.pointProps)));
+        // lines.forEach(l => l.forEach(p => drawer.drawCircle(ctx, { center: p, radius: defaultProps.pointRadius }, defaultProps.pointProps)));
         points.forEach(p => drawer.drawCircle(ctx, { center: p, radius: defaultProps.pointRadius }, defaultProps.pointProps));
 
         overlayLines.forEach(l => drawer.drawPolyline(ctx, l.points, l.props));

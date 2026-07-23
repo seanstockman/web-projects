@@ -15,6 +15,7 @@ export class LineStart implements SelectableDrawMode {
 
     handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
         ctx.setCursor(null);
+        ctx.setPoints(prev => [...prev, mouse, { ...mouse }]);
         ctx.setLines(prev => [...prev, [mouse, { ...mouse }]]);
         ctx.setDrawMode(lineContinueMode);
     }
@@ -29,6 +30,8 @@ export class LineStart implements SelectableDrawMode {
  * (no id/label/icon required). */
 export class LineContinue implements DrawMode {
     handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+        // ctx.movedPoint!.x = mouse.x;
+        // ctx.movedPoint!.y = mouse.y;
         ctx.setLines(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];
@@ -37,7 +40,11 @@ export class LineContinue implements DrawMode {
             updated[updated.length - 1] = last;
             return updated;
         });
-        ctx.setMovedPoint(mouse);
+        ctx.setPoints(prev => {
+            const updated = prev;
+            updated[prev.length - 1] = mouse;
+            return updated;
+        });
     }
 
     handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
@@ -47,6 +54,11 @@ export class LineContinue implements DrawMode {
             updated[updated.length - 1] = [...updated[updated.length - 1]!, { ...mouse }];
             return updated;
         });
+        ctx.setPoints(prev => {
+            const updated = [...prev];
+            updated.push({...mouse});
+            return updated;
+        })
     }
 
     handleRightClick(ctx: CanvasDrawContext) {
@@ -61,6 +73,9 @@ export class LineContinue implements DrawMode {
                 updated[updated.length - 1] = last;
             }
             return updated;
+        });
+        ctx.setPoints(prev => {
+            return prev.slice(0, -1);
         });
         ctx.setDrawMode(lineStartMode);
     }

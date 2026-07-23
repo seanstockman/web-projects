@@ -41,7 +41,6 @@ export class Manipulate implements SelectableDrawMode {
     }
 
     handleMouseUp(ctx: CanvasDrawContext) {
-        console.log(`mouse up!`);
         ctx.setMovedPoint(null);
     }
 
