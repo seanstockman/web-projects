@@ -4,7 +4,7 @@ import { geometry2d, type Circle, type Point } from "./geometry2d.ts";
 import { HalfEdgeGraph } from "./halfedge.ts";
 
 export type DelaunayGraph = {
-    points: (Point & {connectingVertices?: number[]})[],
+    points: PointWithConnections[],
     count: number,
     graph: HalfEdgeGraph,
     sweepLine: number[],
@@ -18,6 +18,10 @@ export type DelaunayCheckedCircle = {
     removedLine: null | number[]
 }
 
+type PointWithConnections = Point & {
+    connectingVertices: number[]
+}
+
 export const delaunay = {
     delaunayTriangulation(dg: DelaunayGraph) {
         while (dg.current < dg.count) {
@@ -26,39 +30,72 @@ export const delaunay = {
         this.finalise(dg);
     },
 
-    initialise(points: Point[], connections?: number[][]): DelaunayGraph {
-        let updatedPoints = points;
-        
-        if (connections) {
-            
+    initialise(vertices: Point[], lines: Point[][]): DelaunayGraph {
+        const sortedVertices: PointWithConnections[] = vertices.map(p => ({ x: p.x, y: p.y, connectingVertices: [] }));
 
+        // sort by x left to right
+        sortedVertices.sort((a, b) => a.x - b.x);
+        const xMin = sortedVertices[0]!.x;
+        const xMax = sortedVertices[sortedVertices.length - 1]!.x;
 
-        }
-
-        const sorted = [...updatedPoints];
-        sorted.sort((a, b) => a.x - b.x);
-        const xMin = sorted[0]!.x;
-        const xMax = sorted[sorted.length - 1]!.x;
-
-        sorted.sort((a, b) => a.y - b.y);
-        const yMin = sorted[0]!.y;
-        const yMax = sorted[sorted.length - 1]!.y;
+        // sort by y bottom to top
+        sortedVertices.sort((a, b) => a.y - b.y);
+        const yMin = sortedVertices[0]!.y;
+        const yMax = sortedVertices[sortedVertices.length - 1]!.y;
 
         const alpha = 0.3;
 
         const deltaX = alpha * (xMax - xMin);
         const deltaY = alpha * (yMax - yMin);
 
-        const Pm1 = { x: xMin - deltaX, y: yMin - deltaY };
-        const Pm2 = { x: xMax + deltaX, y: yMin - deltaY };
+        const Pm1: PointWithConnections = { x: xMin - deltaX, y: yMin - deltaY, connectingVertices: [] };
+        const Pm2: PointWithConnections = { x: xMax + deltaX, y: yMin - deltaY, connectingVertices: [] };
 
-        sorted.push(Pm1, Pm2);
+        sortedVertices.push(Pm1, Pm2);
+
+        // add the connection indices
+        const connectionIndices: number[][] = [];
+        lines.forEach((l, i) => {
+            const lineIndices: number[] = [];
+            l.forEach(p => {
+                lineIndices.push(sortedVertices.findIndex(sortedPoint => sortedPoint.x == p.x && sortedPoint.y == p.y));
+            });
+            connectionIndices.push(lineIndices);
+        });
+
+        console.log(`conns:`);
+        console.log(connectionIndices);
+
+        connectionIndices.forEach((l) => {
+            for (let i = 0; i < l.length - 1; i++) {
+                const A = l[i];
+                const B = l[i + 1];
+                if (A == undefined || B == undefined) { console.error(`the length of l exceeds the index ${i} or ${i + 1}`); console.log(l); continue; }
+                const vertexA = sortedVertices[A];
+                const vertexB = sortedVertices[B];
+                if (!vertexA || !vertexB) { console.error(`vertex ${A} or ${B} does not exist.`); continue; }
+
+                if (vertexA.y < vertexB.y) {
+                    // add point A index to point B
+                    vertexB.connectingVertices.push(A);
+                    console.log(`pushing vertex ${A} onto point ${B}'s connections`);
+                } else {
+                    // add point B index to point A
+                    vertexA.connectingVertices.push(B);
+                    console.log(`pushing vertex ${B} onto point ${A}'s connections`);
+                }
+            }
+        });
+
+        console.log(`sorted:`);
+        console.log(sortedVertices);
+
 
         const dg: DelaunayGraph = {
-            points: sorted,
-            count: points.length,
-            graph: new HalfEdgeGraph(sorted),
-            sweepLine: [points.length, 0, points.length + 1],
+            points: sortedVertices,
+            count: vertices.length,
+            graph: new HalfEdgeGraph(sortedVertices),
+            sweepLine: [vertices.length, 0, vertices.length + 1],
             current: 1,
             finished: false,
         };
@@ -145,7 +182,7 @@ export const delaunay = {
      * i) removes triangles defined by at least one artificial point
      * ii) adds the bordering triangles forming the convex hull of V
      */
-    finalise(d: DelaunayGraph) {        
+    finalise(d: DelaunayGraph) {
         triangulateChain(d, d.sweepLine.slice(1, d.sweepLine.length - 1));
 
         const baseLine = [d.sweepLine[d.sweepLine.length - 2]!];
@@ -239,16 +276,22 @@ type DelaunayLegalisationResult = {
 */
 function legaliseTriangle(dg: DelaunayGraph, B: number, A: number, C: number): { dccs: DelaunayCheckedCircle[], flipped: boolean } {
 
-    const edgeAC = dg.graph.halfEdges[dg.graph.findEdgeIndex(A, C)]!;
-    const D = dg.graph.halfEdges[edgeAC.prev]!.origin;
-
-    // console.log(`checking triangle pairs along ${A}-${C}`);
-    const P_B = dg.points[B]!, P_A = dg.points[A]!, P_C = dg.points[C]!, P_D = dg.points[D]!;
 
     const result: DelaunayLegalisationResult = {
         dccs: [],
         flipped: false
     }
+
+    const edgeAC = dg.graph.halfEdges[dg.graph.findEdgeIndex(A, C)]!;
+    const edgeAcPrev = edgeAC.prev;
+    if (!edgeAcPrev) return result;
+    const edgeAcPrevEdge = dg.graph.halfEdges[edgeAcPrev];
+    if (!edgeAcPrevEdge) return result;
+
+    const D = edgeAcPrevEdge.origin;
+
+    // console.log(`checking triangle pairs along ${A}-${C}`);
+    const P_B = dg.points[B]!, P_A = dg.points[A]!, P_C = dg.points[C]!, P_D = dg.points[D]!;
 
     const ccs: DelaunayCheckedCircle[] = [{
         circle: geometry2d.getCircumcircle(P_A, P_C, P_B),

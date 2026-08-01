@@ -27,7 +27,7 @@ const defaultCanvasProps: DefaultCanvasProps = {
     pointRadius: 3,
     lineProps: { width: 2, color: drawingColour, dashed: false },
     cursorProps: { filled: true, borderWidth: 0, color: '#ff0000d4' },
-    cursorRadius: 3,
+    cursorRadius: 1.5,
     manipulateGrabRadius: 15,
 };
 
@@ -55,7 +55,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
     async function runDelaunayTimelapse(deltaMs: number) {
         clearCanvasOverlays();
-        savedDelaunay = initialiseDelaunay(points);
+        savedDelaunay = initialiseDelaunay(points, lines);
         if (!savedDelaunay) return;
         showDelaunay(savedDelaunay);
         await wait(deltaMs);
@@ -77,7 +77,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
     function fullDelaunayTriangulation() {
         clearCanvasOverlays();
-        savedDelaunay = initialiseDelaunay(points);
+        savedDelaunay = initialiseDelaunay(points, lines);
         if (!savedDelaunay) return;
         delaunay.delaunayTriangulation(savedDelaunay);
 
@@ -94,7 +94,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
 
         if (savedDelaunay == undefined) {
             console.log(`~~~~~~~~~~~~~~ initialising ~~~~~~~~~~~~~~`);
-            savedDelaunay = initialiseDelaunay(points);
+            savedDelaunay = initialiseDelaunay(points, lines);
             if (savedDelaunay) showDelaunay(savedDelaunay);
             return;
         } else if (savedDelaunay.current >= savedDelaunay.count) {
@@ -136,16 +136,8 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         showDelaunay(savedDelaunay);
     }
 
-    function initialiseDelaunay(vertices: Point[], connections?: Point[][]) {
-        // two types. lets just consider points.
-
-        // if (lines.length == 0) return undefined;
-        // const l = lines[lines.length - 1];
-        // if (!l?.points.length) { console.error('l.p.len not found'); return undefined };
-        // if (l.points.length < 4) { console.error('l.p.len != 3'); console.log(l); return undefined; }
-        // const points = l.points.map(v => new Point(v.x, v.y));
-        // points.splice(points.length - 1, 1);
-        return delaunay.initialise(points);
+    function initialiseDelaunay(vertices: Point[], connections: Point[][]) {
+        return delaunay.initialise(vertices, connections);
     }
 
     function finaliseDelaunay(d: DelaunayGraph): CustomDrawBundle {
