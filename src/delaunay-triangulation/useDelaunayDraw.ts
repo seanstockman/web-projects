@@ -46,7 +46,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
     useEffect(() => {
         if (points.length < 3) return;
         // binDelaunay();
-        fullDelaunayTriangulation();
+        // fullDelaunayTriangulation();
     }, [points, movedPoint]);
 
     const wait = (ms: number): Promise<void> => {
@@ -134,6 +134,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         }))])
 
         showDelaunay(savedDelaunay);
+        console.log(savedDelaunay.graph);
     }
 
     function initialiseDelaunay(vertices: Point[], connections: Point[][]) {

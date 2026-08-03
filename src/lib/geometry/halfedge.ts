@@ -25,7 +25,7 @@ type Face = {
 
 type BundledHalfEdge = {
     e: HalfEdge,
-    i: number
+    index: number
 }
 
 export class HalfEdgeGraph {
@@ -39,25 +39,16 @@ export class HalfEdgeGraph {
     constructor(points: Point[]) {
         this.vertices = points.map(p => ({ x: p.x, y: p.y, edges: [] }));
         this.halfEdges = [];
-        this.faces = [];
+        this.faces = [{ edges: [] }]; // outer face
         this.edgeMap = new Map<string, number>();
     }
 
-    private registerEdges(...edgeIndices: number[]) {
+    /** Registers the given edge indices into the edgeMap. */
+    private registerEdgesInEdgeMap(...edgeIndices: number[]) {
         edgeIndices.forEach(edgeIndex => {
-            const he = this.halfEdges[edgeIndex]!;
+            const he = this.halfEdges[edgeIndex];
+            if (!he) return;
             this.edgeMap.set(this.edgeToString(he), edgeIndex);
-        });
-    }
-
-    private findAndSetTwins(...edgeIndices: number[]) {
-        edgeIndices.forEach(edgeIndex => {
-            let e = this.halfEdges[edgeIndex]!;
-            let dest = this.halfEdges[e.next]!.origin;
-            let foundTwin = this.findEdgeIndex(dest, e.origin);
-            if (foundTwin == -1) return;
-            e.twin = foundTwin;
-            this.halfEdges[foundTwin]!.twin = edgeIndex;
         });
     }
 
@@ -67,6 +58,7 @@ export class HalfEdgeGraph {
         return this.edgeMap.get(`${origin}->${dest}`) ?? -1;
     }
 
+    /** Validate that the vertices are connected in a correct order. */
     private validatePolygon(...vertices: number[]): boolean {
         if (vertices.length < 3) return false;
         // for (let i = 0; i < vertices.length; i++)
@@ -78,47 +70,231 @@ export class HalfEdgeGraph {
         return true;
     }
 
+    /** Adds a disconnected, standalone triangle surrounded by the outer face to the half edge map. Must be called before using addConnectedTriangle */
+    public addDisconnectedTriangle(A: number, B: number, C: number) {
+        const vertexA = this.vertices[A], vertexB = this.vertices[B], vertexC = this.vertices[C];
+        if (!vertexA || !vertexB || !vertexC) { console.error(`vertex ${A},${B} or ${C} could not be found`); return false; }
+
+        const outerFace = this.faces[0];
+        if (!outerFace || outerFace.edges.length != 0) { console.error(`empty face is undefined or already has edges assigned`); return false; }
+
+        // inner CW halfedges 
+        const AB = this.initialiseHalfEdge(A, B);
+        const BC = this.initialiseHalfEdge(B, C);
+        const CA = this.initialiseHalfEdge(C, A);
+
+        // initialise inner face
+        const ABC = this.getFreeFace();
+        ABC.f.edges = [AB.index, BC.index, CA.index];
+        AB.e.face = ABC.index;
+        BC.e.face = ABC.index;
+        CA.e.face = ABC.index;
+
+        // outer CCW halfedges
+        const BA = this.initialiseHalfEdge(B, A);
+        const CB = this.initialiseHalfEdge(C, B);
+        const AC = this.initialiseHalfEdge(A, C);
+
+        // assign outer face to outers
+        outerFace.edges = [BA.index, AC.index, CB.index];
+        BA.e.face = 0;
+        AC.e.face = 0;
+        CB.e.face = 0;
+
+        // assign twins
+        AB.e.twin = BA.index;
+        BA.e.twin = AB.index;
+
+        BC.e.twin = CB.index;
+        CB.e.twin = BC.index;
+
+        CA.e.twin = AC.index;
+        AC.e.twin = CA.index;
+
+        // assign ordering - inner
+        AB.e.next = BC.index;
+        BC.e.next = CA.index;
+        CA.e.next = AB.index;
+
+        AB.e.prev = CA.index;
+        BC.e.prev = AB.index;
+        CA.e.prev = BC.index;
+
+        // assign ordering - outer
+        BA.e.next = AC.index;
+        CB.e.next = BA.index;
+        AC.e.next = CB.index;
+
+        BA.e.prev = CB.index;
+        CB.e.prev = AC.index;
+        AC.e.prev = BA.index;
+
+        // register edges
+        this.registerEdgesInEdgeMap(AB.index, BC.index, CA.index, BA.index, CB.index, AC.index);
+
+        // push edges onto vertices
+        vertexA.edges.push(AB.index, AC.index);
+        vertexB.edges.push(BC.index, BA.index);
+        vertexC.edges.push(CA.index, CB.index);
+
+        console.log(`added disconnected triangle`);
+        console.log(this);
+
+        return true;
+    }
+
     /** Adds the triangle A-B-C in a clockwise direction. */
-    public addTriangle(A: number, B: number, C: number): boolean {
-        if (!this.vertices[A]) return false;
-        if (!this.vertices[B]) return false;
-        if (!this.vertices[C]) return false;
+    public addConnectedTriangle(A: number, B: number, C: number): boolean {
+        const vertexA = this.vertices[A], vertexB = this.vertices[B], vertexC = this.vertices[C];
+        if (!vertexA || !vertexB || !vertexC) { console.error(`vertex ${A},${B} or ${C} could not be found`); return false; }
 
-        let AB = this.initialiseHalfEdge(A, B);
-        let BC = this.initialiseHalfEdge(B, C);
-        let CA = this.initialiseHalfEdge(C, A);
+        let AB = this.findEdgeIndex(A, B);
+        let BC = this.findEdgeIndex(B, C);
+        let CA = this.findEdgeIndex(C, A);
 
-        // this.halfEdges.push(edgeAB, edgeBC, edgeCA);
-        // let AB = this.halfEdges.length - 3;
-        // let BC = this.halfEdges.length - 2;
-        // let CA = this.halfEdges.length - 1;
+        const preExistingEdgeIndices = [AB, BC, CA].filter(v => v != -1);
+        // reverse if AB -> CA for consistent 'first'
+        if (preExistingEdgeIndices.includes(AB) && preExistingEdgeIndices.includes(CA)) preExistingEdgeIndices.reverse();
 
-        AB.e.next = BC.i;
-        AB.e.prev = CA.i;
+        // verify at least one exists
+        if (preExistingEdgeIndices.length == 0) { console.error(`cannot add connected triangle: no edges already exist (no connection)`); return false; }
+        if (preExistingEdgeIndices.length == 3) { console.log(`triangle already exists`); return false; }
 
-        BC.e.next = CA.i;
-        BC.e.prev = AB.i;
+        // generate new edges if they dont exist
+        if (AB == -1) AB = this.initialiseHalfEdge(A, B).index;
+        const edgeAB = this.halfEdges[AB];
 
-        CA.e.next = AB.i;
-        CA.e.prev = BC.i;
+        if (BC == -1) BC = this.initialiseHalfEdge(B, C).index;
+        const edgeBC = this.halfEdges[BC];
 
-        const newFace = this.getFreeFace();
-        newFace.f.edges = [AB.i, BC.i, CA.i];
+        if (CA == -1) CA = this.initialiseHalfEdge(C, A).index;
+        const edgeCA = this.halfEdges[CA];
 
-        AB.e.face = newFace.i;
-        BC.e.face = newFace.i;
-        CA.e.face = newFace.i;
+        if (!edgeAB || !edgeBC || !edgeCA) { console.error(`one edge could not be found`); return false; }
 
-        this.findAndSetTwins(AB.i, BC.i, CA.i);
-        this.registerEdges(AB.i, BC.i, CA.i);
+        const newEdgeIndices = [AB, BC, CA].filter(v => !preExistingEdgeIndices.includes(v));
+        const newEdges = newEdgeIndices.map(e => this.halfEdges[e]!);
 
-        this.vertices[A].edges.push(AB.i);
-        this.vertices[B].edges.push(BC.i);
-        this.vertices[C].edges.push(CA.i);
+        // determine (an) existing edge and outer face
+        const outerFaceIndex = this.halfEdges[preExistingEdgeIndices[0]!]!.face;
+        const outerFace = this.faces[outerFaceIndex];
+        if (!outerFace) { console.error(`could not index outer face (${outerFaceIndex})`); console.log(this); return false; }
 
-        // console.log(`angles from point ${A}:`);
-        // console.log(this.vertices[A].edges.map(e => this.halfEdges[e]!.targetVertex));
-        // console.log(this.getAngleMap(A).map(theta => (180 / Math.PI) * theta));
+        // determine the prev and next.
+        const firstExistingEdgeIndex = preExistingEdgeIndices[0]!;
+        const firstExistingEdge = this.halfEdges[firstExistingEdgeIndex];
+        if (!firstExistingEdge) { console.error(`somethings gone wrong`); return false; }
+
+        const lastExistingEdgeIndex = preExistingEdgeIndices[preExistingEdgeIndices.length - 1]!;
+        const lastExistingEdge = this.halfEdges[lastExistingEdgeIndex];
+        if (!lastExistingEdge) { console.error(`somethings gone wrong`); return false; }
+
+        // get prev edge in outer face
+        const prevEdgeInOuterFaceIndex = firstExistingEdge.prev;
+        const prevEdgeInOuterFace = this.getPrev(firstExistingEdge);
+        if (!prevEdgeInOuterFace) { console.error(`could not find prevEdgeOuter ${prevEdgeInOuterFaceIndex} (from edge ${this.edgeToString(firstExistingEdge)})`); return false; }
+
+        // get next edge in outer face
+        const nextEdgeInOuterFaceIndex = lastExistingEdge.next;
+        const nextEdgeInOuterFace = this.getNext(lastExistingEdge);
+        if (!nextEdgeInOuterFace) { console.error(`could not find nextEdgeOuter ${nextEdgeInOuterFaceIndex}`); return false; }
+
+        // generate twins for edges that dont exist
+        let BA = edgeAB.twin, AC = edgeCA.twin, CB = edgeBC.twin;
+
+        if (BA == -1) BA = this.initialiseHalfEdge(B, A).index;
+        const edgeBA = this.halfEdges[BA];
+
+        if (CB == -1) CB = this.initialiseHalfEdge(C, B).index;
+        const edgeCB = this.halfEdges[CB];
+
+        if (AC == -1) AC = this.initialiseHalfEdge(A, C).index;
+        const edgeAC = this.halfEdges[AC];
+
+        if (!edgeBA || !edgeCB || !edgeAC) { console.error(`one twin edge could not be found`); return false; }
+
+        // push edges for new edges and assign twins
+        if (newEdgeIndices.includes(AB)) {
+            vertexA.edges.push(AB);
+            vertexB.edges.push(BA);
+            edgeAB.twin = BA;
+            edgeBA.twin = AB;
+        }
+        if (newEdgeIndices.includes(BC)) {
+            vertexB.edges.push(BC);
+            vertexC.edges.push(CB);
+            edgeBC.twin = CB;
+            edgeCB.twin = BC;
+        }
+        if (newEdgeIndices.includes(CA)) {
+            vertexC.edges.push(CA);
+            vertexA.edges.push(AC);
+            edgeCA.twin = AC;
+            edgeAC.twin = CA;
+        }
+
+        // create new inner face
+        const bundledABC = this.getFreeFace(), ABC = bundledABC.index, faceABC = bundledABC.f;
+
+        // assign ordering
+        // AB -> BC -> CA
+        edgeAB.next = BC;
+        edgeBC.next = CA;
+        edgeCA.next = AB;
+
+        edgeAB.prev = CA;
+        edgeBC.prev = AB;
+        edgeCA.prev = BC;
+
+        // assign faces
+        edgeAB.face = ABC;
+        faceABC.edges = [AB, BC, CA];
+
+        // AC -> CB -> BA
+        edgeAC.next = CB;
+        edgeCB.next = BA;
+        edgeBA.next = AC;
+
+        edgeAC.prev = BA;
+        edgeCB.prev = AC;
+        edgeBA.prev = CB;
+
+        // wont change existing
+        this.registerEdgesInEdgeMap(AB, BC, CA, BA, CB, AC);
+
+        // assign outer face
+        const firstOuterMatchIndex = outerFace.edges.findIndex(e => preExistingEdgeIndices.includes(e));
+        if (firstOuterMatchIndex == -1) { console.error(`first existing element could not be found`); return false; }
+
+        // the twins of the new edges we splice in where the old ones were.
+        // remove old ones (this way looping doesnt matter)
+        preExistingEdgeIndices.forEach(edgeIndex =>
+            outerFace.edges.splice(outerFace.edges.findIndex(outerFaceEdge => outerFaceEdge == edgeIndex), 1)
+        );
+
+        const newEdgeTwinIndices = newEdges.map(e => e.twin);
+        newEdgeTwinIndices.forEach(twinIndex => {
+            const twin = this.halfEdges[twinIndex]
+            if (!twin) { console.error(`could not index into edge ${twinIndex}`); return; }
+            twin.face = outerFaceIndex;
+        });
+
+        newEdgeTwinIndices.reverse();
+        // check case where includes only AC and BA. max length of newEdgeTwins can be 2 by setup. flip them so that they are oriented in the correct order (so theres not a missing jump)
+        if (newEdgeTwinIndices.includes(BA) && newEdgeTwinIndices.includes(AC)) {
+            newEdgeTwinIndices.reverse();
+        }
+
+        // insert the new edge twins into the outer array
+        outerFace.edges.splice(firstOuterMatchIndex, 0, ...newEdgeTwinIndices);
+
+        // correct the next and prev
+        this.halfEdges[newEdgeTwinIndices[0]!]!.prev = prevEdgeInOuterFaceIndex;
+        prevEdgeInOuterFace.next = newEdgeTwinIndices[0]!;
+
+        this.halfEdges[newEdgeTwinIndices[newEdgeTwinIndices.length - 1]!]!.next = nextEdgeInOuterFaceIndex;
+        nextEdgeInOuterFace.prev = newEdgeTwinIndices[newEdgeTwinIndices.length - 1]!;
+
         return true;
     }
 
@@ -243,18 +419,54 @@ export class HalfEdgeGraph {
         if (!ABC) return false;
         if (ABC.edges.length != 3) return false;
 
+        // Assumption: face index 0 is always THE single open-exterior region,
+        // as established by addDisconnectedTriangle. If your mesh ever tracks
+        // multiple distinct "exterior-like" faces, this needs to check against
+        // whichever set those are, not a hardcoded 0.
+        const EXTERIOR_FACE = 0;
+
         for (let i = 0; i < 3; i++) {
             const edgeIndex = ABC.edges[i]!;
             const removedEdge = this.halfEdges[edgeIndex]!;
 
-            const origin = this.vertices[removedEdge.origin];
-            origin!.edges = origin!.edges.filter(e => e != edgeIndex);
+            const origin = this.vertices[removedEdge.origin]!;
+            origin.edges = origin.edges.filter(e => e != edgeIndex);
+
+            const removedEdgeTwin = this.getTwin(removedEdge);
+
+            if (removedEdgeTwin) {
+                if (removedEdgeTwin.face === EXTERIOR_FACE) {
+                    // This side bordered open exterior, not a real triangle — the
+                    // boundary detour that was inserted for this triangle collapses:
+                    // splice the twin out of the exterior loop, reconnecting its
+                    // neighbors directly, and remove it too.
+                    const twinIndex = removedEdge.twin;
+                    const prev = this.getPrev(removedEdgeTwin);
+                    const next = this.getNext(removedEdgeTwin);
+
+                    if (prev && next && prev !== removedEdgeTwin) {
+                        prev.next = removedEdgeTwin.next;
+                        next.prev = removedEdgeTwin.prev;
+                    }
+                    // if prev/next resolve back to the twin itself, it was the
+                    // exterior face's only remaining edge — nothing left to relink.
+
+                    const twinOrigin = this.vertices[removedEdgeTwin.origin]!;
+                    twinOrigin.edges = twinOrigin.edges.filter(e => e != twinIndex);
+
+                    removedEdgeTwin.dead = true;
+                    this.edgeMap.delete(this.edgeToString(removedEdgeTwin));
+                    this.freeEdges.push(twinIndex);
+                } else {
+                    // This side bordered a real, still-existing neighbor triangle —
+                    // that triangle and its own face/loop are untouched. It just
+                    // now has a boundary-facing edge instead of a twin.
+                    removedEdgeTwin.twin = -1;
+                }
+            }
 
             removedEdge.dead = true;
-            const removedEdgeTwin = this.getTwin(removedEdge);
-            if (removedEdgeTwin) removedEdgeTwin.twin = -1;
-            this.edgeMap.delete(`${this.edgeToString(removedEdge)}`);
-
+            this.edgeMap.delete(this.edgeToString(removedEdge));
             this.freeEdges.push(edgeIndex);
         }
 
@@ -305,7 +517,7 @@ export class HalfEdgeGraph {
             edge.used = false;
             edge.face = -1;
             edge.dead = false;
-            return { e: edge, i: freeEdgeIndex };
+            return { e: edge, index: freeEdgeIndex };
         }
         const newEdge = {
             twin: -1,
@@ -319,20 +531,20 @@ export class HalfEdgeGraph {
             locked: false
         };
         this.halfEdges.push(newEdge);
-        return { e: newEdge, i: this.halfEdges.length - 1 }
+        return { e: newEdge, index: this.halfEdges.length - 1 }
     }
 
-    /** Finds a free edge and returns the face object and its index. Will resize the respective array if no free spots are found. */
-    private getFreeFace(): { f: Face, i: number } {
+    /** Finds a free edge and returns the face object and its index. Will resize and add the face to the face array if no free spots are found. */
+    private getFreeFace(): { f: Face, index: number } {
         if (this.freeFaces.length != 0) {
             const freeFaceIndex = this.freeFaces.splice(0, 1)[0]!;
-            return { f: this.faces[freeFaceIndex]!, i: freeFaceIndex };
+            return { f: this.faces[freeFaceIndex]!, index: freeFaceIndex };
         }
         const newFace: Face = {
             edges: []
         };
         this.faces.push(newFace);
-        return { f: newFace, i: this.faces.length - 1 }
+        return { f: newFace, index: this.faces.length - 1 }
     }
 
     public clean() {
@@ -411,7 +623,7 @@ export class HalfEdgeGraph {
     /** Returns the twin of this half-edge, or undefined if it does not exist. */
     public getTwin(e: HalfEdge) {
         const twinEdgeIndex = e.twin;
-        if (twinEdgeIndex == -1) {console.error(`twin edge of ${this.edgeToString(e)} is undefined`); return undefined;}
+        if (twinEdgeIndex == -1) { console.error(`twin edge of ${this.edgeToString(e)} is undefined`); return undefined; }
         const twin = this.halfEdges[twinEdgeIndex];
         if (!twin) console.error(`could not find edge ${this.vertEdgeToString(e.target, e.origin)}`);
         return twin;
@@ -448,7 +660,7 @@ export class HalfEdgeGraph {
     /** Returns the origin of this half-edge, or undefined. */
     public getTarget(e: HalfEdge) {
         const targetVertexIndex = e.target;
-        if (targetVertexIndex == -1) {console.error(`getTarget: target vertex is undefined`); return undefined;}
+        if (targetVertexIndex == -1) { console.error(`getTarget: target vertex is undefined`); return undefined; }
         const target = this.vertices[targetVertexIndex];
         if (!target) console.error(`getTarget: could not retrieve vertex ${targetVertexIndex}`);
         return target;

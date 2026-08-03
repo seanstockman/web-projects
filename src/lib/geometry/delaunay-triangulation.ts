@@ -31,8 +31,7 @@ export const delaunay = {
         this.finalise(dg);
     },
 
-    initialise(vertices: Point[], lines: Point[][]): DelaunayGraph {
-
+    initialise(vertices: Point[], lines: Point[][]) {
         const sortedVertices: PointWithConnections[] = vertices.map(p => ({ x: p.x, y: p.y, connectingVertices: [] }));
         // The last duplicate element wins with this approach
 
@@ -60,7 +59,7 @@ export const delaunay = {
 
         // add the connection indices
         const connectionIndices: number[][] = [];
-        lines.forEach((l, i) => {
+        lines.forEach(l => {
             const lineIndices: number[] = [];
             l.forEach(p => {
                 lineIndices.push(sortedVertices.findIndex(sortedPoint => sortedPoint.x == p.x && sortedPoint.y == p.y));
@@ -113,8 +112,9 @@ export const delaunay = {
             finished: false,
         };
 
-        dg.graph.addTriangle(dg.count, 0, dg.count + 1);
+        dg.graph.addDisconnectedTriangle(dg.count, 0, dg.count + 1);
 
+        // return undefined;
         return dg;
     },
 
@@ -153,24 +153,25 @@ export const delaunay = {
         if (sweepIndexOfCurr == -1) return; // just to trigger intellisense
 
         // add legal triangle
-        let ccs;
+        let ccs: DelaunayCheckedCircle[] = [];
         if (M == -1) {
             console.log(`adding triangle ${L}-${dg.current}-${R}`);
-            dg.graph.addTriangle(L, dg.current, R);
-            ccs = legaliseTriangle(dg, dg.current, L, R).dccs;
+            dg.graph.addConnectedTriangle(L, dg.current, R);
+            // ccs = legaliseTriangle(dg, dg.current, L, R).dccs;
         } else {
             console.log(`adding triangles ${L}-${dg.current}-${M} and ${M}-${dg.current}-${R}`);
-            dg.graph.addTriangle(L, dg.current, M);
-            dg.graph.addTriangle(M, dg.current, R);
-            ccs = [
-                ...legaliseTriangle(dg, dg.current, L, M).dccs,
-                ...legaliseTriangle(dg, dg.current, M, R).dccs,
-            ];
+            dg.graph.addConnectedTriangle(L, dg.current, M);
+            dg.graph.addConnectedTriangle(M, dg.current, R);
+            // ccs = [
+            //     ...legaliseTriangle(dg, dg.current, L, M).dccs,
+            //     ...legaliseTriangle(dg, dg.current, M, R).dccs,
+            // ];
         }
 
         // fix 1) adjacent shallow angles: check angle between i and adjacent sweep edges. 
         // if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
 
+        /*
         for (let i = sweepIndexOfCurr; i < dg.sweepLine.length - 2; i++) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(dg, i);
             if (!adjFillResult) break;
@@ -194,6 +195,7 @@ export const delaunay = {
             dg.current++;
             return ccs;
         }
+        */
 
         // 3.4.2. edge event
         // if the vertex I contains
@@ -235,21 +237,23 @@ export const delaunay = {
      * ii) adds the bordering triangles forming the convex hull of V
      */
     finalise(d: DelaunayGraph) {
+        // triangulate the top of the polygon
         triangulateChain(d, d.sweepLine.slice(1, d.sweepLine.length - 1));
 
         const baseLine = [d.sweepLine[d.sweepLine.length - 2]!];
         let edgeIndex = d.graph.findEdgeIndex(d.sweepLine[d.sweepLine.length - 2]!, d.sweepLine[d.sweepLine.length - 1]!);
-        let prevEdge;
-        while (edgeIndex != -1) {
-            const edge = d.graph.halfEdges[edgeIndex];
-            if (!edge) { console.error(`could not get edge ${edgeIndex}`); continue; }
-            prevEdge = d.graph.getPrev(edge);
-            if (!prevEdge) { console.error(`could not get prevedge ${d.graph.vertEdgeToString(edge.target, edge.origin)}`); continue; }
+        // let prevEdge;
+
+        let edge = d.graph.halfEdges[edgeIndex];
+        while (edge && edge.face != 0) {
+            if (!edge) { console.error(`could not get edge ${edgeIndex}`); return; }
+            const prevEdge = d.graph.getPrev(edge);
+            if (!prevEdge) { console.error(`could not get prevedge ${d.graph.vertEdgeToString(edge.target, edge.origin)}`); return; }
             if (prevEdge.origin == d.points.length - 2) { edgeIndex = prevEdge.twin; continue; }
             baseLine.push(prevEdge.origin);
             const prevPrevEdge = d.graph.getPrev(prevEdge);
-            if (!prevPrevEdge) { console.error(`could not get edge ${prevEdge.prev}`); continue; }
-            edgeIndex = prevPrevEdge.twin;
+            if (!prevPrevEdge) { console.error(`could not get edge ${prevEdge.prev}`); return; }
+            edge = d.graph.halfEdges[prevPrevEdge.twin];
         }
 
         for (let i = 0; i < 2; i++) {
@@ -407,7 +411,7 @@ function checkAndFillAdjacentSharpAngles(d: DelaunayGraph, leftSweepIndex: numbe
 
     d.sweepLine.splice(leftSweepIndex + 1, 1);
 
-    d.graph.addTriangle(pointIndices[0]!, pointIndices[2]!, pointIndices[1]!);
+    d.graph.addConnectedTriangle(pointIndices[0]!, pointIndices[2]!, pointIndices[1]!);
 
     // legalise connection - test left, then right if not.
     let legalResult = legaliseTriangle(d, pointIndices[2]!, pointIndices[0]!, pointIndices[1]!);
@@ -483,7 +487,7 @@ function triangulateChain(d: DelaunayGraph, chain: number[]): DelaunayCheckedCir
             if (area <= 0) break; // not a valid ear here — stop popping
 
             // console.log(`chain fill: adding triangle ${second}-${v}-${top}`);
-            d.graph.addTriangle(second, v, top); // matches your CW winding convention
+            d.graph.addConnectedTriangle(second, v, top); // matches your CW winding convention
             ccs.push(...legaliseTriangle(d, v, second, top).dccs);
             ccs.push(...legaliseTriangle(d, second, top, v).dccs);
             stack.pop();
