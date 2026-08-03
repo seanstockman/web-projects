@@ -1,7 +1,7 @@
 // implementation of Domiter & Zalik constrained sweep-line algorithm (2008).
 
 import { geometry2d, type Circle, type Point } from "./geometry2d.ts";
-import { HalfEdgeGraph } from "./halfedge.ts";
+import { HalfEdgeGraph, halfEdgeTriangular } from "./halfedge.ts";
 
 export type DelaunayGraph = {
     points: PointWithConnections[],
@@ -25,13 +25,17 @@ type PointWithConnections = Point & {
 export const delaunay = {
     delaunayTriangulation(dg: DelaunayGraph) {
         while (dg.current < dg.count) {
+            console.log(`~~~~~ adding vertex ${dg.current} ~~~~~~`);
             this.iterate(dg);
         }
         this.finalise(dg);
     },
 
     initialise(vertices: Point[], lines: Point[][]): DelaunayGraph {
+
         const sortedVertices: PointWithConnections[] = vertices.map(p => ({ x: p.x, y: p.y, connectingVertices: [] }));
+        // The last duplicate element wins with this approach
+
 
         // sort by x left to right
         sortedVertices.sort((a, b) => a.x - b.x);
@@ -63,7 +67,17 @@ export const delaunay = {
             connectionIndices.push(lineIndices);
         });
 
-        console.log(`conns:`);
+        // remove duplicates in a row
+        connectionIndices.forEach(l => {
+            let prev: number = -1;
+            for (let i = 0; i < l.length; i++) {
+                if (prev != l[i]) { prev = l[i]!; continue; }
+                l.splice(i, 1);
+                i--;
+            }
+        });
+
+        console.log(`connectionIndices:`);
         console.log(connectionIndices);
 
         connectionIndices.forEach((l) => {
@@ -78,11 +92,9 @@ export const delaunay = {
                 if (vertexA.y < vertexB.y) {
                     // add point A index to point B
                     vertexB.connectingVertices.push(A);
-                    console.log(`pushing vertex ${A} onto point ${B}'s connections`);
                 } else {
                     // add point B index to point A
                     vertexA.connectingVertices.push(B);
-                    console.log(`pushing vertex ${B} onto point ${A}'s connections`);
                 }
             }
         });
@@ -107,32 +119,33 @@ export const delaunay = {
 
     iterate(dg: DelaunayGraph) {
         // 3.4.1 Point event
-        const P_i = dg.points[dg.current]!;
+        const P_curr = dg.points[dg.current]!;
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
         let L = dg.sweepLine[0]!, R = -1, M = -1;
-        let sweep_i: number = -1; // index of the point P_i in the sweep-edge after insertion.
+        let sweepIndexOfCurr: number = -1; // index of the point P_i in the sweep-edge after insertion.
 
         for (let i = 1; i < dg.sweepLine.length; i++) {
-            const curr = dg.sweepLine[i]!;
+            const sweepline_i = dg.sweepLine[i]!;
 
-            const P_curr = dg.points[curr]!;
-            if (P_curr.x > P_i.x) {
-                R = curr
+            const P_sweepline_i = dg.points[sweepline_i]!;
+            if (P_sweepline_i.x > P_curr.x) {
+                R = sweepline_i;
+                // insert current to the sweepline at point i
                 dg.sweepLine.splice(i, 0, dg.current);
-                sweep_i = i;
+                sweepIndexOfCurr = i;
                 break;
-            } else if (P_curr.x == P_i.x) {
+            } else if (P_sweepline_i.x == P_curr.x) {
                 dg.sweepLine.splice(i, 1, dg.current);
-                M = curr;
+                M = sweepline_i;
                 R = dg.sweepLine[i + 1]!;
-                sweep_i = i;
+                sweepIndexOfCurr = i;
                 break;
             }
-            L = curr;
+            L = sweepline_i;
         }
 
         if (R == -1) { console.error("could not find a midpoint"); return; }
-        if (sweep_i == -1) return; // just to trigger intellisense
+        if (sweepIndexOfCurr == -1) return; // just to trigger intellisense
 
         // add legal triangle
         let ccs;
@@ -153,23 +166,57 @@ export const delaunay = {
         // fix 1) adjacent shallow angles: check angle between i and adjacent sweep edges. 
         // if angle is < pi/2, add and legalise a new triangle i-i+1-i+2
 
-        for (let i = sweep_i; i < dg.sweepLine.length - 2; i++) {
+        for (let i = sweepIndexOfCurr; i < dg.sweepLine.length - 2; i++) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(dg, i);
             if (!adjFillResult) break;
             ccs!.push(...adjFillResult);
         }
 
-        for (let i = sweep_i; i > 2; i--) {
+        for (let i = sweepIndexOfCurr; i > 2; i--) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(dg, i - 2);
             if (!adjFillResult) break;
             ccs!.push(...adjFillResult);
         }
 
-        sweep_i = dg.sweepLine.findIndex(p => p == dg.current);
+        sweepIndexOfCurr = dg.sweepLine.findIndex(p => p == dg.current);
 
         // fix 2) check for basins
-        ccs.push(...checkForBasins(dg, sweep_i, false));
-        ccs.push(...checkForBasins(dg, sweep_i, true));
+        ccs.push(...checkForBasins(dg, sweepIndexOfCurr, false));
+        ccs.push(...checkForBasins(dg, sweepIndexOfCurr, true));
+
+
+        if (P_curr.connectingVertices.length == 0) {
+            dg.current++;
+            return ccs;
+        }
+
+        // 3.4.2. edge event
+        // if the vertex I contains
+        console.log(`EDGE EVENT! POINT ${dg.current} contains the following connections:`);
+        console.log(P_curr.connectingVertices);
+
+        P_curr.connectingVertices.forEach(connectedVertexIndex => {
+            console.log(`traversing ${dg.current}->${connectedVertexIndex}`);
+
+            // check case where edge is directly connected.
+            let directEdgeIndex = dg.graph.findEdgeIndex(dg.current, connectedVertexIndex);
+            if (directEdgeIndex == -1) {
+                directEdgeIndex = dg.graph.findEdgeIndex(connectedVertexIndex, dg.current);
+            }
+            if (directEdgeIndex != -1) {
+                const directEdge = dg.graph.halfEdges[directEdgeIndex];
+                if (!directEdge) { console.error(`edge ${directEdgeIndex} does not exist`); return; }
+                console.log(`locking directedge ${dg.graph.edgeToString(directEdge)}`);
+                directEdge.locked = true;
+                return;
+            }
+
+            console.log(`traversed faces:`);
+            const traversedFaces = halfEdgeTriangular.traverse(dg.graph, dg.current, connectedVertexIndex);
+            console.log(traversedFaces);
+        });
+
+        // dg.graph.getAngleMap(dg.current);
 
 
 

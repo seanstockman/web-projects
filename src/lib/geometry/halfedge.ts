@@ -11,10 +11,11 @@ type HalfEdge = {
     used: boolean,
     face: number,
     dead: boolean;
+    locked: boolean,
 }
 
 type Vertex = Point & {
-    // The connecting half edges with this vertex as an origin.
+    /** The connecting half edges with this vertex as an origin. */
     edges: number[],
 }
 
@@ -45,8 +46,7 @@ export class HalfEdgeGraph {
     private registerEdges(...edgeIndices: number[]) {
         edgeIndices.forEach(edgeIndex => {
             const he = this.halfEdges[edgeIndex]!;
-            const dest = this.halfEdges[he.next]!.origin;
-            this.edgeMap.set(`${he.origin}-${dest}`, edgeIndex);
+            this.edgeMap.set(this.edgeToString(he), edgeIndex);
         });
     }
 
@@ -64,7 +64,7 @@ export class HalfEdgeGraph {
     /** Finds and returns the index of the edge from origin to dest in this HalfEdgeGraph's HalfEdge array. 
      * Returns -1 if it cannot be found. */
     public findEdgeIndex(origin: number, dest: number) {
-        return this.edgeMap.get(`${origin}-${dest}`) ?? -1;
+        return this.edgeMap.get(`${origin}->${dest}`) ?? -1;
     }
 
     private validatePolygon(...vertices: number[]): boolean {
@@ -124,83 +124,116 @@ export class HalfEdgeGraph {
 
     /** Flips the internal triangles in polygon ABCD from ABC & ACD (along AC) to ABD & DBC. */
     public flipTriangles(A: number, B: number, C: number, D: number): boolean {
-        if (!this.vertices[A]) return false;
-        if (!this.vertices[B]) return false;
-        if (!this.vertices[C]) return false;
-        if (!this.vertices[D]) return false;
+        const vertexA = this.vertices[A], vertexB = this.vertices[B], vertexC = this.vertices[C], vertexD = this.vertices[D];
+
+        if (!vertexA) { console.error(`flipTriangles: could not find vertex ${A}`); return false; }
+        if (!vertexB) { console.error(`flipTriangles: could not find vertex ${B}`); return false; }
+        if (!vertexC) { console.error(`flipTriangles: could not find vertex ${C}`); return false; }
+        if (!vertexD) { console.error(`flipTriangles: could not find vertex ${D}`); return false; }
 
         if (!this.validatePolygon(A, B, C)) return false;
         if (!this.validatePolygon(A, C, D)) return false;
 
         let AC = this.findEdgeIndex(A, C);
-        if (AC == -1) { console.error(`flipTriangles: can't find halfEdge ${A}-${C}`); return false; }
+        if (AC == -1) { console.error(`flipTriangles: can't find halfEdge ${A}->${C}`); return false; }
+
         let CA = this.halfEdges[AC]!.twin;
-        if (CA == -1) { console.error(`flipTriangles: can't find twin halfline ${C}-${A}`); return false; }
-        if (this.findEdgeIndex(B, D) != -1 || this.findEdgeIndex(D, B) != -1) { console.error(`flipTriangles: halfEdge ${B}-${D} or ${D}-${B} exists`); return false; }
+        if (CA == -1) { console.error(`flipTriangles: can't find twin halfline ${C}->${A}`); return false; }
 
-        let ABC = this.halfEdges[CA]!.face;
-        let ACD = this.halfEdges[AC]!.face;
+        if (this.findEdgeIndex(B, D) != -1 || this.findEdgeIndex(D, B) != -1) {
+            console.error(`flipTriangles: halfEdge ${this.vertEdgeToString(B, D)} or ${this.vertEdgeToString(D, B)} exists`);
+            return false;
+        }
 
-        let edgeAC = this.halfEdges[AC]!;
-        let edgeCA = this.halfEdges[CA]!;
+        const edgeAC = this.halfEdges[AC];
+        const edgeCA = this.halfEdges[CA];
 
-        let AB = edgeCA.next;
-        let BC = edgeCA.prev;
-        let CD = edgeAC.next;
-        let DA = edgeAC.prev;
+        if (!edgeCA || !edgeAC) return false;
+
+        if (edgeCA.locked || edgeAC.locked) {
+            console.log(`edge ${this.edgeToString(edgeAC)} or ${this.edgeToString(edgeCA)} is locked. returning.`);
+            return false;
+        }
+
+        const ABC = edgeCA.face;
+        const ACD = edgeAC.face;
+
+        const AB = edgeCA.next;
+        const BC = edgeCA.prev;
+        const CD = edgeAC.next;
+        const DA = edgeAC.prev;
 
         // switch nomenclature
-        let DB = CA;
-        let edgeDB = edgeCA;
+        const DB = CA;
+        const edgeDB = edgeCA;
 
-        let BD = AC;
-        let edgeBD = edgeAC;
+        const BD = AC;
+        const edgeBD = edgeAC;
 
-        let ABD = ACD;
-        let BCD = ABC;
+        const ABD = ACD;
+        const faceABD = this.faces[ABD];
+        if (!faceABD) { console.error(`no face ${A}-${C}-${D} could be found.`); return false; }
+
+        const BCD = ABC;
+        const faceBCD = this.faces[ABC];
+        if (!faceBCD) { console.error(`no face ${A}-${B}-${C} could be found.`); return false; }
 
         // switch CA to DB
         edgeDB.origin = D;
         edgeDB.target = B;
         edgeDB.next = BC;
-        this.halfEdges[BC]!.prev = DB;
 
-        this.halfEdges[BC]!.next = CD;
-        this.halfEdges[CD]!.prev = BC;
+        const edgeBC = this.halfEdges[BC];
+        if (!edgeBC) { console.error(`no edge ${this.vertEdgeToString(B, C)} could be found`); return false; }
 
-        this.halfEdges[CD]!.next = DB;
+        const edgeCD = this.halfEdges[CD];
+        if (!edgeCD) { console.error(`no edge ${this.vertEdgeToString(C, D)} could be found`); return false; }
+
+        edgeBC.prev = DB;
+
+        edgeBC.next = CD;
+        edgeCD.prev = BC;
+
+        edgeCD.next = DB;
         edgeDB.prev = CD;
 
-        this.halfEdges[CD]!.face = BCD;
+        edgeCD.face = BCD;
 
         // switch AC to BD
         edgeBD.origin = B;
         edgeBD.target = D;
         edgeBD.next = DA;
-        this.halfEdges[DA]!.prev = BD;
 
-        this.halfEdges[DA]!.next = AB;
-        this.halfEdges[AB]!.prev = DA;
+        const edgeDA = this.halfEdges[DA];
+        if (!edgeDA) { console.error(`no edge ${this.vertEdgeToString(D, A)} could be found`); return false; }
 
-        this.halfEdges[AB]!.next = BD;
+        const edgeAB = this.halfEdges[AB];
+        if (!edgeAB) { console.error(`no edge ${this.vertEdgeToString(A, B)} could be found`); return false; }
+
+        edgeDA.prev = BD;
+
+        edgeDA.next = AB;
+        edgeAB.prev = DA;
+
+        edgeAB.next = BD;
         edgeBD.prev = AB;
 
-        this.halfEdges[AB]!.face = ABD;
+        edgeAB.face = ABD;
 
         // finalise
         this.edgeMap.delete(`${A}-${C}`);
         this.edgeMap.delete(`${C}-${A}`);
-        this.edgeMap.set(`${B}-${D}`, BD);
-        this.edgeMap.set(`${D}-${B}`, DB);
+        this.edgeMap.set(this.vertEdgeToString(B, D), BD);
+        this.edgeMap.set(this.vertEdgeToString(D, B), DB);
 
-        this.vertices[A].edges = this.vertices[A].edges.filter(item => item != AC);
-        this.vertices[C].edges = this.vertices[C].edges.filter(item => item != CA);
+        vertexA.edges = vertexA.edges.filter(item => item != AC);
+        vertexC.edges = vertexC.edges.filter(item => item != CA);
 
-        this.vertices[B].edges.push(BD);
-        this.vertices[D].edges.push(DB);
+        vertexB.edges.push(BD);
+        vertexD.edges.push(DB);
 
-        this.faces[BCD]!.edges = [BC, CD, DB];
-        this.faces[ABD]!.edges = [AB, BD, DA];
+        faceBCD.edges = [BC, CD, DB];
+        faceABD.edges = [AB, BD, DA];
 
         return true;
     }
@@ -218,8 +251,9 @@ export class HalfEdgeGraph {
             origin!.edges = origin!.edges.filter(e => e != edgeIndex);
 
             removedEdge.dead = true;
-            if (removedEdge.twin != -1) this.halfEdges[removedEdge.twin]!.twin = -1;
-            this.edgeMap.delete(`${removedEdge.origin}-${removedEdge.target}`);
+            const removedEdgeTwin = this.getTwin(removedEdge);
+            if (removedEdgeTwin) removedEdgeTwin.twin = -1;
+            this.edgeMap.delete(`${this.edgeToString(removedEdge)}`);
 
             this.freeEdges.push(edgeIndex);
         }
@@ -229,7 +263,8 @@ export class HalfEdgeGraph {
         return true;
     }
 
-    // Returns an array of angles from each edge from vertex A, in the order they are listed.
+    /** Returns a map of angles from each edge originating from vertex A, in the order of their angle (0-2π). 
+     * Does not consider any edges ending at vertex A. */
     public getAngleMap(A: number): Map<number, HalfEdge> {
         const angleMap = new Map<number, HalfEdge>();
         const origin = this.vertices[A];
@@ -281,6 +316,7 @@ export class HalfEdgeGraph {
             used: false,
             face: -1,
             dead: false,
+            locked: false
         };
         this.halfEdges.push(newEdge);
         return { e: newEdge, i: this.halfEdges.length - 1 }
@@ -346,7 +382,7 @@ export class HalfEdgeGraph {
             }
 
             // change edgemap
-            this.edgeMap.set(`${e.origin}-${e.target}`, newIndex);
+            this.edgeMap.set(`${this.edgeToString(e)}`, newIndex);
 
             updatedEdgeMap.set(i, newIndex);
         });
@@ -362,6 +398,60 @@ export class HalfEdgeGraph {
         removedEdges.reverse().forEach(i => {
             this.halfEdges.splice(i, 1);
         })
+    }
+
+    public edgeToString(e: HalfEdge) {
+        return (`${e.origin}->${e.target}`);
+    }
+
+    public vertEdgeToString(origin: number, target: number) {
+        return (`${origin}->${target}`);
+    }
+
+    /** Returns the twin of this half-edge, or undefined if it does not exist. */
+    public getTwin(e: HalfEdge) {
+        const twinEdgeIndex = e.twin;
+        if (twinEdgeIndex == -1) {console.error(`twin edge of ${this.edgeToString(e)} is undefined`); return undefined;}
+        const twin = this.halfEdges[twinEdgeIndex];
+        if (!twin) console.error(`could not find edge ${this.vertEdgeToString(e.target, e.origin)}`);
+        return twin;
+    }
+
+    /** Returns the face of this half-edge, or undefined. */
+    public getFace(e: HalfEdge) {
+        const faceIndex = e.face;
+        if (faceIndex == -1) return undefined;
+        return this.faces[faceIndex];
+    }
+
+    /** Returns the next edge of this half-edge, or undefined. */
+    public getNext(e: HalfEdge) {
+        const nextEdgeIndex = e.next;
+        if (nextEdgeIndex == -1) return undefined;
+        return this.halfEdges[nextEdgeIndex];
+    }
+
+    /** Returns the previous edge of this half-edge, or undefined. */
+    public getPrev(e: HalfEdge) {
+        const prevEdgeIndex = e.prev;
+        if (prevEdgeIndex == -1) return undefined;
+        return this.halfEdges[prevEdgeIndex];
+    }
+
+    /** Returns the origin of this half-edge, or undefined. */
+    public getOrigin(e: HalfEdge) {
+        const originVertexIndex = e.origin;
+        if (originVertexIndex == -1) return undefined;
+        return this.vertices[originVertexIndex];
+    }
+
+    /** Returns the origin of this half-edge, or undefined. */
+    public getTarget(e: HalfEdge) {
+        const targetVertexIndex = e.target;
+        if (targetVertexIndex == -1) {console.error(`getTarget: target vertex is undefined`); return undefined;}
+        const target = this.vertices[targetVertexIndex];
+        if (!target) console.error(`getTarget: could not retrieve vertex ${targetVertexIndex}`);
+        return target;
     }
 }
 
@@ -380,17 +470,10 @@ export const halfEdgeTriangular = {
     traverseStartingAtPoint(g: HalfEdgeGraph, M: number, startVertex: Vertex, theta: number, endVertexIndex: number): number[] {
         // find angle to target
         // console.log(`Traversal iteration starting at vertex ${M}.`);
-        if (!g.vertices[M]) { console.error(`Vertex ${M} does not exist.`); return []; }
+        if (!g.vertices[M]) { console.error(`traverse: vertex ${M} does not exist.`); return []; }
         const angleMapM = [...g.getAngleMap(M)];
 
-        // console.log(`- target angle theta: ${(theta * 180 / Math.PI).toFixed(1)}`);
-
         let nextEdge: HalfEdge | undefined;
-
-        // console.log(`- anglemap ${M}:`);
-        // angleMapM.forEach((v, i) => {
-            // console.log(`--- ${i}: E${v[0]} (${M}-${v[1].target})`);
-        // })
 
         for (let i = 0; i < angleMapM.length; i++) {
             // console.log(`edge ${g.vertices[M].edges[i]} target = ${g.halfEdges[g.vertices[M]!.edges[i]!]!.target}`);
@@ -441,30 +524,36 @@ export const halfEdgeTriangular = {
         // console.log(`- found next edge: ${nextEdge.origin}-${nextEdge.target}`);
         const farEdge = g.halfEdges[nextEdge.next];
         if (!farEdge) { console.error(`far edge ${nextEdge.next} doesn't exist`); return []; }
-        if (farEdge.twin == -1) { console.error(`far edge ${nextEdge.next} has no twin. Returning.`); return [farEdge.face]; }
-        const newIterationStartEdge = g.halfEdges[farEdge.twin];
+        const newIterationStartEdge = g.getTwin(farEdge);
         if (!newIterationStartEdge) { console.error(`far edge ${nextEdge.twin} (twin of ${nextEdge.next} does not exist.`); return [farEdge.face]; }
         return [farEdge.face, ...this.traverseStartingAtEdge(g, newIterationStartEdge, startVertex, theta, endVertexIndex)];
     },
 
     traverseStartingAtEdge(g: HalfEdgeGraph, E: HalfEdge, startVertex: Vertex, theta: number, endVertexIndex: number): number[] {
         // console.log(`Traversal iteration starting at edge ${E.origin}-${E.target}`);
-        const oppositeVertex = g.halfEdges[E.next]!.target;
+        const nextEdge = g.getNext(E);
+        if (!nextEdge) { console.error(`traversal: could not find opposite vertex from edge ${g.edgeToString(E)}`); return []; }
         // console.log(`- opposite vertex: ${oppositeVertex}`);
-        if (oppositeVertex == endVertexIndex) {
+        if (nextEdge.target == endVertexIndex) {
             // console.log(`- found end (vertex ${endVertexIndex})`);
             return [E.face];
         }
 
-        const alpha = geometry2d.getDirectionFromAToB(startVertex, g.vertices[oppositeVertex]!);
+        const oppositeVertex = g.getTarget(nextEdge);
+        if (!oppositeVertex) return [];
+
+        const alpha = geometry2d.getDirectionFromAToB(startVertex, oppositeVertex);
         if (alpha == theta) {
-            return [E.face, ...this.traverseStartingAtPoint(g, oppositeVertex, startVertex, theta, endVertexIndex)];
+            return [E.face, ...this.traverseStartingAtPoint(g, nextEdge.target, startVertex, theta, endVertexIndex)];
         }
 
         const whichEdgeTest = ((alpha - theta + Math.PI * 2) % (Math.PI * 2)) < Math.PI;
-        const newEdgeTwinIndex = whichEdgeTest ? E.prev : E.next;
-        const newIterationStartEdge = g.halfEdges[g.halfEdges[newEdgeTwinIndex]!.twin];
-        if (!newIterationStartEdge) { console.error(`far edge ${g.halfEdges[newEdgeTwinIndex]!.twin} (twin of ${newEdgeTwinIndex} does not exist.`); return [E.face]; }
+
+        const newEdgeTwin = whichEdgeTest ? g.getPrev(E) : g.getNext(E);
+        if (!newEdgeTwin) { console.error(`traverse: could not find newEdgeTwin`); return [E.face]; }
+
+        const newIterationStartEdge = g.getTwin(newEdgeTwin);
+        if (!newIterationStartEdge) { console.error(`far edge ${newEdgeTwin.twin} (twin of ${g.edgeToString(newEdgeTwin)}) does not exist.`); return [E.face]; }
         return [E.face, ...this.traverseStartingAtEdge(g, newIterationStartEdge, startVertex, theta, endVertexIndex)];
     }
 }

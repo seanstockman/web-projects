@@ -113,6 +113,14 @@ export const geometry2d = {
     /** Tests if the three points are collinear. */
     arePointsCollinear(A: Point, B: Point, C: Point): boolean {
         return ((B.y - A.y) * (C.x - B.x) == (C.y - B.y) * (B.x - A.x));
+    },
+
+    degreesToRadians(n: number) {
+        return n * Math.PI / 180;
+    },
+
+    radiansToDegrees(n: number) {
+        return n * 180 / Math.PI;
     }
 }
 

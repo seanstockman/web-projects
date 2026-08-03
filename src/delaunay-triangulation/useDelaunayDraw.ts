@@ -82,7 +82,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         delaunay.delaunayTriangulation(savedDelaunay);
 
         addDrawBundleToCanvas(extractFacesFromDelaunay(savedDelaunay, true));
-        addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
+        // addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
 
         showDelaunay(savedDelaunay);
     }
@@ -101,7 +101,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
             console.log(`~~~~~~~~~~~~~~ finalising ~~~~~~~~~~~~~~`);
             addDrawBundleToCanvas(finaliseDelaunay(savedDelaunay));
 
-            addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
+            // addDrawBundleToCanvas(traverseDelaunay(savedDelaunay, 0, savedDelaunay.count - 1));
 
             console.log(`~~~~~~~~~~~~~~ final result  ~~~~~~~~~~~~~~`);
             console.log(savedDelaunay);
