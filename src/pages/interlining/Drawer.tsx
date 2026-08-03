@@ -1,6 +1,6 @@
-import { Segment } from "../geometry/classes/segment.ts";
-import { Vector2 as Vec2 } from "../geometry/classes/vector-2.ts";
-import { Line } from "../geometry/classes/line.ts";
+import { Segment } from "./depricated_geometry/classes/segment.ts";
+import { Vector2 as Vec2 } from "./depricated_geometry/classes/vector-2.ts";
+import { Line } from "./depricated_geometry/classes/line.ts";
 
 export const drawer = {
     drawLine: function (ctx: CanvasRenderingContext2D, line: Line) {

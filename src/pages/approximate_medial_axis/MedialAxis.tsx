@@ -1,10 +1,11 @@
 import { Button, ButtonGroup, Divider, Slider, Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
-import { PageStack } from '../components/PageComponents.tsx';
-import { useDelaunayDraw } from './useDelaunayDraw.ts';
+import { PageStack } from '../../components/PageComponents.tsx';
+import { useMedialAxisDraw } from './useMedialAxis.ts';
 import { useEffect, useRef } from 'react';
 
 import DeleteIcon from '@mui/icons-material/Delete';
 import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
+import Crop32Icon from '@mui/icons-material/Crop32';
 import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -12,13 +13,12 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
-import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
-import { manipulateMode } from '../components/drawingCanvas/draw_modes/manipulate.ts';
-import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
-import { polygonStartMode } from '../components/drawingCanvas/draw_modes/polygonTool.ts';
-import type { Mode } from '../interlining/useInterliningDraw.ts';
+// import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
+import { manipulateMode } from '../../components/drawingCanvas/draw_modes/manipulate.ts';
+// import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
+import { polygonStartMode } from '../../components/drawingCanvas/draw_modes/polygonTool.ts';
 
-export default function DelaunayTriangulation() {
+export default function ApproximateMedialAxis() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const drawModes = [polygonStartMode, manipulateMode];
@@ -27,8 +27,9 @@ export default function DelaunayTriangulation() {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        constrainedDelaunayTriangulation,
-    } = useDelaunayDraw(canvasRef, drawModes);
+        getMedialAxis,
+        setToRectExample
+    } = useMedialAxisDraw(canvasRef, drawModes);
 
     const drawActions = [
         {
@@ -40,18 +41,23 @@ export default function DelaunayTriangulation() {
         },
     ];
 
-    const delaunayActions = [
+    const actions = [
         {
-            label: "Runs the full Delaunay Triangulation process and only shows the result.", icon: <ChangeHistoryIcon />, action: () => {
-                constrainedDelaunayTriangulation();
+            label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
+                getMedialAxis();
             }
         },
+        {
+            label: "Sets the canvas to the box example in Figure 7.", icon: <Crop32Icon/>, action: () => {
+                setToRectExample();
+            }
+        }
     ]
 
     useEffect(() => {redrawCanvas(); }, [redrawCanvas]);
     return (
         <PageStack>
-            <Typography variant='h3'>Constrained Delaunay Triangulation</Typography>
+            <Typography variant='h3'>Approximate Medial Axis</Typography>
 
             <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
                 <ButtonGroup>
@@ -79,7 +85,7 @@ export default function DelaunayTriangulation() {
                 </ToggleButtonGroup>
 
                 <ButtonGroup>
-                    {delaunayActions.map(a => (
+                    {actions.map(a => (
                         <Tooltip title={a.label} key={a.label}>
                             <Button onClick={a.action}>{a.icon}</Button>
                         </Tooltip>

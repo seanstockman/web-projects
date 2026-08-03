@@ -5,7 +5,7 @@ import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import OpenWithIcon from '@mui/icons-material/OpenWith';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { GridOn, GridOff } from '@mui/icons-material';
-import { PageStack } from '../components/PageComponents';
+import { PageStack } from '../../components/PageComponents';
 import { Icon } from '@mdi/react';
 import { mdiMagnet, mdiMagnetOn } from '@mdi/js';
 

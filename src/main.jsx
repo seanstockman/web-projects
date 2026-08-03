@@ -5,8 +5,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import './index.css';
 import App from './App.tsx';
-import Interlining from './interlining/Interlining.jsx';
-import DelaunayTriangulation from './delaunay-triangulation/DelaunayTriangulation.tsx';
+import Interlining from './pages/interlining/Interlining.jsx';
+import DelaunayTriangulation from './pages/delaunay-triangulation/DelaunayTriangulation.tsx';
+import ApproximateMedialAxis from './pages/approximate_medial_axis/MedialAxis.tsx'
 import { Container, createTheme, ThemeProvider } from '@mui/material';
 import { lime, red } from '@mui/material/colors';
 import ResponsiveAppBar from './components/ResponsiveAppBar.jsx';
@@ -74,6 +75,7 @@ function Root() {
             <Route path="/interlining" element={<Interlining />} />
             <Route path="/delaunay" element={<DelaunayTriangulation />} />
             <Route path="/test" element={<TestPage />} />
+            <Route path="/medial-axis" element={<ApproximateMedialAxis />} />
           </Routes>
         </Container>
       </BrowserRouter>

@@ -1,14 +1,8 @@
 import { useState, useEffect, useCallback, type RefObject } from 'react';
-import { drawer } from '../components/drawingCanvas/CanvasDrawer.tsx';
-import { geometry2d, type Point } from '../lib/geometry/geometry2d.ts';
-import { halfEdgeTriangular } from '../lib/geometry/halfedge.ts';
-import { useCanvasDraw, type DefaultCanvasProps, type OverlayCircle, type OverlayLine, type OverlayText } from '../components/drawingCanvas/useCanvasDraw.tsx';
-import { polygonStartMode } from '../components/drawingCanvas/draw_modes/polygonTool.ts';
-import { manipulateMode } from '../components/drawingCanvas/draw_modes/manipulate.ts';
-import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
-import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
-import type { SelectableDrawMode } from '../components/drawingCanvas/draw_modes/types.ts';
+import { useCanvasDraw, type DefaultCanvasProps, type OverlayCircle, type OverlayLine, type OverlayText } from '../../components/drawingCanvas/useCanvasDraw.tsx';
+import type { SelectableDrawMode } from '../../components/drawingCanvas/draw_modes/types.ts';
 import * as poly2tri from 'poly2tri';
+import { geometry2d } from '../../lib/geometry/geometry2d.ts';
 
 const drawingColour = '#2768f5';
 
@@ -28,7 +22,7 @@ const defaultCanvasProps: DefaultCanvasProps = {
 };
 
 
-export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, canvasModes: SelectableDrawMode[]) {
+export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>, canvasModes: SelectableDrawMode[]) {
     const {
         drawMode, setDrawMode,
         points, setPoints,
@@ -43,7 +37,18 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         return new Promise((resolve) => setTimeout(resolve, ms));
     };
 
-    function constrainedDelaunayTriangulation() {
+    function setToRectExample() {
+        clearCanvasOverlays();
+        clearCanvas();
+        setPoints([
+            {x: 400, y: 500},
+            {x: 900, y: 500},
+            {x: 900, y: 300},
+            {x: 400, y: 300},
+        ]);
+    }
+
+    function getMedialAxis() {
         clearCanvasOverlays();
         // savedDelaunay = initialiseDelaunay(points, lines);
         // if (!savedDelaunay) return;
@@ -54,6 +59,10 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         points.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
         const sweepCtx = new poly2tri.SweepContext(contour);
         sweepCtx.triangulate();
+
+        // sweepCtx.
+
+        console.log(sweepCtx);
 
         showDelaunaySwpctx(sweepCtx);
     }
@@ -67,8 +76,8 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
      /** Appends all lines and points from the computed DelaunayGraph object to the canvas. */
     function showDelaunaySwpctx(sweepCtx: poly2tri.SweepContext) {
         var triangles = sweepCtx.getTriangles();
-        const overlay: CustomDrawBundle = {lines: []};
-        triangles.forEach(t => {
+        const overlay: CustomDrawBundle = {lines: [], circles: [], texts: []};
+        triangles.forEach((t, i) => {
             var triPoints = t.getPoints();
             overlay.lines?.push({
                 points: [...triPoints, triPoints[0]],
@@ -77,6 +86,12 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
                     color: `purple`,
                     dashed: false
                 }
+            });
+            overlay.texts?.push({
+                text: `T${i}`,
+                position: geometry2d.getMeanOfPoints(triPoints[0], triPoints[1], triPoints[2]),
+                color: 'black',
+                fontSize: 12
             });
         });
 
@@ -110,6 +125,7 @@ export function useDelaunayDraw(canvasRef: RefObject<HTMLCanvasElement | null>, 
         redrawCanvas,
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        constrainedDelaunayTriangulation
+        getMedialAxis,
+        setToRectExample
     };
 }
