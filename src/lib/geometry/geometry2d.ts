@@ -121,7 +121,38 @@ export const geometry2d = {
 
     radiansToDegrees(n: number) {
         return n * 180 / Math.PI;
-    }
+    },
+
+    /** Checks if a point P is inside a triangle ABC using the Cross-Product (Sign) Method. 
+     * Works for both clockwise and counter-clockwise vertex orders. */
+    isPointInTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
+        const d1 = this.crossProduct(p, a, b);
+        const d2 = this.crossProduct(p, b, c);
+        const d3 = this.crossProduct(p, c, a);
+
+        const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+        // If signs are mixed, the point is outside.
+        // Change to `!(hasNeg && hasPos)` to include points exactly on the edge.
+        return !(hasNeg && hasPos);
+    },
+
+    crossProduct(p1: Point, p2: Point, p3: Point) {
+        return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+    },
+
+    isCounterClockwise(points: Point[]): boolean {
+        let sum = 0;
+        for (let i = 0; i < points.length; i++) {
+            const current = points[i]!;
+            const next = points[(i + 1) % points.length]!;
+            sum += (next.x - current.x) * (next.y + current.y);
+        }
+        // If sum < 0, it is CCW (for screen coordinates with Y down)
+        // If sum > 0, it is CW
+        return sum < 0;
+    },
 }
 
 
