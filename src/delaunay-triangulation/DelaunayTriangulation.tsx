@@ -21,14 +21,13 @@ import type { Mode } from '../interlining/useInterliningDraw.ts';
 export default function DelaunayTriangulation() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    const drawModes = [pointDrawMode, lineStartMode, polygonStartMode, manipulateMode];
+    const drawModes = [polygonStartMode, manipulateMode];
 
     const {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        iterateDelaunay, runDelaunayTimelapse, fullDelaunayTriangulation,
-        binDelaunay
+        constrainedDelaunayTriangulation,
     } = useDelaunayDraw(canvasRef, drawModes);
 
     const drawActions = [
@@ -37,7 +36,6 @@ export default function DelaunayTriangulation() {
                 clearCanvasOverlays();
                 clearCanvas();
                 setDrawMode(drawModes[0]!);
-                binDelaunay();
             }
         },
     ];
@@ -45,39 +43,15 @@ export default function DelaunayTriangulation() {
     const delaunayActions = [
         {
             label: "Runs the full Delaunay Triangulation process and only shows the result.", icon: <ChangeHistoryIcon />, action: () => {
-                fullDelaunayTriangulation();
+                constrainedDelaunayTriangulation();
             }
         },
-        {
-            label: "Iterate Delaunay", icon: <PlayArrowIcon />, action: () => {
-                iterateDelaunay();
-            }
-        },
-        {
-            label: "Run Delaunay Triangulation Timelapse", icon: <FastForwardIcon />, action: () => {
-                runDelaunayTimelapse(50);
-            }
-        },
-        {
-            label: "Reset Delaunay", icon: <RestartAltIcon />, action: () => {
-                binDelaunay();
-                clearCanvasOverlays();
-            }
-        },
-        // {
-        //     label: "Clear overlays", icon: <LayersClearIcon />, action: () => {
-        //         setOverlayLines([]);
-        //         setOverlayCircles([]);
-        //     }
-        // }
     ]
 
     useEffect(() => {redrawCanvas(); }, [redrawCanvas]);
     return (
-
-
         <PageStack>
-            <Typography variant='h3'>Delaunay Triangulation Demo</Typography>
+            <Typography variant='h3'>Constrained Delaunay Triangulation</Typography>
 
             <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
                 <ButtonGroup>
