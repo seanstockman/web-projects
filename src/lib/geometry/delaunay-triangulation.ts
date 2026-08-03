@@ -39,6 +39,7 @@ export const delaunay = {
 
         // sort by x left to right
         sortedVertices.sort((a, b) => a.x - b.x);
+
         const xMin = sortedVertices[0]!.x;
         const xMax = sortedVertices[sortedVertices.length - 1]!.x;
 
@@ -119,15 +120,19 @@ export const delaunay = {
 
     iterate(dg: DelaunayGraph) {
         // 3.4.1 Point event
-        const P_curr = dg.points[dg.current]!;
+        const P_curr = dg.points[dg.current];
+        if (!P_curr) { console.error(`vertex ${dg.current} does not exist`); return; }
         // let P_L = d.points[d.sweepIndices[0]!], P_R, P_M;
         let L = dg.sweepLine[0]!, R = -1, M = -1;
         let sweepIndexOfCurr: number = -1; // index of the point P_i in the sweep-edge after insertion.
 
         for (let i = 1; i < dg.sweepLine.length; i++) {
-            const sweepline_i = dg.sweepLine[i]!;
+            const sweepline_i = dg.sweepLine[i];
+            if (sweepline_i == undefined) { console.error(`sweepline[${i}] could not be found`); continue; }
 
-            const P_sweepline_i = dg.points[sweepline_i]!;
+            const P_sweepline_i = dg.points[sweepline_i];
+            if (!P_sweepline_i) { console.error(`vertex ${sweepline_i} could not be found`); return; }
+
             if (P_sweepline_i.x > P_curr.x) {
                 R = sweepline_i;
                 // insert current to the sweepline at point i
@@ -169,13 +174,13 @@ export const delaunay = {
         for (let i = sweepIndexOfCurr; i < dg.sweepLine.length - 2; i++) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(dg, i);
             if (!adjFillResult) break;
-            ccs!.push(...adjFillResult);
+            ccs.push(...adjFillResult);
         }
 
         for (let i = sweepIndexOfCurr; i > 2; i--) {
             const adjFillResult = checkAndFillAdjacentSharpAngles(dg, i - 2);
             if (!adjFillResult) break;
-            ccs!.push(...adjFillResult);
+            ccs.push(...adjFillResult);
         }
 
         sweepIndexOfCurr = dg.sweepLine.findIndex(p => p == dg.current);
@@ -233,13 +238,18 @@ export const delaunay = {
         triangulateChain(d, d.sweepLine.slice(1, d.sweepLine.length - 1));
 
         const baseLine = [d.sweepLine[d.sweepLine.length - 2]!];
-        let edge = d.graph.findEdgeIndex(d.sweepLine[d.sweepLine.length - 2]!, d.sweepLine[d.sweepLine.length - 1]!);
+        let edgeIndex = d.graph.findEdgeIndex(d.sweepLine[d.sweepLine.length - 2]!, d.sweepLine[d.sweepLine.length - 1]!);
         let prevEdge;
-        while (edge != -1) {
-            prevEdge = d.graph.halfEdges[d.graph.halfEdges[edge]!.prev]!;
-            if (prevEdge.origin == d.points.length - 2) { edge = prevEdge.twin; continue; }
+        while (edgeIndex != -1) {
+            const edge = d.graph.halfEdges[edgeIndex];
+            if (!edge) { console.error(`could not get edge ${edgeIndex}`); continue; }
+            prevEdge = d.graph.getPrev(edge);
+            if (!prevEdge) { console.error(`could not get prevedge ${d.graph.vertEdgeToString(edge.target, edge.origin)}`); continue; }
+            if (prevEdge.origin == d.points.length - 2) { edgeIndex = prevEdge.twin; continue; }
             baseLine.push(prevEdge.origin);
-            edge = d.graph.halfEdges[prevEdge.prev]!.twin;
+            const prevPrevEdge = d.graph.getPrev(prevEdge);
+            if (!prevPrevEdge) { console.error(`could not get edge ${prevEdge.prev}`); continue; }
+            edgeIndex = prevPrevEdge.twin;
         }
 
         for (let i = 0; i < 2; i++) {
