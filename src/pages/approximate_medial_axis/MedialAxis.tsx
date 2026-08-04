@@ -27,7 +27,7 @@ export default function ApproximateMedialAxis() {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        getMedialAxis,
+        getDelaunayTriangulation, getMedialAxis,
         setToRectExample
     } = useMedialAxisDraw(canvasRef, drawModes);
 
@@ -42,6 +42,11 @@ export default function ApproximateMedialAxis() {
     ];
 
     const actions = [
+        {
+            label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
+                getDelaunayTriangulation();
+            }
+        },
         {
             label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
                 getMedialAxis();

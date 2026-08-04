@@ -13,10 +13,7 @@ import { TriangleGraph, type Triangle, type Vertex } from "../../lib/geometry/tr
 export const medialAxis = {
     /** */
     initialise(points: Point[], tris: poly2tri.Triangle[]): TriangleGraph {
-        const graph = new TriangleGraph(points, tris);
-        this.addObtuseThreeNeighbourSteinerPoints(graph);
-        this.addConvexVertexSteinerPoints(graph);
-        return graph;
+        return new TriangleGraph(points, tris);
     },
 
     // /** Returns a set of Steiner points to be added to the SweepContext object then re-triangulated. */
@@ -53,7 +50,7 @@ export const medialAxis = {
     },
 
     /** Finds and returns the Steiner Points to be added to resolve polygon convex vertices (section 2.2). */
-    addConvexVertexSteinerPoints(g: TriangleGraph) {
+    addConvexVertexSteinerPoints(g: TriangleGraph): Point[] {
         // find all convex vertices (interior angle < 180)
 
         const convexVertices = [];
@@ -71,7 +68,10 @@ export const medialAxis = {
         console.log(`convex vertices:`);
         console.log(convexVertices);
 
+        const steinerVertices = [...convexVertices.map(c => this.addSteinerPointsAtVertex(g, c)).flat()];
+        const steinerPoints: Point[] = steinerVertices.map(v => ({x: v.x, y: v.y}));
 
+        return geometry2d.removeDuplicatePoints(steinerPoints);
     },
 
     addSteinerPointsAtVertex(g: TriangleGraph, c: number) {
@@ -84,7 +84,7 @@ export const medialAxis = {
         // the nearest polygon vertex v_n in regard to vertex v_c is found.
         const v_c = g.vertices[c]!;
         const n = [...v_c.connections].filter(v => !g.vertices[v]?.steiner)
-                                      .sort((a, b) => geometry2d.distance(v_c, g.vertices[a]!) - geometry2d.distance(v_c, g.vertices[b]!))[0]!;
+            .sort((a, b) => geometry2d.distance(v_c, g.vertices[a]!) - geometry2d.distance(v_c, g.vertices[b]!))[0]!;
         const v_n = g.vertices[n]!;
 
         // the distance d = |v_c v_n| represents the radius of circle c_c the centre of which is v_c.
@@ -94,14 +94,17 @@ export const medialAxis = {
         const v_prev = g.vertices[(c - 1 + g.vertices.length) % g.vertices.length]!;
         const distToPrev = geometry2d.distance(v_prev, v_c);
         const cToPrev: Point = { x: v_prev.x - v_c.x, y: v_prev.y - v_c.y };
+        const cToPrevNormalised = {x: cToPrev.x / distToPrev, y: cToPrev.y / distToPrev};
 
         const v_next = g.vertices[(c + 1) % g.vertices.length]!;
         const distToNext = geometry2d.distance(v_next, v_c);
         const cToNext: Point = { x: v_next.x - v_c.x, y: v_next.y - v_c.y };
+        const cToNextNormalised = {x: cToNext.x / distToNext, y: cToNext.y / distToNext}
 
-        const v_s1: Vertex = { x: v_c.x + cToPrev.x / distToPrev * d / 2, y: v_c.y + cToPrev.y * d / 2, connections: [], steiner: true }
-        const v_s2: Vertex = { x: v_c.x + cToNext.x / distToNext * d / 2, y: v_c.y + cToNext.y * d / 2, connections: [], steiner: true }
+        const v_s1: Vertex = { x: v_c.x + cToPrevNormalised.x * (d / 2), y: v_c.y + cToPrevNormalised.y * (d / 2), connections: [], steiner: true }
+        const v_s2: Vertex = { x: v_c.x + cToNextNormalised.x * (d / 2), y: v_c.y + cToNextNormalised.y * (d / 2), connections: [], steiner: true }
 
+        return [v_s1, v_s2];
         // the triangles from T_s are now changed as follows:
         // firstly the bisector of /_ v_c-1 v_c v_c+1 is determined and after that the angle at vertex v_c is calculated.
 

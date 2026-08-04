@@ -153,6 +153,27 @@ export const geometry2d = {
         // If sum > 0, it is CW
         return sum < 0;
     },
+    /** Returns a copy of the array with duplicates removed.
+     * @link https://www.geeksforgeeks.org/typescript/remove-duplicate-elements-from-typescript-array/#approach-1-using-typescript-filter-method
+     */
+    removeDupes(arr: number[]): number[] {
+        return arr.filter((item,
+            index) => arr.indexOf(item) === index);
+    },
+    /** Removes duplicate points (exact x/y match) from an array, keeping the first occurrence of each. */
+    removeDuplicatePoints(points: Point[]): Point[] {
+        const seen = new Set<string>();
+        const result: Point[] = [];
+
+        points.forEach(p => {
+            const key = `${p.x},${p.y}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            result.push(p);
+        });
+
+        return result;
+    }
 }
 
 
