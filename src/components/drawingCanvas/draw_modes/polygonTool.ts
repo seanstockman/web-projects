@@ -72,8 +72,8 @@ export class PolygonContinue implements DrawMode {
             } else {
                 updated[updated.length - 1] = last;
             }
-            console.log(`updated line`);
-            console.log(last);
+            // console.log(`updated line`);
+            // console.log(last);
             return updated;
         });
         ctx.setPoints(prev => {

@@ -53,15 +53,18 @@ export const medialAxis = {
     addConvexVertexSteinerPoints(g: TriangleGraph): Point[] {
         // find all convex vertices (interior angle < 180)
 
+        // wound CW.
+        
         const convexVertices = [];
 
         for (let i = 0; i < g.vertices.length; i++) {
-            const V_i = g.vertices[i]!;
+            const V_curr = g.vertices[i]!;
             const V_next = g.vertices[(i + 1) % g.vertices.length]!;
             const V_prev = g.vertices[(i - 1 + g.vertices.length) % g.vertices.length]!;
             // CW wound    
-            const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
-            const isConvex = turn < 0;
+            const turn = geometry2d.getAngleBetweenPoints(V_next, V_curr, V_prev);
+            // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
+            const isConvex = turn < Math.PI;
             if (isConvex) convexVertices.push(i);
         }
 

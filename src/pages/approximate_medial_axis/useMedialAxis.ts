@@ -54,16 +54,17 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function getDelaunayTriangulation() {
         clearCanvasOverlays();
+        const orderedPoints = [...points];
+        // ensure points are ordered clockwise for consistent winding
+        if (geometry2d.isCounterClockwise(orderedPoints)) { orderedPoints.reverse(); }
+        
         var contour: poly2tri.Point[] = [];
-
-        points.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
-
-        if (geometry2d.isCounterClockwise(contour)) contour.reverse();
+        orderedPoints.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
 
         const sweepCtx = new poly2tri.SweepContext(contour);
         sweepCtx.triangulate();
 
-        tg = medialAxis.initialise(points, sweepCtx.getTriangles());
+        tg = medialAxis.initialise(orderedPoints, sweepCtx.getTriangles());
         showTriangleGraph(tg);
     }
 
@@ -75,38 +76,38 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         // delaunay.delaunayTriangulation(savedDelaunay);
         const steinerVerts = medialAxis.addConvexVertexSteinerPoints(tg);
 
-        var contour: poly2tri.Point[] = [];
+        // var contour: poly2tri.Point[] = [];
 
-        points.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
+        // points.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
 
-        if (geometry2d.isCounterClockwise(contour)) contour.reverse();
-        const sweepCtx = new poly2tri.SweepContext(contour);
+        // if (geometry2d.isCounterClockwise(contour)) contour.reverse();
+        // const sweepCtx = new poly2tri.SweepContext(contour);
 
 
-        const steinerPoints: poly2tri.Point[] = steinerVerts.map(v => new poly2tri.Point(v.x, v.y));
+        // const steinerPoints: poly2tri.Point[] = steinerVerts.map(v => new poly2tri.Point(v.x, v.y));
 
-        sweepCtx.addPoints(steinerPoints);
-        sweepCtx.triangulate();
+        // sweepCtx.addPoints(steinerPoints);
+        // sweepCtx.triangulate();
 
-        tg = medialAxis.initialise(points, sweepCtx.getTriangles());
-        console.log(tg);
-        showTriangleGraph(tg);
-        showDelaunaySwpctx(sweepCtx);
+        // tg = medialAxis.initialise(points, sweepCtx.getTriangles());
+        // console.log(tg);
+        // showTriangleGraph(tg);
+        // showDelaunaySwpctx(sweepCtx);
 
         addDrawBundleToCanvas({
             circles: [
-            ...steinerVerts.map(v => ({
-                circle: {
-                    center: { x: v.x, y: v.y },
-                    radius: 6
-                },
-                props: {
-                    filled: true,
-                    borderWidth: 0,
-                    color: '#ff0000',
-                    dashed: false
-                }
-            }))]
+                ...steinerVerts.map(v => ({
+                    circle: {
+                        center: { x: v.x, y: v.y },
+                        radius: 6
+                    },
+                    props: {
+                        filled: true,
+                        borderWidth: 0,
+                        color: '#ff0000',
+                        dashed: false
+                    }
+                }))]
         });
     }
 
