@@ -11,6 +11,7 @@ import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FastForwardIcon from '@mui/icons-material/FastForward';
+import ControlPointIcon from '@mui/icons-material/ControlPoint';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -27,7 +28,7 @@ export default function ApproximateMedialAxis() {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        getDelaunayTriangulation, getMedialAxis,
+        initialiseCDTFromCanvasPoints, addSteinerPoints,
         setToRectExample
     } = useMedialAxisDraw(canvasRef, drawModes);
 
@@ -44,12 +45,17 @@ export default function ApproximateMedialAxis() {
     const actions = [
         {
             label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
-                getDelaunayTriangulation();
+                initialiseCDTFromCanvasPoints();
+            }
+        },
+        {
+            label: "Adds the steiner points to assist in medial axis construction and.", icon: <ControlPointIcon />, action: () => {
+                addSteinerPoints();
             }
         },
         {
             label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
-                getMedialAxis();
+                // addSteinerPoints();
             }
         },
         {

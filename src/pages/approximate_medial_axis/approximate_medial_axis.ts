@@ -10,6 +10,12 @@ import * as poly2tri from "poly2tri";
 import { geometry2d, type Point } from "../../lib/geometry/geometry2d.ts";
 import { TriangleGraph, type Triangle, type Vertex } from "../../lib/geometry/triangle_graph.ts";
 
+type insertedConvexSteinerPoints = {
+    vertexIndex: number,
+    before: Vertex,
+    after: Vertex
+}
+
 export const medialAxis = {
     /** */
     initialise(points: Point[], tris: poly2tri.Triangle[]): TriangleGraph {
@@ -54,7 +60,7 @@ export const medialAxis = {
         // find all convex vertices (interior angle < 180)
 
         // wound CW.
-        
+
         const convexVertices = [];
 
         for (let i = 0; i < g.vertices.length; i++) {
@@ -71,13 +77,42 @@ export const medialAxis = {
         console.log(`convex vertices:`);
         console.log(convexVertices);
 
-        const steinerVertices = [...convexVertices.map(c => this.addSteinerPointsAtVertex(g, c)).flat()];
-        const steinerPoints: Point[] = steinerVertices.map(v => ({x: v.x, y: v.y}));
+        const steinerVertices = convexVertices.map(c => this.getSteinerPointsAtVertex(g, c));
 
-        return geometry2d.removeDuplicatePoints(steinerPoints);
+        // insert these steiner points into the array of polygon vertices to get re-CDT'ed.
+        const verticesWithSteinerPointsAdded: Point[] = [];
+        for (let i = 0; i < g.vertices.length; i++) {
+            // if the vertex index i is in the steiner vertices array, add the before and after.
+            // otherwise just push the point.
+            const steinerPointsAtVertex = steinerVertices.find(sv => sv.vertexIndex == i);
+            if (steinerPointsAtVertex == undefined) {
+                verticesWithSteinerPointsAdded.push(g.vertices[i]!);
+                continue;
+            }
+            // dont push repeats (test before only)
+            if (!verticesWithSteinerPointsAdded.find(v => v.x == steinerPointsAtVertex.before.x && v.y == steinerPointsAtVertex.before.y)) {
+                verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.before);
+            }
+            verticesWithSteinerPointsAdded.push(g.vertices[i]!);
+            // dont push repeat on last vertex's after.
+            if (i == g.vertices.length - 1 &&
+                verticesWithSteinerPointsAdded.find(v => v.x == steinerPointsAtVertex.after.x && v.y == steinerPointsAtVertex.after.y)
+            ) {
+                continue;
+            }
+            verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.after);
+        }
+
+        console.log(verticesWithSteinerPointsAdded);
+
+        return verticesWithSteinerPointsAdded;
+
+        // const steinerPoints: Point[] = steinerVertices.map(v => ({ x: v.vertex.x, y: v.vertex.y }));
+
+        // return geometry2d.removeDuplicatePoints(steinerPoints);
     },
 
-    addSteinerPointsAtVertex(g: TriangleGraph, c: number) {
+    getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSteinerPoints {
         // firstly a list of triangles originating in v_c is formed
         const trianglesOriginatingAtC = g.triangles.filter(t => t[0] == c || t[1] == c || t[2] == c);
 
@@ -97,17 +132,25 @@ export const medialAxis = {
         const v_prev = g.vertices[(c - 1 + g.vertices.length) % g.vertices.length]!;
         const distToPrev = geometry2d.distance(v_prev, v_c);
         const cToPrev: Point = { x: v_prev.x - v_c.x, y: v_prev.y - v_c.y };
-        const cToPrevNormalised = {x: cToPrev.x / distToPrev, y: cToPrev.y / distToPrev};
+        const cToPrevNormalised = { x: cToPrev.x / distToPrev, y: cToPrev.y / distToPrev };
 
         const v_next = g.vertices[(c + 1) % g.vertices.length]!;
         const distToNext = geometry2d.distance(v_next, v_c);
         const cToNext: Point = { x: v_next.x - v_c.x, y: v_next.y - v_c.y };
-        const cToNextNormalised = {x: cToNext.x / distToNext, y: cToNext.y / distToNext}
+        const cToNextNormalised = { x: cToNext.x / distToNext, y: cToNext.y / distToNext }
 
         const v_s1: Vertex = { x: v_c.x + cToPrevNormalised.x * (d / 2), y: v_c.y + cToPrevNormalised.y * (d / 2), connections: [], steiner: true }
         const v_s2: Vertex = { x: v_c.x + cToNextNormalised.x * (d / 2), y: v_c.y + cToNextNormalised.y * (d / 2), connections: [], steiner: true }
 
-        return [v_s1, v_s2];
+        return {
+            vertexIndex: c,
+            before: v_s1,
+            after: v_s2
+        };
+
+        // insertedSteinerPoints[0]!.isBeforeVertex = true;
+
+        // return insertedSteinerPoints;
         // the triangles from T_s are now changed as follows:
         // firstly the bisector of /_ v_c-1 v_c v_c+1 is determined and after that the angle at vertex v_c is calculated.
 
