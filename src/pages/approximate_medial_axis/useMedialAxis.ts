@@ -60,8 +60,9 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function getConstrainedDelaunayTriangulation(vertices: Point[]) {
         clearCanvasOverlays();
         const orderedVerts = [...vertices];
-        // ensure points are ordered clockwise for consistent winding
-        if (geometry2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
+
+        // ensure points are ordered counter-clockwise for consistent winding
+        if (!geometry2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
         
         var contour: poly2tri.Point[] = [];
         orderedVerts.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
@@ -74,13 +75,9 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function addSteinerPoints() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        // clearCanvasOverlays();
-        // savedDelaunay = initialiseDelaunay(points, lines);
-        // if (!savedDelaunay) return;
-        // delaunay.delaunayTriangulation(savedDelaunay);
-        const steinerVerts = medialAxis.addConvexVertexSteinerPoints(tg);
-
-        tg = getConstrainedDelaunayTriangulation(steinerVerts);
+        
+        medialAxis.addSteinerPoints(tg);
+        clearCanvasOverlays();
         showTriangleGraph(tg);
 
         // addDrawBundleToCanvas({

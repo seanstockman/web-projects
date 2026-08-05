@@ -6,6 +6,8 @@ export type Vertex = Point & {
     steiner: boolean // whether this is not part of the original
 }
 
+export type VectorTuple = [Vertex, Vertex, Vertex];
+
 export type Triangle = [number, number, number];
 
 export class TriangleGraph {
@@ -48,7 +50,7 @@ export class TriangleGraph {
         vertexB.connections = vertexB.connections.filter(v => v != A);
     }
 
-    public getVertices(t: Triangle) {
+    public getVertices(t: Triangle): VectorTuple {
         return [this.vertices[t[0]]!, this.vertices[t[1]]!, this.vertices[t[2]]!];
     }
 
@@ -83,5 +85,10 @@ export class TriangleGraph {
         };
 
         return [...triangles].sort((a, b) => angleOf(a) - angleOf(b));
+    }
+
+    /** Finds and returns an array of indices of vertices which the two given vertices share. */
+    public getSharedConnections(A: Vertex, B: Vertex) {
+        return A.connections.filter(conn => B.connections.includes(conn));
     }
 }
