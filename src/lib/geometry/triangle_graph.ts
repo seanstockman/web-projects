@@ -87,8 +87,13 @@ export class TriangleGraph {
         return [...triangles].sort((a, b) => angleOf(a) - angleOf(b));
     }
 
+    /** Flips the triangles along the edge AB. Returns the indices of the new edge, XY. */
+    public flipTrianglesAlongEdge(A: number, B: number) {
+
+    }
+
     /** Finds and returns an array of indices of vertices which the two given vertices share. */
-    public getSharedConnections(A: Vertex, B: Vertex) {
-        return A.connections.filter(conn => B.connections.includes(conn));
+    public getSharedConnections(vertexA: Vertex, vertexB: Vertex) {
+        return vertexA.connections.filter(conn => vertexB.connections.includes(conn));
     }
 }

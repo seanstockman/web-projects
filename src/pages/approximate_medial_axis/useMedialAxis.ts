@@ -76,7 +76,12 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function addSteinerPoints() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
         
-        medialAxis.addSteinerPoints(tg);
+        const polygonWithSteiner = medialAxis.getPolygonWithAddedSteinerPoints(tg);
+
+        tg = getConstrainedDelaunayTriangulation(polygonWithSteiner);
+
+        medialAxis.flipRemainingConvexVertices(tg);
+
         clearCanvasOverlays();
         showTriangleGraph(tg);
 

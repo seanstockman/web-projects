@@ -22,17 +22,60 @@ export const medialAxis = {
         return new TriangleGraph(points, tris);
     },
 
-    addSteinerPoints(g: TriangleGraph) {
-        addObtuseThreeNeighbourSteinerPoints(g);
-        addConvexVertexSteinerPoints(g);
+    getPolygonWithAddedSteinerPoints(g: TriangleGraph) {
+        // addObtuseThreeNeighbourSteinerPoints(g);
+        return addConvexVertexSteinerPoints(g);
     },
+
+    flipRemainingConvexVertices(g: TriangleGraph) {
+        const remainingConvexVertices = [];
+
+        for (let i = 0; i < g.vertices.length; i++) {
+            const V_curr = g.vertices[i]!;
+            const prev = (i - 1 + g.vertices.length) % g.vertices.length;
+            const V_prev = g.vertices[prev]!;
+            const next = (i + 1) % g.vertices.length;
+            const V_next = g.vertices[next]!;
+
+            const turn = geometry2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+            // CW wound    
+            // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
+            const isConvex = turn < (Math.PI - 0.0001);
+            if (!isConvex) continue;
+
+            let sharedConnectionsWithPrev = g.getSharedConnections(V_curr, V_prev);
+            sharedConnectionsWithPrev = sharedConnectionsWithPrev.filter(conn => conn != next);
+
+            if (sharedConnectionsWithPrev.length != 0) {
+                console.log(`sharedConnectionsWithPrev: v${i}, prev = ${prev}. excluing ${next}`);
+                console.log(sharedConnectionsWithPrev);
+                remainingConvexVertices.push(i);
+                continue;
+            }
+
+            let sharedConnectionsWithNext = g.getSharedConnections(V_curr, V_next);
+            sharedConnectionsWithNext = sharedConnectionsWithNext.filter(conn => conn != prev);
+
+            if (sharedConnectionsWithNext.length != 0) {
+                console.log(`sharedConnectionsWithNext: v${i}, next = ${next}. excluing ${prev}`);
+                console.log(sharedConnectionsWithPrev);
+                remainingConvexVertices.push(i);
+                continue;
+            }
+
+            // console.log(`v${i}: ${turn} < ${Math.PI - 0.0001}`);
+            // remainingConvexVertices.push(i);
+        }
+
+        console.log(`remaining convex vertices:`);
+        console.log(remainingConvexVertices);
+    }
 
     // /** Returns a set of Steiner points to be added to the SweepContext object then re-triangulated. */
     // addSteinerPoints(points: Point[], swctx: poly2tri.SweepContext): Point[] {
     //     return [...this.getObtuseThreeNeighbourSteinerPoints(points, swctx), ...this.getConvexVertexSteinerPoints(points, swctx)];
     // },
 
-    /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
 
 }
 
@@ -66,7 +109,7 @@ function addObtuseThreeNeighbourSteinerPoints(g: TriangleGraph) {
     console.log(obtuseTriangles);
 }
 
-/** Adds the Steiner Points to be added to resolve polygon convex vertices (section 2.2). */
+/** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
 function addConvexVertexSteinerPoints(g: TriangleGraph) {
     // find all convex vertices (interior angle < 180)
 
@@ -115,7 +158,7 @@ function addConvexVertexSteinerPoints(g: TriangleGraph) {
     }
 
     console.log(verticesWithSteinerPointsAdded);
-
+    return verticesWithSteinerPointsAdded;
 
     // const steinerPoints: Point[] = steinerVertices.map(v => ({ x: v.vertex.x, y: v.vertex.y }));
 
