@@ -32,8 +32,8 @@ export const geometry2d = {
         const ux = (aSq * (B.y - C.y) + bSq * (C.y - A.y) + cSq * (A.y - B.y)) / d;
         const uy = (aSq * (C.x - B.x) + bSq * (A.x - C.x) + cSq * (B.x - A.x)) / d;
 
-        const center = { x: ux, y: uy };
-        const radius = this.distance(A, center)
+        // Calculate Radius using distance formula from center to vertex A
+        const radius = Math.sqrt((ux - A.x) ** 2 + (uy - A.y) ** 2);
 
         return {
             center: { x: ux, y: uy },
@@ -62,6 +62,27 @@ export const geometry2d = {
         return {
             x: (sumX) / points.length,
             y: (sumY) / points.length,
+        };
+    },
+
+    /** Returns the intersection of a ray (starting at O, travelling in direction D) with the
+     * segment AB, or undefined if the ray and segment don't cross.
+     * `t` is the ray parameter (P = O + t*D, t >= 0) and `u` is the segment parameter (0-1). */
+    getRaySegmentIntersection(O: Vec2, D: Vec2, A: Vec2, B: Vec2): { point: Vec2, t: number, u: number } | undefined {
+        const sx = B.x - A.x, sy = B.y - A.y;
+        const denom = D.x * sy - D.y * sx;
+        if (Math.abs(denom) < 1e-12) return undefined; // parallel (or degenerate segment)
+
+        const dx = A.x - O.x, dy = A.y - O.y;
+        const t = (dx * sy - dy * sx) / denom;
+        const u = (dx * D.y - dy * D.x) / denom;
+
+        if (t < 0 || u < 0 || u > 1) return undefined;
+
+        return {
+            point: { x: O.x + D.x * t, y: O.y + D.y * t },
+            t,
+            u
         };
     },
 
@@ -116,6 +137,21 @@ export const geometry2d = {
             direction: this.getDirectionFromAToB(A, B),
             magnitude: this.distance(A, B)
         }
+    },
+
+    /** Returns which of A (0), B (1), or C (2) has the largest interior angle of the triangle.
+     * Uses the law of cosines on squared edge lengths — the largest angle is always opposite the
+     * longest side — so, unlike `getAngleBetweenPoints`, this is completely independent of winding
+     * direction (CW vs CCW) and immune to atan2 wraparound issues. If the triangle is obtuse, this
+     * is also its obtuse vertex, since a triangle can only have one angle > π/2. */
+    indexOfLargestAngleVertex(A: Vec2, B: Vec2, C: Vec2): 0 | 1 | 2 {
+        const a2 = this.distance(B, C) ** 2; // side opposite A
+        const b2 = this.distance(A, C) ** 2; // side opposite B
+        const c2 = this.distance(A, B) ** 2; // side opposite C
+
+        if (a2 >= b2 && a2 >= c2) return 0;
+        if (b2 >= a2 && b2 >= c2) return 1;
+        return 2;
     },
 
     /** Tests if the three points are collinear. */
@@ -213,25 +249,20 @@ export const geometry2d = {
     perp(A: Vec2) {
         return { x: A.y, y: - A.x };
     },
-
-    /** Returns the intersection of a ray (starting at O, travelling in direction D) with the
-     * segment AB, or undefined if the ray and segment don't cross.
-     * `t` is the ray parameter (P = O + t*D, t >= 0) and `u` is the segment parameter (0-1). */
-    getRaySegmentIntersection(O: Vec2, dir: Vec2, A: Vec2, B: Vec2): { point: Vec2, t: number, u: number } | undefined {
-        const sx = B.x - A.x, sy = B.y - A.y;
-        const denom = dir.x * sy - dir.y * sx;
-        if (Math.abs(denom) < 1e-12) return undefined; // parallel (or degenerate segment)
-
-        const dx = A.x - O.x, dy = A.y - O.y;
-        const t = (dx * sy - dy * sx) / denom;
-        const u = (dx * dir.y - dy * dir.x) / denom;
-
-        if (t < 0 || u < 0 || u > 1) return undefined;
-
-        return {
-            point: { x: O.x + dir.x * t, y: O.y + dir.y * t },
-            t,
-            u
-        };
-    },
 }
+
+
+// // Example Usage
+// const A: Vec2 = new Vec2(0, -0.5);
+// const B: Vec2 = new Vec2(0, 0);
+// const C: Vec2 = new Vec2(-0.5, 0.5);
+
+// try {
+//     const result = findCircumcircle(A, B, C);
+//     console.log(`Circumcenter: (${result.center.x}, ${result.center.y})`);
+//     console.log(`Radius: ${result.radius}`);
+// } catch (error) {
+//     if (error instanceof Error) {
+//         console.error("Error:", error.message);
+//     }
+// }

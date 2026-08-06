@@ -66,8 +66,7 @@ export const medialAxis = {
     },
 
     constructMedialAxis(g: TriangleGraph) {
-        const ma = new MedialAxisConstructor(g);
-        ma.construct();
+        return new MedialAxisConstructor(g).construct();
     }
 
     // /** Returns a set of Steiner points to be added to the SweepContext object then re-triangulated. */
@@ -208,31 +207,33 @@ function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSt
 
 export type MedialAxis = {
     points: Vec2[],
-    edges: number[][];
+    edges: [number, number][];
 }
 
 type TriangleInfo = {
     visited: boolean,
     /** Whether the triangle is ignored during traversal. */
     disabled: boolean,
-    type: TriangleType
+    type: TriangleType,
+    index: number
 }
 
 class MedialAxisConstructor {
     private g: TriangleGraph;
     private triInfo: TriangleInfo[];
     private finished = false;
-    private medialAxis: MedialAxis = { points: [], edges: [] };
+    private ma: MedialAxis = { points: [], edges: [] };
 
 
     constructor(tg: TriangleGraph) {
         this.g = tg;
         // this.visitedTriangles = new Map<number, boolean>();
         this.triInfo = [];
-        this.g.triangles.forEach(() => this.triInfo.push({
+        this.g.triangles.forEach((_, i) => this.triInfo.push({
             visited: false,
             disabled: false,
             type: TriangleType.A,
+            index: i
         }));
     }
 
@@ -244,13 +245,15 @@ class MedialAxisConstructor {
         // The algorithm starts in an arbitrary C-type triangle. 
         const firstTypeCTriangleIndex = this.g.triangles.findIndex((_, i) => this.triInfo[i]?.type == TriangleType.C);
         if (undefined == firstTypeCTriangleIndex) { console.error(`No C type triangles exist.`); return; }
+        this.disableATrisPiercedByCTris();
+
         const firstTypeCTriangle = this.g.triangles[firstTypeCTriangleIndex];
         if (!firstTypeCTriangle) { console.error(`No C type triangles exist.`); return; }
 
         this.startAtTypeC(firstTypeCTriangleIndex, firstTypeCTriangle);
 
         this.finished = true;
-        return medialAxis;
+        return this.ma;
     }
 
     private assignTriTypes() {
@@ -266,22 +269,22 @@ class MedialAxisConstructor {
         });
     }
 
-    private startAtTypeC(index: number, triangle: Triangle) {
-        // Firstly, it is checked as to whether the centre of the triangles circumcircle is inside the triangle.
-        const circumcentre = this.g.getCircumcircleOfTriangle(triangle)?.center;
-        if (!circumcentre) { console.error(`Could not compute circumcentre`); return; }
-
-        if (!this.g.isPointInTriangle(triangle, circumcentre)) {
+    private disableATrisPiercedByCTris() {
+        const cTypeTriangles = this.triInfo.filter(info => info.type == TriangleType.C).map(info => info.index);
+        cTypeTriangles.forEach(i => {
+            const t = this.g.triangles[i]!;
+            const cc = this.g.getCircumcircleOfTriangle(t).center;
+            if (this.g.isPointInTriangle(t, cc)) return;
             // If the centre of the C-type triangle is outside the triangle, a vector is sent from the triangle's 
             // obtuse vertex to the circle's centre. 
 
             // find all triangles pierced by a vector
             // const obtuseVertex = geometry2d.getFurthestPointFromP(circumcentre.center, triangle.map(i => this.g.vertices[i]!));
-            console.log(`T${index} (c-type): circumcentre is not in the triangle`);
+            console.log(`T${i} (c-type): circumcentre is not in the triangle`);
 
             let obtuseVertexIndex;
-            const triVerts = this.g.getVertices(triangle);
-            for (let i = 0; i < triangle.length; i++) {
+            const triVerts = this.g.getVertices(t);
+            for (let i = 0; i < t.length; i++) {
                 if (geometry2d.getAngleBetweenPoints(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
                 obtuseVertexIndex = i;
 
@@ -290,42 +293,123 @@ class MedialAxisConstructor {
             if (obtuseVertexIndex == undefined) { console.error(`could not find obtuse vertex`); return; }
 
             const vO = triVerts[obtuseVertexIndex]!;
-            const dir = geometry2d.normalise(geometry2d.sub(circumcentre, vO));
+            const dir = geometry2d.normalise(geometry2d.sub(cc, vO));
 
-            const facesTraversed = this.g.traceRay(vO, dir, index, circumcentre);
+            const facesTraversed = this.g.traceRay(vO, dir, i, cc);
 
-            // All type-A triangles pierced by this vector are marked as disabled.
+            // All the triangles of type A, pierced by this vector, are marked as disabled
+            // and do not participate in the final solution.
             facesTraversed.filter(i => this.triInfo[i]?.type == TriangleType.A).forEach(i => {
-                console.log(`marking A-type triangle T${i} as visited.`);
+                console.log(`marking A-type triangle T${i} as disabled.`);
                 this.triInfo[i]!.disabled = true;
             });
-        }
-        
+        });
+    }
+
+    private startAtTypeC(index: number, triangle: Triangle) {
         this.triInfo[index]!.visited = true;
 
-        /* If the centre is inside.
-         * In this case the centre represents a vertex on the medial axis and the algorithm 
+        // Firstly, it is checked as to whether the centre of the triangles circumcircle is inside the triangle.
+        const circumcentre = this.g.getCircumcircleOfTriangle(triangle)?.center;
+        if (!circumcentre) { console.error(`Could not compute circumcentre`); return; }
+
+        this.ma.points.push(circumcentre);
+        // connect to last point added (if it exists)
+        if (this.ma.points.length > 1) this.ma.edges.push([this.ma.points.length - 2, this.ma.points.length - 1]);
+
+        /* The circumcentre represents a vertex on the medial axis and the algorithm 
          * recursively visits the neighbouring triangles. */
 
-        // If an A type triangle is encountered, the last vertex obtained on the medial axis is 
-        // connected to the bisector of the common edge with the next neighbouring triangle.
+        const adjTriangles = this.g.getAdjacentTriangles(triangle);
+        adjTriangles.forEach(adj => {
+            const adjInfo = this.triInfo[adj]!;
+            const adjTri = this.g.triangles[adj]!;
+            if (adjInfo.visited) return;
+            switch (adjInfo.type) {
+                case TriangleType.A:
+                    // If an A type triangle is encountered, the last vertex obtained on the medial axis is 
+                    // connected to the bisector of the common edge with the next neighbouring triangle.
+                    // const ba;
+                    this.startAtTypeA(adj, adjTri);
+                    return;
+                case TriangleType.B:
+                    console.warn(`not implemented: reached a type B`);
+                    return;
+                case TriangleType.C:
+                    this.startAtTypeC(adj, adjTri);
+                    return;
+                default:
+                    console.error(`erm.`);
+                    return;
+            }
 
-        // If a B-type triangle is met, all the line segments between the considered B-type triangle and the last C-type triangle, 
-        // generated by A-type triangles, are firstly removed from the solution.
 
-        // After that, the circumcentre of the last C-type triangle is connected to the B-type triangle's top vertex.
-
-
+            // If a B-type triangle is met, all the line segments between the considered B-type triangle and the last C-type triangle, 
+            // generated by A-type triangles, are firstly removed from the solution.
+            // After that, the circumcentre of the last C-type triangle is connected to the B-type triangle's top vertex.
 
 
 
+        });
 
-        // All the triangles of type A, pierced by this vector, are marked as disabled and do not participate in the final solution.
         // The algorithm then recursively visits the neighbouring triangles and upon each individual triangle type,
         // adds a contribution to the final MA.
     }
 
-    private startAtTypeA(index: number, triangle: Triangle) {
+    /** Recursively searches through the graph until a triangle of type B or C is reached.
+     * - If a type-B triangle is reached, the last point added to the `MA` will be connected 
+     *   to the top of the B-type triangle and the traversal will end.
+     * - If a type-C triangle is reached, all midpoints traversed will be connected and a search 
+     *   at triangle C will be initialised. */
+    private startAtTypeA(index: number, triangle: Triangle, maxSteps = this.g.triangles.length) {
+        let currIndex = index;
+        let currTriangle = triangle;
+        const addedMidpointVertices: Vec2[] = [];
 
+        for (let j = 0; j < maxSteps; j++) {
+            // starting from an A vertex.
+            this.triInfo[currIndex]!.visited = true;
+
+            const adjacentTriangles = this.g.getAdjacentTriangles(triangle);
+            if (adjacentTriangles.length != 2) {
+                console.error(`type A triangle ${index} has ${adjacentTriangles.length} adjacent triangles`);
+                return;
+            }
+            const nextIndex = adjacentTriangles.find(i => !this.triInfo[i]?.visited);
+            if (nextIndex == undefined) return; // all adjacent visited? that doesnt make sense here. whatever
+            const nextTriangle = this.g.triangles[nextIndex]!;
+            const nextType = this.triInfo[nextIndex]!.type;
+
+            if (nextType == TriangleType.B) {
+                const topVertexIndex = nextTriangle.find(i => !currTriangle.includes(i));
+                if (topVertexIndex == undefined) { console.error(`curr triangle == next triangle`); return; }
+                this.ma.points.push(this.g.vertices[topVertexIndex]!);
+                // connect last added
+                this.ma.edges.push([this.ma.edges.length - 2, this.ma.edges.length - 1]);
+                return;
+            }
+
+            // add the midpoint 
+            const edge = this.g.getEdgeBetweenTriangles(currTriangle, nextTriangle)!;
+            const edgeVerts = edge.map(i => this.g.vertices[i]!) as [Vertex, Vertex];
+            addedMidpointVertices.push(geometry2d.getMidpoint(...edgeVerts));
+
+            if (nextType == TriangleType.C) {
+                // add and connect all previous
+                for (let k = 0; k < addedMidpointVertices.length - 1; k++) {
+                    this.ma.edges.push([this.ma.points.length + k, this.ma.points.length + k + 1]);
+                }
+                this.ma.points.push(...addedMidpointVertices);
+                return;
+            }
+
+            // type A
+
+            currIndex = nextIndex;
+            currTriangle = this.g.triangles[nextIndex]!;
+            console.warn(`not implemented.`);
+            return;
+
+        }
     }
 }

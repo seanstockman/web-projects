@@ -298,4 +298,10 @@ export class TriangleGraph {
     private isSameEdge(a: [number, number], b: [number, number]) {
         return (a[0] === b[0] && a[1] === b[1]) || (a[0] === b[1] && a[1] === b[0]);
     }
+
+    public getEdgeBetweenTriangles(t1: Triangle, t2: Triangle) {
+        const shared = t1.filter(i => t2.includes(i));
+        if (shared.length != 2) return;
+        return shared as [number, number];
+    }
 }

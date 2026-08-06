@@ -104,7 +104,18 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function constructMedialAxisFromTriangulation() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        medialAxis.constructMedialAxis(tg);
+        const ma = medialAxis.constructMedialAxis(tg);
+        if (!ma) { console.error(`no ma :(`); return; }
+        addDrawBundleToCanvas({
+            lines: ma.edges.map(e => ({
+                points: [ma.points[e[0]]!, ma.points[e[1]]!],
+                props: {
+                    color: 'red',
+                    width: 5,
+                    dashed: false,
+                }
+            }))
+        });
     }
 
     function getMedialAxis() {
