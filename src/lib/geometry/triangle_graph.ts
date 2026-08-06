@@ -225,4 +225,77 @@ export class TriangleGraph {
     public getVerticesFromIndices(...indices: number[]) {
         return indices.map(i => this.vertices[i]!);
     }
+
+    /** Finds the index of a triangle containing point p, or undefined if none does.
+     * O(n) — fine for a one-off lookup, but pass a known starting triangle into
+     * `traceRay` directly if you're calling it a lot (e.g. every frame). */
+    public findTriangleContainingPoint(p: Vec2): number | undefined {
+        const index = this.triangles.findIndex(t => this.isPointInTriangle(t, p));
+        return index === -1 ? undefined : index;
+    }
+
+    /**
+     * Walks a ray through the triangulation, starting inside `startTriangle`, and returns the
+     * indices (into `this.triangles`) of every face it passes through, in order.
+     *
+     * At each triangle, it finds which of the (up to) two non-entry edges the ray crosses,
+     * hops to the triangle on the other side of that edge, and repeats. It stops when the ray
+     * exits the mesh (crossed edge has no neighbouring triangle) or `maxSteps` is reached
+     * (guards against bad input / infinite loops rather than expecting to hit it in practice).
+     *
+     * @param origin Ray start point.
+     * @param direction Ray direction (need not be normalised).
+     * @param startTriangle Index of the triangle `origin` lies within.
+     * @param target Ray end. Optional - will terminate the ray trace once the target is in the triangle.
+     */
+    public traceRay(origin: Vec2, direction: Vec2, startTriangle: number, target: Vec2 | undefined = undefined, maxSteps = this.triangles.length): number[] {
+        const facesHit: number[] = [];
+
+        let currentTriangleIndex: number | undefined = startTriangle;
+        let entryEdge: [number, number] | undefined = undefined;
+        let rayOrigin: Vec2 = origin;
+
+        for (let step = 0; step < maxSteps && currentTriangleIndex !== undefined; step++) {
+            const t = this.triangles[currentTriangleIndex];
+            if (!t) break;
+            facesHit.push(currentTriangleIndex);
+            if (target && this.isPointInTriangle(t, target)) {
+                // point is in this triangle
+                break;
+            }
+
+            const edges: [number, number][] = [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]];
+
+            let exitEdge: [number, number] | undefined;
+            let exitPoint: Vec2 | undefined;
+            let nearestT = Infinity;
+
+            for (const edge of edges) {
+                // don't immediately bounce back out of the edge we just came in through
+                if (entryEdge && this.isSameEdge(edge, entryEdge)) continue;
+
+                const vA = this.vertices[edge[0]]!, vB = this.vertices[edge[1]]!;
+                const hit = geometry2d.getRaySegmentIntersection(rayOrigin, direction, vA, vB);
+                // small epsilon so we don't re-trigger on the entry point itself due to fp error
+                if (hit && hit.t > 1e-9 && hit.t < nearestT) {
+                    nearestT = hit.t;
+                    exitEdge = edge;
+                    exitPoint = hit.point;
+                }
+            }
+
+            if (!exitEdge || !exitPoint) break; // ray is parallel to / doesn't reach any far edge
+
+            const opposite = t.find(v => v !== exitEdge![0] && v !== exitEdge![1])!;
+            currentTriangleIndex = this.getTriangleOnOtherSideOfABfromO(exitEdge[0], exitEdge[1], opposite);
+            entryEdge = exitEdge;
+            rayOrigin = exitPoint;
+        }
+
+        return facesHit;
+    }
+
+    private isSameEdge(a: [number, number], b: [number, number]) {
+        return (a[0] === b[0] && a[1] === b[1]) || (a[0] === b[1] && a[1] === b[0]);
+    }
 }

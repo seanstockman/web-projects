@@ -213,20 +213,25 @@ export const geometry2d = {
     perp(A: Vec2) {
         return { x: A.y, y: - A.x };
     },
+
+    /** Returns the intersection of a ray (starting at O, travelling in direction D) with the
+     * segment AB, or undefined if the ray and segment don't cross.
+     * `t` is the ray parameter (P = O + t*D, t >= 0) and `u` is the segment parameter (0-1). */
+    getRaySegmentIntersection(O: Vec2, dir: Vec2, A: Vec2, B: Vec2): { point: Vec2, t: number, u: number } | undefined {
+        const sx = B.x - A.x, sy = B.y - A.y;
+        const denom = dir.x * sy - dir.y * sx;
+        if (Math.abs(denom) < 1e-12) return undefined; // parallel (or degenerate segment)
+
+        const dx = A.x - O.x, dy = A.y - O.y;
+        const t = (dx * sy - dy * sx) / denom;
+        const u = (dx * dir.y - dy * dir.x) / denom;
+
+        if (t < 0 || u < 0 || u > 1) return undefined;
+
+        return {
+            point: { x: O.x + dir.x * t, y: O.y + dir.y * t },
+            t,
+            u
+        };
+    },
 }
-
-
-// // Example Usage
-// const A: Vec2 = new Vec2(0, -0.5);
-// const B: Vec2 = new Vec2(0, 0);
-// const C: Vec2 = new Vec2(-0.5, 0.5);
-
-// try {
-//     const result = findCircumcircle(A, B, C);
-//     console.log(`Circumcenter: (${result.center.x}, ${result.center.y})`);
-//     console.log(`Radius: ${result.radius}`);
-// } catch (error) {
-//     if (error instanceof Error) {
-//         console.error("Error:", error.message);
-//     }
-// }

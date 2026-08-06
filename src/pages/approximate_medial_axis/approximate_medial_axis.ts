@@ -21,7 +21,7 @@ type insertedConvexSteinerPoints = {
  *  - Type A represents a triangle with one coinciding polygon edge. 
  *  - Type B represents a triangle with two coinciding polygon edges. 
  *  - Type C represents a triangle with no coinciding polygon edges. */
-enum triangleType {
+enum TriangleType {
     /** No polygon edges */
     C,
     /** One polygon edge */
@@ -206,31 +206,43 @@ function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSt
     // until the cumulative value of the angles at v_c is smalled than the half of /_ v_c-1 v_c v_c+1, the triangle vertex is moved.
 }
 
-type MedialAxis = {
+export type MedialAxis = {
     points: Vec2[],
     edges: number[][];
 }
 
+type TriangleInfo = {
+    visited: boolean,
+    /** Whether the triangle is ignored during traversal. */
+    disabled: boolean,
+    type: TriangleType
+}
+
 class MedialAxisConstructor {
     private g: TriangleGraph;
-    private triTypeMap = new Map<number, triangleType>();
-    private visitedTriangles;
+    private triInfo: TriangleInfo[];
     private finished = false;
     private medialAxis: MedialAxis = { points: [], edges: [] };
 
+
     constructor(tg: TriangleGraph) {
         this.g = tg;
-        this.visitedTriangles = new Map<number, boolean>();
-        this.g.triangles.forEach((_, i) => this.visitedTriangles.set(i, false));
+        // this.visitedTriangles = new Map<number, boolean>();
+        this.triInfo = [];
+        this.g.triangles.forEach(() => this.triInfo.push({
+            visited: false,
+            disabled: false,
+            type: TriangleType.A,
+        }));
     }
 
     public construct() {
         if (this.finished) { console.error(`medial axis already constructed`); return; }
         // idea: map triangle indices to triangle types
-        this.generateTriTypeMap();
+        this.assignTriTypes();
 
         // The algorithm starts in an arbitrary C-type triangle. 
-        const firstTypeCTriangleIndex = this.g.triangles.findIndex((_, i) => this.triTypeMap.get(i) == triangleType.C);
+        const firstTypeCTriangleIndex = this.g.triangles.findIndex((_, i) => this.triInfo[i]?.type == TriangleType.C);
         if (undefined == firstTypeCTriangleIndex) { console.error(`No C type triangles exist.`); return; }
         const firstTypeCTriangle = this.g.triangles[firstTypeCTriangleIndex];
         if (!firstTypeCTriangle) { console.error(`No C type triangles exist.`); return; }
@@ -241,9 +253,7 @@ class MedialAxisConstructor {
         return medialAxis;
     }
 
-    private generateTriTypeMap() {
-        this.triTypeMap.clear();
-
+    private assignTriTypes() {
         this.g.triangles.forEach((t, triangleIndex) => {
             let numberOfPolygonEdges = 0;
 
@@ -252,7 +262,7 @@ class MedialAxisConstructor {
             if ((t[1] + 1) % this.g.vertices.length == t[2]) numberOfPolygonEdges++;
             if ((t[2] + 1) % this.g.vertices.length == t[0]) numberOfPolygonEdges++;
 
-            this.triTypeMap.set(triangleIndex, numberOfPolygonEdges);
+            this.triInfo[triangleIndex]!.type = numberOfPolygonEdges;
         });
     }
 
@@ -263,28 +273,35 @@ class MedialAxisConstructor {
 
         if (!this.g.isPointInTriangle(triangle, circumcentre)) {
             // If the centre of the C-type triangle is outside the triangle, a vector is sent from the triangle's 
-            // obtuse vertex to the circle's centre. All type-A triangles pierced by this vector are marked as disabled.
+            // obtuse vertex to the circle's centre. 
 
             // find all triangles pierced by a vector
             // const obtuseVertex = geometry2d.getFurthestPointFromP(circumcentre.center, triangle.map(i => this.g.vertices[i]!));
+            console.log(`T${index} (c-type): circumcentre is not in the triangle`);
+
             let obtuseVertexIndex;
-            const verts = this.g.getVertices(triangle);
+            const triVerts = this.g.getVertices(triangle);
             for (let i = 0; i < triangle.length; i++) {
-                if (geometry2d.getAngleBetweenPoints(verts[(i + 2) % 3]!, verts[i]!, verts[(i + 1) % 3]!) <= Math.PI + 0.0001) continue;
+                if (geometry2d.getAngleBetweenPoints(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
                 obtuseVertexIndex = i;
 
                 break;
             }
             if (obtuseVertexIndex == undefined) { console.error(`could not find obtuse vertex`); return; }
-            const A = triangle[(obtuseVertexIndex + 1) % 3]!;
-            const B = triangle[(obtuseVertexIndex + 2) % 3]!;
-            const O = triangle[obtuseVertexIndex]!;
-            const vO = verts[obtuseVertexIndex]!;
 
+            const vO = triVerts[obtuseVertexIndex]!;
             const dir = geometry2d.normalise(geometry2d.sub(circumcentre, vO));
-        } else {
-            this.visitedTriangles.set(index, true);
+
+            const facesTraversed = this.g.traceRay(vO, dir, index, circumcentre);
+
+            // All type-A triangles pierced by this vector are marked as disabled.
+            facesTraversed.filter(i => this.triInfo[i]?.type == TriangleType.A).forEach(i => {
+                console.log(`marking A-type triangle T${i} as visited.`);
+                this.triInfo[i]!.disabled = true;
+            });
         }
+        
+        this.triInfo[index]!.visited = true;
 
         /* If the centre is inside.
          * In this case the centre represents a vertex on the medial axis and the algorithm 
