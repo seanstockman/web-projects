@@ -53,6 +53,13 @@ export class TriangleGraph {
         vertexB.connections = vertexB.connections.filter(v => v != A);
     }
 
+    /** Returns if an edge AB (if A is connected to B) exists. */
+    public isABConnected(A: number, B: number) {
+        const vertexA = this.vertices[A], vertexB = this.vertices[B];
+        if (!vertexA || !vertexB) { console.error(`vertex ${A} or ${B} does not exist`); return; }
+        return vertexA.connections.includes(B);
+    }
+
     public getVertices(t: Triangle): VectorTuple {
         return [this.vertices[t[0]]!, this.vertices[t[1]]!, this.vertices[t[2]]!];
     }

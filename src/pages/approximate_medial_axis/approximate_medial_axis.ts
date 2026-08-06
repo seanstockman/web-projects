@@ -16,6 +16,18 @@ type insertedConvexSteinerPoints = {
     after: Vertex
 }
 
+/** The types of triangles outlined in section 2.3. 
+ *  Each value corresponds with the number of polygon edges coinciding with each triangle.
+ * -  */
+enum triangleType {
+    /** No polygon edges */
+    C,
+    /** One polygon edge */
+    A,
+    /** Two polygon edges */
+    B,
+}
+
 export const medialAxis = {
     /** */
     initialise(points: Point[], tris: poly2tri.Triangle[]): TriangleGraph {
@@ -23,13 +35,11 @@ export const medialAxis = {
     },
 
     getPolygonWithAddedSteinerPoints(g: TriangleGraph) {
-        // addObtuseThreeNeighbourSteinerPoints(g);
+        // addObtuseThreeNeighbourSteinerPoints(g); TODO
         return addConvexVertexSteinerPoints(g);
     },
 
     flipRemainingConvexVertices(g: TriangleGraph) {
-        const remainingConvexVertices = [];
-
         const epsilon = 0.0001;
 
         for (let i = 0; i < g.vertices.length; i++) {
@@ -40,7 +50,7 @@ export const medialAxis = {
             const V_next = g.vertices[next]!;
 
             const turn = geometry2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
-            
+
             // CCW wound    
             // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
             const isConvex = turn < (Math.PI - epsilon);
@@ -48,17 +58,30 @@ export const medialAxis = {
 
             const incorrectConnections = V_curr.connections.filter(conn => conn != next && conn != prev);
             if (incorrectConnections.length == 0) continue;
-            
+
             incorrectConnections.forEach(conn => g.flipTrianglesAlongEdge(i, conn));
         }
+    },
+
+    constructMedialAxis(g: TriangleGraph) {
+        // idea: map triangle indices to triangle types
+        const triTypeMap = new Map<number, triangleType>();
+        g.triangles.forEach((t, triangleIndex) => {
+            let numberOfPolygonEdges = 0;
+
+            // if in order... numpty! CCW winding helpful here? 
+            if ((t[0] + 1) % g.vertices.length == t[1]) numberOfPolygonEdges++;
+            if ((t[1] + 1) % g.vertices.length == t[2]) numberOfPolygonEdges++;
+            if ((t[2] + 1) % g.vertices.length == t[0]) numberOfPolygonEdges++;
+
+            triTypeMap.set(triangleIndex, numberOfPolygonEdges);
+        });
     }
 
     // /** Returns a set of Steiner points to be added to the SweepContext object then re-triangulated. */
     // addSteinerPoints(points: Point[], swctx: poly2tri.SweepContext): Point[] {
     //     return [...this.getObtuseThreeNeighbourSteinerPoints(points, swctx), ...this.getConvexVertexSteinerPoints(points, swctx)];
     // },
-
-
 }
 
 /** Adds the Steiner points to resolve convex triangles with 3 neighbours. */
@@ -110,8 +133,8 @@ function addConvexVertexSteinerPoints(g: TriangleGraph) {
         if (isConvex) convexVertices.push(i);
     }
 
-    console.log(`convex vertices:`);
-    console.log(convexVertices);
+    // console.log(`convex vertices:`);
+    // console.log(convexVertices);
 
     const steinerVertices = convexVertices.map(c => getSteinerPointsAtVertex(g, c));
 
@@ -139,12 +162,7 @@ function addConvexVertexSteinerPoints(g: TriangleGraph) {
         verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.after);
     }
 
-    console.log(verticesWithSteinerPointsAdded);
     return verticesWithSteinerPointsAdded;
-
-    // const steinerPoints: Point[] = steinerVertices.map(v => ({ x: v.vertex.x, y: v.vertex.y }));
-
-    // return geometry2d.removeDuplicatePoints(steinerPoints);
 }
 
 function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSteinerPoints {

@@ -13,6 +13,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import ControlPointIcon from '@mui/icons-material/ControlPoint';
 import DetailsIcon from '@mui/icons-material/Details';
+import LinearScaleIcon from '@mui/icons-material/LinearScale';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -29,8 +30,9 @@ export default function ApproximateMedialAxis() {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex,
-        setToRectExample
+        initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
+        getMedialAxis,
+        setToRectExample, showGraph
     } = useMedialAxisDraw(canvasRef, drawModes);
 
     const drawActions = [
@@ -43,7 +45,7 @@ export default function ApproximateMedialAxis() {
         },
     ];
 
-    const actions = [
+    const stepByStepActions = [
         {
             label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
                 initialiseCDTFromCanvasPoints();
@@ -52,24 +54,39 @@ export default function ApproximateMedialAxis() {
         {
             label: "Adds the steiner points to assist in medial axis construction and re-computes the CDT.", icon: <ControlPointIcon />, action: () => {
                 addSteinerPoints();
+                showGraph();
             }
         },
         {
             label: "Flips the remaining convex vertices with connections.", icon: <DetailsIcon />, action: () => {
                 flipRemainingConvex();
+                showGraph();
             }
         },
         {
-            label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
-                // addSteinerPoints();
+            label: "Construct Medial Axis from the triangulation.", icon: <LinearScaleIcon />, action: () => {
+                constructMedialAxisFromTriangulation();
+                showGraph();
             }
         },
+    ];
+
+    const actions = [
+        {
+            label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
+                getMedialAxis();
+                showGraph();
+            }
+        },
+    ];
+
+    const testShapes = [
         {
             label: "Sets the canvas to the box example in Figure 7.", icon: <Crop32Icon />, action: () => {
                 setToRectExample();
             }
         }
-    ]
+    ];
 
     useEffect(() => { redrawCanvas(); }, [redrawCanvas]);
     return (
@@ -103,6 +120,22 @@ export default function ApproximateMedialAxis() {
 
                 <ButtonGroup>
                     {actions.map(a => (
+                        <Tooltip title={a.label} key={a.label}>
+                            <Button onClick={a.action}>{a.icon}</Button>
+                        </Tooltip>
+                    ))}
+                </ButtonGroup>
+
+                <ButtonGroup>
+                    {stepByStepActions.map(a => (
+                        <Tooltip title={a.label} key={a.label}>
+                            <Button onClick={a.action}>{a.icon}</Button>
+                        </Tooltip>
+                    ))}
+                </ButtonGroup>
+
+                <ButtonGroup>
+                    {testShapes.map(a => (
                         <Tooltip title={a.label} key={a.label}>
                             <Button onClick={a.action}>{a.icon}</Button>
                         </Tooltip>

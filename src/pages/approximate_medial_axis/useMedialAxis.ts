@@ -80,9 +80,6 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
         tg = getConstrainedDelaunayTriangulation(polygonWithSteiner);
 
-        clearCanvasOverlays();
-        showTriangleGraph(tg);
-
         // addDrawBundleToCanvas({
         //     circles: [
         //         ...steinerVerts.map(v => ({
@@ -103,9 +100,19 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function flipRemainingConvex() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
         medialAxis.flipRemainingConvexVertices(tg);
+    }
 
-        clearCanvasOverlays();
-        showTriangleGraph(tg);
+    function constructMedialAxisFromTriangulation() {
+        if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
+        medialAxis.constructMedialAxis(tg);
+    }
+
+    function getMedialAxis() {
+        initialiseCDTFromCanvasPoints();
+        addSteinerPoints();
+        flipRemainingConvex();
+        constructMedialAxisFromTriangulation();
+        showGraph();
     }
 
     function addDrawBundleToCanvas(bundle: CustomDrawBundle) {
@@ -160,6 +167,12 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         // };
 
         addDrawBundleToCanvas(overlay);
+    }
+
+    function showGraph() {
+        if (!tg) { console.error(`tg not initialised`); return; }
+        clearCanvasOverlays();
+        showTriangleGraph(tg);
     }
 
     function showTriangleGraph(tg: TriangleGraph) {
@@ -221,7 +234,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         redrawCanvas,
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        initialiseCDTFromCanvasPoints, addSteinerPoints,flipRemainingConvex,
-        setToRectExample
+        initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
+        getMedialAxis,
+        setToRectExample, showGraph
     };
 }
