@@ -1,4 +1,4 @@
-import { type Circle, type Point } from "../../lib/geometry/geometry2d.ts";
+import { type Circle, type Vec2 } from "../../lib/geometry/geometry2d.ts";
 
 export type LineDrawProperties = {
     width: number,
@@ -28,7 +28,7 @@ export const drawer = {
     //     this.drawPolyline(ctx, [lines[0]!.start, ...lines.map(l => l.end)], props);
     // },
     /** Draws the set of points as a continuous line. */
-    drawPolyline: function (ctx: CanvasRenderingContext2D, points: Point[], props: LineDrawProperties) {
+    drawPolyline: function (ctx: CanvasRenderingContext2D, points: Vec2[], props: LineDrawProperties) {
         if (points.length < 2) return;
 
         this.setLineProps(ctx, props);

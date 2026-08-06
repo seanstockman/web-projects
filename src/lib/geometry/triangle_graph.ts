@@ -1,13 +1,12 @@
 import * as poly2tri from "poly2tri";
-import { type Point } from "./geometry2d.ts"
+import { geometry2d, type Vec2 } from "./geometry2d.ts"
 
-export type Vertex = Point & {
+export type Vertex = Vec2 & {
     connections: number[],
     steiner: boolean // whether this is not part of the original
 }
 
 export type VectorTuple = [Vertex, Vertex, Vertex];
-
 export type Triangle = [number, number, number];
 
 export class TriangleGraph {
@@ -17,7 +16,7 @@ export class TriangleGraph {
     /** Map of sorted vertices of each triangle to that triangle's index in the `triangles` array. */
     private triangleMap = new Map<string, number>();
 
-    constructor(points: Point[], triangles: poly2tri.Triangle[]) {
+    constructor(points: Vec2[], triangles: poly2tri.Triangle[]) {
         this.vertices = points.map(p => ({ x: p.x, y: p.y, connections: [], steiner: false }));
 
         // triangles are sorted CCW!
@@ -62,11 +61,6 @@ export class TriangleGraph {
 
     public getVertices(t: Triangle): VectorTuple {
         return [this.vertices[t[0]]!, this.vertices[t[1]]!, this.vertices[t[2]]!];
-    }
-
-    public getPoints(t: Triangle): [Point, Point, Point] {
-        const verts = this.getVertices(t);
-        return verts.map(v => ({ x: v.x, y: v.y })) as [Point, Point, Point];
     }
 
     public sortTrianglesCCW(triangles: Triangle[], c: number): Triangle[] {
@@ -115,8 +109,8 @@ export class TriangleGraph {
         if (!vX || !vY) { console.error(`could not fetch vertex ${X} or ${Y}`); return false; }
 
         // get face ABX and ABY
-        const ABX = this.getTriangleFromVertices(A, B, X);
-        const ABY = this.getTriangleFromVertices(A, B, Y);
+        const ABX = this.getTriangleFromVertexIndices(A, B, X);
+        const ABY = this.getTriangleFromVertexIndices(A, B, Y);
 
         if (!ABX) { console.error(`face ${A}-${B}-${X} does not exist in the triangle map`); return false; }
         if (!ABY) { console.error(`face ${A}-${B}-${Y} does not exist in the triangle map`); return false; }
@@ -134,7 +128,7 @@ export class TriangleGraph {
         this.removeTriangleFromMap(ABX.triangle);
         this.triangles[ABX.index] = [L, R, B];
         this.addTriangleToMap(ABX.index);
-        
+
         // face ABY is mapped to ARL
         this.removeTriangleFromMap(ABY.triangle);
         this.triangles[ABY.index] = [A, R, L];
@@ -172,8 +166,7 @@ export class TriangleGraph {
     private getKeyFromTriangleIndex(triangleIndex: number) {
         const t = this.triangles[triangleIndex];
         if (!t) { console.error(`could not find triangle ${triangleIndex}`); return undefined; }
-        const sortedVerts = t.toSorted();
-        return `${sortedVerts[0]}-${sortedVerts[1]}-${sortedVerts[2]}`;
+        return this.getKeyFromVertexIndices(t[0], t[1], t[2]);
     }
 
     private getKeyFromVertexIndices(A: number, B: number, C: number) {
@@ -181,7 +174,7 @@ export class TriangleGraph {
         return `${sorted[0]}-${sorted[1]}-${sorted[2]}`;
     }
 
-    private getTriangleFromVertices(A: number, B: number, C: number) {
+    private getTriangleFromVertexIndices(A: number, B: number, C: number) {
         const key = this.getKeyFromVertexIndices(A, B, C);
         const index_t = this.triangleMap.get(key);
         if (index_t == undefined) return undefined;
@@ -191,5 +184,45 @@ export class TriangleGraph {
             index: index_t,
             triangle: t,
         };
+    }
+
+    /** Returns an array of indices of adjacent triangles. */
+    public getAdjacentTriangles(t: Triangle) {
+        const adjacentTriangles: number[] = [];
+        const [vA, vB, vC] = this.getVertices(t);
+        const [A, B, C] = t;
+        this.getSharedConnections(vA, vB).filter(conn => conn != C).forEach(conn => {
+            const adj = this.getTriangleFromVertexIndices(A, B, conn)?.index;
+            if (adj) adjacentTriangles.push(adj)
+        });
+        this.getSharedConnections(vB, vC).filter(conn => conn != A).forEach(conn => {
+            const adj = this.getTriangleFromVertexIndices(B, C, conn)?.index;
+            if (adj) adjacentTriangles.push(adj)
+        });
+        this.getSharedConnections(vC, vA).filter(conn => conn != B).forEach(conn => {
+            const adj = this.getTriangleFromVertexIndices(C, A, conn)?.index;
+            if (adj) adjacentTriangles.push(adj)
+        });
+
+        return adjacentTriangles;
+    }
+
+    public getCircumcircleOfTriangle(t: Triangle) {
+        return geometry2d.getCircumcircle(...this.getVertices(t));
+    }
+
+    public isPointInTriangle(t: Triangle, p: Vec2) {
+        return geometry2d.isPointInTriangle(p, ...this.getVertices(t));
+    }
+
+    public getTriangleOnOtherSideOfABfromO(A: number, B: number, O: number) {
+        const vA = this.vertices[A]!, vB = this.vertices[B]!;
+        const D = this.getSharedConnections(vA, vB).filter(conn => conn != O)[0];
+        if (D == undefined) return;
+        return this.getTriangleFromVertexIndices(A, B, D)?.index;
+    }
+
+    public getVerticesFromIndices(...indices: number[]) {
+        return indices.map(i => this.vertices[i]!);
     }
 }

@@ -3,13 +3,13 @@ import {
     type RefObject,
 } from 'react';
 
-import type { Point, Circle } from "../../lib/geometry/geometry2d.ts";
+import type { Vec2, Circle } from "../../lib/geometry/geometry2d.ts";
 import { drawer, type LineDrawProperties, type CircleDrawProperties } from "./CanvasDrawer.tsx";
 import { idleMode } from './draw_modes/idle.ts';
 import type { CanvasDrawContext, DrawMode, SelectableDrawMode } from './draw_modes/types.ts';
 
 export type OverlayLine = {
-    points: Point[],
+    points: Vec2[],
     props: LineDrawProperties
 }
 
@@ -20,7 +20,7 @@ export type OverlayCircle = {
 
 export type OverlayText = {
     text: string,
-    position: Point,
+    position: Vec2,
     fontSize?: number,
     color?: string
 }
@@ -38,7 +38,7 @@ export type DefaultCanvasProps = {
     manipulateGrabRadius?: number,
 }
 
-function dist(a: Point, b: Point) {
+function dist(a: Vec2, b: Vec2) {
     return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
@@ -50,17 +50,17 @@ export function useCanvasDraw(
     modes: SelectableDrawMode[],
 ) {
     const [drawMode, setDrawMode] = useState<DrawMode>(modes[0] ?? idleMode);
-    const [cursor, setCursor] = useState<Point | null>(null);
-    const [movedPoint, setMovedPoint] = useState<Point | null>(null);
-    const [points, setPoints] = useState<Point[]>([]);
-    const [lines, setLines] = useState<Point[][]>([]);
+    const [cursor, setCursor] = useState<Vec2 | null>(null);
+    const [movedPoint, setMovedPoint] = useState<Vec2 | null>(null);
+    const [points, setPoints] = useState<Vec2[]>([]);
+    const [lines, setLines] = useState<Vec2[][]>([]);
     const [overlayCircles, setOverlayCircles] = useState<OverlayCircle[]>([]);
     const [overlayLines, setOverlayLines] = useState<OverlayLine[]>([]);
     const [overlayTexts, setOverlayTexts] = useState<OverlayText[]>([]);
 
     const grabRadius = defaultProps.manipulateGrabRadius ?? Math.max(defaultProps.pointRadius, 8);
 
-    const getMousePos = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    const getMousePos = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Vec2 => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
         const rect = canvas.getBoundingClientRect();
@@ -72,8 +72,8 @@ export function useCanvasDraw(
         };
     }, [canvasRef]);
 
-    const findNearestPoint = useCallback((mouse: Point): Point | null => {
-        let closest: Point | null = null;
+    const findNearestPoint = useCallback((mouse: Vec2): Vec2 | null => {
+        let closest: Vec2 | null = null;
         let minDist = grabRadius;
 
         points.forEach((p) => {

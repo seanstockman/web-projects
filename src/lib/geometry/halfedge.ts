@@ -1,4 +1,4 @@
-import { geometry2d, type Point } from "./geometry2d.ts";
+import { geometry2d, type Vec2 } from "./geometry2d.ts";
 
 type HalfEdge = {
     /** The index of the vertex this half edge starts from. */
@@ -14,7 +14,7 @@ type HalfEdge = {
     locked: boolean,
 }
 
-type Vertex = Point & {
+type Vertex = Vec2 & {
     /** The connecting half edges with this vertex as an origin. */
     edges: number[],
 }
@@ -36,7 +36,7 @@ export class HalfEdgeGraph {
     private freeEdges: number[] = [];
     private freeFaces: number[] = [];
 
-    constructor(points: Point[]) {
+    constructor(points: Vec2[]) {
         this.vertices = points.map(p => ({ x: p.x, y: p.y, edges: [] }));
         this.halfEdges = [];
         this.faces = [];

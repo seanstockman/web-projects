@@ -1,5 +1,5 @@
 import PentagonOutlinedIcon from '@mui/icons-material/PentagonOutlined';
-import type { Point } from "../../../lib/geometry/geometry2d.ts";
+import type { Vec2 } from "../../../lib/geometry/geometry2d.ts";
 import type { CanvasDrawContext, DrawMode, SelectableDrawMode } from "./types.ts";
 
 /** The toolbar-selectable entry point: click once to place the line's start,
@@ -9,11 +9,11 @@ export class PolygonStart implements SelectableDrawMode {
     readonly label = 'Draw Polygon';
     readonly icon = PentagonOutlinedIcon;
 
-    handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseMove(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setCursor(mouse);
     }
 
-    handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseDown(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setCursor(null);
         ctx.setPoints(prev => [...prev, mouse, { ...mouse }]);
         ctx.setLines(prev => [...prev, [mouse, { ...mouse }, mouse]]);
@@ -29,7 +29,7 @@ export class PolygonStart implements SelectableDrawMode {
  * reached via LineStart.handleMouseDown, so it implements plain DrawMode
  * (no id/label/icon required). */
 export class PolygonContinue implements DrawMode {
-    handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseMove(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setLines(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];
@@ -46,7 +46,7 @@ export class PolygonContinue implements DrawMode {
         ctx.setMovedPoint(mouse);
     }
 
-    handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseDown(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setLines(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];

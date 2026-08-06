@@ -1,5 +1,5 @@
 import PolylineIcon from '@mui/icons-material/Polyline';
-import type { Point } from "../../../lib/geometry/geometry2d.ts";
+import type { Vec2 } from "../../../lib/geometry/geometry2d.ts";
 import type { CanvasDrawContext, DrawMode, SelectableDrawMode } from "./types.ts";
 
 /** The toolbar-selectable entry point: click once to place the line's start,
@@ -9,11 +9,11 @@ export class LineStart implements SelectableDrawMode {
     readonly label = 'Draw lines';
     readonly icon = PolylineIcon;
 
-    handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseMove(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setCursor(mouse);
     }
 
-    handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseDown(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setCursor(null);
         ctx.setPoints(prev => [...prev, mouse, { ...mouse }]);
         ctx.setLines(prev => [...prev, [mouse, { ...mouse }]]);
@@ -29,7 +29,7 @@ export class LineStart implements SelectableDrawMode {
  * reached via LineStart.handleMouseDown, so it implements plain DrawMode
  * (no id/label/icon required). */
 export class LineContinue implements DrawMode {
-    handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseMove(ctx: CanvasDrawContext, mouse: Vec2) {
         // ctx.movedPoint!.x = mouse.x;
         // ctx.movedPoint!.y = mouse.y;
         ctx.setLines(prev => {
@@ -47,7 +47,7 @@ export class LineContinue implements DrawMode {
         });
     }
 
-    handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseDown(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setLines(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];

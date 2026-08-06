@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, type RefObject } from 'react';
 import { useCanvasDraw, type DefaultCanvasProps, type OverlayCircle, type OverlayLine, type OverlayText } from '../../components/drawingCanvas/useCanvasDraw.tsx';
 import type { SelectableDrawMode } from '../../components/drawingCanvas/draw_modes/types.ts';
 import * as poly2tri from 'poly2tri';
-import { geometry2d, type Point } from '../../lib/geometry/geometry2d.ts';
+import { geometry2d, type Vec2 } from '../../lib/geometry/geometry2d.ts';
 import { medialAxis } from './approximate_medial_axis.ts';
 import type { TriangleGraph } from '../../lib/geometry/triangle_graph.ts';
 
@@ -57,7 +57,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         showTriangleGraph(tg);
     }
 
-    function getConstrainedDelaunayTriangulation(vertices: Point[]) {
+    function getConstrainedDelaunayTriangulation(vertices: Vec2[]) {
         clearCanvasOverlays();
         const orderedVerts = [...vertices];
 
@@ -181,7 +181,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         tg.triangles.forEach((tri, i) => {
             // var triPoints = t.getPoints();
             const triVerts = [tri[0], tri[1], tri[2]].map(i => tg.vertices[i]!);
-            const triPoints: Point[] = triVerts.map(v => ({ x: v.x, y: v.y }));
+            const triPoints: Vec2[] = triVerts.map(v => ({ x: v.x, y: v.y }));
             overlay.lines?.push({
                 points: [...triPoints, triPoints[0]!],
                 props: {

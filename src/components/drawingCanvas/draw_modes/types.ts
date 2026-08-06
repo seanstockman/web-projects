@@ -1,34 +1,34 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Point } from "../../../lib/geometry/geometry2d.ts";
+import type { Vec2 } from "../../../lib/geometry/geometry2d.ts";
 
 /** Everything a mode class needs to read or mutate. One object, passed once per
  * call, instead of threading a dozen individual setters through every method. */
 export type CanvasDrawContext = {
-    points: Point[],
-    setPoints: Dispatch<SetStateAction<Point[]>>,
+    points: Vec2[],
+    setPoints: Dispatch<SetStateAction<Vec2[]>>,
 
-    lines: Point[][],
-    setLines: Dispatch<SetStateAction<Point[][]>>,
+    lines: Vec2[][],
+    setLines: Dispatch<SetStateAction<Vec2[][]>>,
 
-    cursor: Point | null,
-    setCursor: Dispatch<SetStateAction<Point | null>>,
+    cursor: Vec2 | null,
+    setCursor: Dispatch<SetStateAction<Vec2 | null>>,
 
-    movedPoint: Point | null,
-    setMovedPoint: Dispatch<SetStateAction<Point | null>>,
+    movedPoint: Vec2 | null,
+    setMovedPoint: Dispatch<SetStateAction<Vec2 | null>>,
 
     setDrawMode: Dispatch<SetStateAction<DrawMode>>,
 
-    findNearestPoint: (mouse: Point) => Point | null,
+    findNearestPoint: (mouse: Vec2) => Vec2 | null,
 }
 
 /** Every method is optional — a mode only implements the events it cares about.
  * Idle implements none of them. */
 export interface DrawMode {
-    handleMouseMove?(ctx: CanvasDrawContext, mouse: Point): void,
-    handleMouseDown?(ctx: CanvasDrawContext, mouse: Point): void,
-    handleMouseUp?(ctx: CanvasDrawContext, mouse: Point): void,
-    handleMouseLeave?(ctx: CanvasDrawContext, mouse: Point): void,
-    handleRightClick?(ctx: CanvasDrawContext, mouse: Point): void,
+    handleMouseMove?(ctx: CanvasDrawContext, mouse: Vec2): void,
+    handleMouseDown?(ctx: CanvasDrawContext, mouse: Vec2): void,
+    handleMouseUp?(ctx: CanvasDrawContext, mouse: Vec2): void,
+    handleMouseLeave?(ctx: CanvasDrawContext, mouse: Vec2): void,
+    handleRightClick?(ctx: CanvasDrawContext, mouse: Vec2): void,
 }
 
 /** A DrawMode that's meant to be user-selectable — e.g. shown as a toolbar

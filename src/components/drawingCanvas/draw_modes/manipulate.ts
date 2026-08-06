@@ -1,5 +1,5 @@
 import OpenWithIcon from '@mui/icons-material/OpenWith';
-import type { Point } from "../../../lib/geometry/geometry2d.ts";
+import type { Vec2 } from "../../../lib/geometry/geometry2d.ts";
 import type { CanvasDrawContext, SelectableDrawMode } from "./types.ts";
 
 export class Manipulate implements SelectableDrawMode {
@@ -7,7 +7,7 @@ export class Manipulate implements SelectableDrawMode {
     readonly label = 'Move points';
     readonly icon = OpenWithIcon;
 
-    handleMouseMove(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseMove(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setCursor(mouse);
         if (!ctx.movedPoint) return;
 
@@ -36,7 +36,7 @@ export class Manipulate implements SelectableDrawMode {
         // ctx.setMovedPoint(mouse);
     }
 
-    handleMouseDown(ctx: CanvasDrawContext, mouse: Point) {
+    handleMouseDown(ctx: CanvasDrawContext, mouse: Vec2) {
         ctx.setMovedPoint(ctx.findNearestPoint(mouse));
     }
 
