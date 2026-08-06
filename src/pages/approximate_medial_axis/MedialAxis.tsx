@@ -12,6 +12,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import ControlPointIcon from '@mui/icons-material/ControlPoint';
+import DetailsIcon from '@mui/icons-material/Details';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -25,10 +26,10 @@ export default function ApproximateMedialAxis() {
     const drawModes = [polygonStartMode, manipulateMode];
 
     const {
-        handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick, 
+        handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        initialiseCDTFromCanvasPoints, addSteinerPoints,
+        initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex,
         setToRectExample
     } = useMedialAxisDraw(canvasRef, drawModes);
 
@@ -49,8 +50,13 @@ export default function ApproximateMedialAxis() {
             }
         },
         {
-            label: "Adds the steiner points to assist in medial axis construction and.", icon: <ControlPointIcon />, action: () => {
+            label: "Adds the steiner points to assist in medial axis construction and re-computes the CDT.", icon: <ControlPointIcon />, action: () => {
                 addSteinerPoints();
+            }
+        },
+        {
+            label: "Flips the remaining convex vertices with connections.", icon: <DetailsIcon />, action: () => {
+                flipRemainingConvex();
             }
         },
         {
@@ -59,13 +65,13 @@ export default function ApproximateMedialAxis() {
             }
         },
         {
-            label: "Sets the canvas to the box example in Figure 7.", icon: <Crop32Icon/>, action: () => {
+            label: "Sets the canvas to the box example in Figure 7.", icon: <Crop32Icon />, action: () => {
                 setToRectExample();
             }
         }
     ]
 
-    useEffect(() => {redrawCanvas(); }, [redrawCanvas]);
+    useEffect(() => { redrawCanvas(); }, [redrawCanvas]);
     return (
         <PageStack>
             <Typography variant='h3'>Approximate Medial Axis</Typography>

@@ -30,6 +30,8 @@ export const medialAxis = {
     flipRemainingConvexVertices(g: TriangleGraph) {
         const remainingConvexVertices = [];
 
+        const epsilon = 0.0001;
+
         for (let i = 0; i < g.vertices.length; i++) {
             const V_curr = g.vertices[i]!;
             const prev = (i - 1 + g.vertices.length) % g.vertices.length;
@@ -38,37 +40,17 @@ export const medialAxis = {
             const V_next = g.vertices[next]!;
 
             const turn = geometry2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
-            // CW wound    
+            
+            // CCW wound    
             // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
-            const isConvex = turn < (Math.PI - 0.0001);
+            const isConvex = turn < (Math.PI - epsilon);
             if (!isConvex) continue;
 
-            let sharedConnectionsWithPrev = g.getSharedConnections(V_curr, V_prev);
-            sharedConnectionsWithPrev = sharedConnectionsWithPrev.filter(conn => conn != next);
-
-            if (sharedConnectionsWithPrev.length != 0) {
-                console.log(`sharedConnectionsWithPrev: v${i}, prev = ${prev}. excluing ${next}`);
-                console.log(sharedConnectionsWithPrev);
-                remainingConvexVertices.push(i);
-                continue;
-            }
-
-            let sharedConnectionsWithNext = g.getSharedConnections(V_curr, V_next);
-            sharedConnectionsWithNext = sharedConnectionsWithNext.filter(conn => conn != prev);
-
-            if (sharedConnectionsWithNext.length != 0) {
-                console.log(`sharedConnectionsWithNext: v${i}, next = ${next}. excluing ${prev}`);
-                console.log(sharedConnectionsWithPrev);
-                remainingConvexVertices.push(i);
-                continue;
-            }
-
-            // console.log(`v${i}: ${turn} < ${Math.PI - 0.0001}`);
-            // remainingConvexVertices.push(i);
+            const incorrectConnections = V_curr.connections.filter(conn => conn != next && conn != prev);
+            if (incorrectConnections.length == 0) continue;
+            
+            incorrectConnections.forEach(conn => g.flipTrianglesAlongEdge(i, conn));
         }
-
-        console.log(`remaining convex vertices:`);
-        console.log(remainingConvexVertices);
     }
 
     // /** Returns a set of Steiner points to be added to the SweepContext object then re-triangulated. */

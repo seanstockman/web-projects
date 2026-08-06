@@ -63,7 +63,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
         // ensure points are ordered counter-clockwise for consistent winding
         if (!geometry2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
-        
+
         var contour: poly2tri.Point[] = [];
         orderedVerts.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
 
@@ -75,12 +75,10 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function addSteinerPoints() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        
+
         const polygonWithSteiner = medialAxis.getPolygonWithAddedSteinerPoints(tg);
 
         tg = getConstrainedDelaunayTriangulation(polygonWithSteiner);
-
-        medialAxis.flipRemainingConvexVertices(tg);
 
         clearCanvasOverlays();
         showTriangleGraph(tg);
@@ -100,6 +98,14 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         //             }
         //         }))]
         // });
+    }
+
+    function flipRemainingConvex() {
+        if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
+        medialAxis.flipRemainingConvexVertices(tg);
+
+        clearCanvasOverlays();
+        showTriangleGraph(tg);
     }
 
     function addDrawBundleToCanvas(bundle: CustomDrawBundle) {
@@ -215,7 +221,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         redrawCanvas,
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        initialiseCDTFromCanvasPoints, addSteinerPoints,
+        initialiseCDTFromCanvasPoints, addSteinerPoints,flipRemainingConvex,
         setToRectExample
     };
 }

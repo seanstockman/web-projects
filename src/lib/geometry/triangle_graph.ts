@@ -14,22 +14,25 @@ export class TriangleGraph {
     public vertices: Vertex[];
     public triangles: Triangle[];
 
+    /** Map of sorted vertices of each triangle to that triangle's index in the `triangles` array. */
+    private triangleMap = new Map<string, number>();
+
     constructor(points: Point[], triangles: poly2tri.Triangle[]) {
         this.vertices = points.map(p => ({ x: p.x, y: p.y, connections: [], steiner: false }));
 
+        // triangles are sorted CCW!
         this.triangles = [];
         triangles.forEach(t => {
             const trianglePointIndices = t.getPoints().map(p => this.vertices.findIndex(v => v.x == p.x && v.y == p.y));
             this.triangles.push(trianglePointIndices as Triangle);
         });
 
-        this.triangles.forEach(t => {
+        this.triangles.forEach((t, i) => {
             this.connectVertices(t[0], t[1]);
             this.connectVertices(t[1], t[2]);
             this.connectVertices(t[2], t[0]);
+            this.addTriangleToMap(i);
         })
-
-        // console.log(this);
     }
 
     /** Connects two vertices's references to each other. Does not create triangles. */
@@ -87,13 +90,99 @@ export class TriangleGraph {
         return [...triangles].sort((a, b) => angleOf(a) - angleOf(b));
     }
 
-    /** Flips the triangles along the edge AB. Returns the indices of the new edge, XY. */
-    public flipTrianglesAlongEdge(A: number, B: number) {
+    /** Flips the triangles along the edge AB. */
+    public flipTrianglesAlongEdge(A: number, B: number): boolean {
+        // confirm that A is connected to B
+        const vA = this.vertices[A], vB = this.vertices[B];
+        if (!vA || !vB) { console.error(`could not fetch vertex ${A} or ${B}`); return false; }
 
+        // confirm that A and B have 2 shared connections
+        const sharedConns = this.getSharedConnections(vA, vB);
+        if (sharedConns.length != 2) { console.error(`vertex ${A} and ${B} have ${sharedConns.length} connections, not 2.`); return false; }
+
+        // confirm X and Y exist
+        const X = sharedConns[0], Y = sharedConns[1];
+        if (X == undefined || Y == undefined) { console.error(`could not get ${X} or ${Y}`); return false; }
+
+        const vX = this.vertices[X], vY = this.vertices[Y];
+        if (!vX || !vY) { console.error(`could not fetch vertex ${X} or ${Y}`); return false; }
+
+        // get face ABX and ABY
+        const ABX = this.getTriangleFromVertices(A, B, X);
+        const ABY = this.getTriangleFromVertices(A, B, Y);
+
+        if (!ABX) { console.error(`face ${A}-${B}-${X} does not exist in the triangle map`); return false; }
+        if (!ABY) { console.error(`face ${A}-${B}-${Y} does not exist in the triangle map`); return false; }
+
+        // determine direction of X (which will imply direction of Y). if AB is in order AB, X is on left by CCW winding.
+        const orderedIndexOfA = ABX.triangle.findIndex(i => i == A);
+        const isXOnLeft = ABX.triangle[(orderedIndexOfA + 1) % 3] == B;
+
+        const L = isXOnLeft ? X : Y;
+        // const vL = isXOnLeft ? vX : vY;
+        const R = isXOnLeft ? Y : X;
+        // const vR = isXOnLeft ? vY : vX;
+
+        // face ABX is mapped to LRB
+        this.removeTriangleFromMap(ABX.triangle);
+        this.triangles[ABX.index] = [L, R, B];
+        this.addTriangleToMap(ABX.index);
+        
+        // face ABY is mapped to ARL
+        this.removeTriangleFromMap(ABY.triangle);
+        this.triangles[ABY.index] = [A, R, L];
+        this.addTriangleToMap(ABY.index);
+
+        this.disconnectVertices(A, B);
+        this.connectVertices(L, R);
+
+        return true;
     }
 
     /** Finds and returns an array of indices of vertices which the two given vertices share. */
     public getSharedConnections(vertexA: Vertex, vertexB: Vertex) {
         return vertexA.connections.filter(conn => vertexB.connections.includes(conn));
+    }
+
+    /** Adds the given triangle to the map. */
+    private addTriangleToMap(triangleIndex: number) {
+        const key = this.getKeyFromTriangleIndex(triangleIndex)
+        if (key) this.triangleMap.set(key, triangleIndex);
+    }
+
+    /** Removes the given triangle to the map using its index in the `triangles` array. */
+    private removeTriangleIndexFromMap(triangleIndex: number) {
+        const key = this.getKeyFromTriangleIndex(triangleIndex);
+        if (key) this.triangleMap.delete(key);
+    }
+
+    /** Removes the given triangle to the map. */
+    private removeTriangleFromMap(t: Triangle) {
+        const key = this.getKeyFromVertexIndices(t[0], t[1], t[2]);
+        if (key) this.triangleMap.delete(key);
+    }
+
+    private getKeyFromTriangleIndex(triangleIndex: number) {
+        const t = this.triangles[triangleIndex];
+        if (!t) { console.error(`could not find triangle ${triangleIndex}`); return undefined; }
+        const sortedVerts = t.toSorted();
+        return `${sortedVerts[0]}-${sortedVerts[1]}-${sortedVerts[2]}`;
+    }
+
+    private getKeyFromVertexIndices(A: number, B: number, C: number) {
+        const sorted = [A, B, C].sort();
+        return `${sorted[0]}-${sorted[1]}-${sorted[2]}`;
+    }
+
+    private getTriangleFromVertices(A: number, B: number, C: number) {
+        const key = this.getKeyFromVertexIndices(A, B, C);
+        const index_t = this.triangleMap.get(key);
+        if (index_t == undefined) return undefined;
+        const t = this.triangles[index_t];
+        if (t == undefined) return undefined;
+        return {
+            index: index_t,
+            triangle: t,
+        };
     }
 }
