@@ -28,19 +28,24 @@ export const drawer = {
     //     this.drawPolyline(ctx, [lines[0]!.start, ...lines.map(l => l.end)], props);
     // },
     /** Draws the set of points as a continuous line. */
-    drawPolyline: function (ctx: CanvasRenderingContext2D, points: Vec2[], props: LineDrawProperties) {
-        if (points.length < 2) return;
+    drawPolyline: function (ctx: CanvasRenderingContext2D, points: Vec2[], props: LineDrawProperties): boolean {
+        if (points.length < 2) return false;
+        const p_initial = points[0];
+        if (!p_initial) { console.error(`point 0 is undefined`); return false; }
 
         this.setLineProps(ctx, props);
         ctx.beginPath();
-        ctx.moveTo(points[0]!.x, points[0]!.y);
+        ctx.moveTo(p_initial.x, p_initial.y);
 
         for (let i = 1; i < points.length; i++) {
+            const p_i = points[i];
+            if (!p_i) { console.error(`point ${i} is undefined`); return false; }
             ctx.lineTo(points[i]!.x, points[i]!.y);
         }
 
         ctx.stroke();
         ctx.closePath();
+        return true;
     },
 
     setLineProps: function (ctx: CanvasRenderingContext2D, props: LineDrawProperties) {

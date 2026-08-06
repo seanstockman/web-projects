@@ -127,11 +127,18 @@ export function useCanvasDraw(
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        lines.forEach(l => drawer.drawPolyline(ctx, l, defaultProps.lineProps));
+        lines.forEach(l => {
+            const keep = drawer.drawPolyline(ctx, l, defaultProps.lineProps);
+            // if (!keep) lines.findIndex(line => line != l);
+        });
         // lines.forEach(l => l.forEach(p => drawer.drawCircle(ctx, { center: p, radius: defaultProps.pointRadius }, defaultProps.pointProps)));
         points.forEach(p => drawer.drawCircle(ctx, { center: p, radius: defaultProps.pointRadius }, defaultProps.pointProps));
 
-        overlayLines.forEach(l => drawer.drawPolyline(ctx, l.points, l.props));
+        overlayLines.forEach(l => {
+            const keep = drawer.drawPolyline(ctx, l.points, l.props);
+            if (keep) return;
+            overlayLines.splice(overlayLines.findIndex(line => line == l), 1);
+        });
         overlayCircles.forEach(c => drawer.drawCircle(ctx, c.circle, c.props));
         overlayTexts.forEach(t => drawer.drawText(ctx, t.text, t.position, t.fontSize, t.color));
 

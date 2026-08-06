@@ -104,8 +104,10 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function constructMedialAxisFromTriangulation() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        const ma = medialAxis.constructMedialAxis(tg);
+        const ma = medialAxis.constructMedialAxis(tg, true);
         if (!ma) { console.error(`no ma :(`); return; }
+        console.log(ma);
+        console.log(tg);
         addDrawBundleToCanvas({
             lines: ma.edges.map(e => ({
                 points: [ma.points[e[0]]!, ma.points[e[1]]!],
@@ -114,6 +116,14 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
                     width: 5,
                     dashed: false,
                 }
+            })),
+            circles: ma.points.map(p => ({
+                circle: {center: p, radius: 10},
+                props: {
+                    borderWidth: 0,
+                    color: 'orange',
+                    filled: true,
+                }   
             }))
         });
     }
@@ -122,8 +132,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         initialiseCDTFromCanvasPoints();
         addSteinerPoints();
         flipRemainingConvex();
-        constructMedialAxisFromTriangulation();
         showGraph();
+        constructMedialAxisFromTriangulation();
     }
 
     function addDrawBundleToCanvas(bundle: CustomDrawBundle) {

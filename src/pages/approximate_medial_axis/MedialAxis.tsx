@@ -66,7 +66,6 @@ export default function ApproximateMedialAxis() {
         {
             label: "Construct Medial Axis from the triangulation.", icon: <LinearScaleIcon />, action: () => {
                 constructMedialAxisFromTriangulation();
-                showGraph();
             }
         },
     ];
@@ -75,7 +74,6 @@ export default function ApproximateMedialAxis() {
         {
             label: "Runs the full Medial Axis approxuimation process and only shows the result.", icon: <PlayArrowIcon />, action: () => {
                 getMedialAxis();
-                showGraph();
             }
         },
     ];

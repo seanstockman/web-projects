@@ -193,15 +193,15 @@ export class TriangleGraph {
         const [A, B, C] = t;
         this.getSharedConnections(vA, vB).filter(conn => conn != C).forEach(conn => {
             const adj = this.getTriangleFromVertexIndices(A, B, conn)?.index;
-            if (adj) adjacentTriangles.push(adj)
+            if (adj != undefined) adjacentTriangles.push(adj);
         });
         this.getSharedConnections(vB, vC).filter(conn => conn != A).forEach(conn => {
             const adj = this.getTriangleFromVertexIndices(B, C, conn)?.index;
-            if (adj) adjacentTriangles.push(adj)
+            if (adj != undefined) adjacentTriangles.push(adj);
         });
         this.getSharedConnections(vC, vA).filter(conn => conn != B).forEach(conn => {
             const adj = this.getTriangleFromVertexIndices(C, A, conn)?.index;
-            if (adj) adjacentTriangles.push(adj)
+            if (adj != undefined) adjacentTriangles.push(adj);
         });
 
         return adjacentTriangles;
@@ -303,5 +303,9 @@ export class TriangleGraph {
         const shared = t1.filter(i => t2.includes(i));
         if (shared.length != 2) return;
         return shared as [number, number];
+    }
+
+    public getEdgeBetweenTrianglesAsVertices(t1: Triangle, t2: Triangle) {
+        return this.getEdgeBetweenTriangles(t1, t2)!.map(i => this.vertices[i]!) as [Vertex, Vertex];
     }
 }

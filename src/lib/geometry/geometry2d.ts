@@ -249,6 +249,11 @@ export const geometry2d = {
     perp(A: Vec2) {
         return { x: A.y, y: - A.x };
     },
+
+    isApproximatelyEqual(A: Vec2, B: Vec2) {
+        const epsilon = 0.0001;
+        return (Math.abs(A.x - B.x) < epsilon && Math.abs(A.y - B.y) < epsilon)
+    },
 }
 
 
