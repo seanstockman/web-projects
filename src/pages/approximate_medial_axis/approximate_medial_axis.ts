@@ -245,7 +245,7 @@ class MedialAxisConstructor {
         // The algorithm starts in an arbitrary C-type triangle. 
         const firstTypeCTriangleIndex = this.g.triangles.findIndex((_, i) => this.triInfo[i]?.type == TriangleType.C);
         if (undefined == firstTypeCTriangleIndex) { console.error(`No C type triangles exist.`); return; }
-        this.disableATrisPiercedByCTris();
+        this.disableATrisPiercedByCTris(showDebug);
 
         const firstTypeCTriangle = this.g.triangles[firstTypeCTriangleIndex];
         if (!firstTypeCTriangle) { console.error(`No C type triangles exist.`); return; }
@@ -269,7 +269,7 @@ class MedialAxisConstructor {
         });
     }
 
-    private disableATrisPiercedByCTris() {
+    private disableATrisPiercedByCTris(showDebug = false) {
         const cTypeTriangles = this.triInfo.filter(info => info.type == TriangleType.C).map(info => info.index);
         cTypeTriangles.forEach(i => {
             const t = this.g.triangles[i]!;
@@ -280,7 +280,7 @@ class MedialAxisConstructor {
 
             // find all triangles pierced by a vector
             // const obtuseVertex = geometry2d.getFurthestPointFromP(circumcentre.center, triangle.map(i => this.g.vertices[i]!));
-            console.log(`T${i} (c-type): circumcentre is not in the triangle`);
+            if (showDebug) console.log(`T${i} (c-type): circumcentre is not in the triangle`);
 
             let obtuseVertexIndex;
             const triVerts = this.g.getVertices(t);
@@ -300,7 +300,7 @@ class MedialAxisConstructor {
             // All the triangles of type A, pierced by this vector, are marked as disabled
             // and do not participate in the final solution.
             facesTraversed.filter(i => this.triInfo[i]?.type == TriangleType.A).forEach(i => {
-                console.log(`marking A-type triangle T${i} as disabled.`);
+                if (showDebug) console.log(`marking A-type triangle T${i} as disabled.`);
                 this.triInfo[i]!.disabled = true;
             });
         });
@@ -315,13 +315,13 @@ class MedialAxisConstructor {
         if (!circumcentre) { console.error(`Could not compute circumcentre`); return; }
 
         this.ma.points.push(circumcentre);
-        const ccIndex = this.ma.points.length - 1;
+        const maIndexOfThis = this.ma.points.length - 1;
         // connect to last point added (if it exists)
         if (this.ma.points.length > 1) {
             if (lastCIndex != -1) {
-                this.ma.edges.push([lastCIndex, ccIndex]);
+                this.ma.edges.push([lastCIndex, maIndexOfThis]);
             } else {
-                this.ma.edges.push([this.ma.points.length - 2, ccIndex]);
+                this.ma.edges.push([this.ma.points.length - 2, maIndexOfThis]);
             }
         }
 
@@ -329,32 +329,37 @@ class MedialAxisConstructor {
          * recursively visits the neighbouring triangles. */
 
         const adjTriangles = this.g.getAdjacentTriangles(triangle);
-        adjTriangles.forEach(adj => {
-            const adjInfo = this.triInfo[adj]!;
-            const adjTri = this.g.triangles[adj]!;
-            if (adjInfo.visited) return;
-            switch (adjInfo.type) {
+        adjTriangles.forEach(adjacentTriangleIndex => {
+            const adj = {
+                i: adjacentTriangleIndex,
+                t: this.g.triangles[adjacentTriangleIndex]!,
+                info: this.triInfo[adjacentTriangleIndex]!
+            }
+
+            if (adj.info.visited) return;
+            switch (adj.info.type) {
                 case TriangleType.A:
                     // If an A type triangle is encountered, the last vertex obtained on the medial axis is 
                     // connected to the bisector of the common edge with the next neighbouring triangle.
                     // const ba;
-                    this.startAtTypeA(ccIndex, triangle, adj, adjTri, showDebug);
+                    this.startAtTypeA(maIndexOfThis, triangle, adj.i, adj.t, showDebug);
                     // console.warn(`not implemented: reached a type A (T${adj})`);
                     return;
                 case TriangleType.B:
-                    console.log(`- found B-type triangle T${adj}`);
-                    const topVertexIndex = adjTri.find(i => !triangle.includes(i));
+                    if (showDebug) console.log(`- found B-type triangle T${adj.i}`);
+                    const topVertexIndex = adj.t.find(i => !triangle.includes(i));
                     if (topVertexIndex == undefined) { console.error(`curr triangle == next triangle`); return; }
+                    adj.info.visited = true;
                     this.ma.points.push(this.g.vertices[topVertexIndex]!);
                     // connect last added
-                    this.ma.edges.push([ccIndex, this.ma.points.length - 1]);
+                    this.ma.edges.push([maIndexOfThis, this.ma.points.length - 1]);
                     return;
                 case TriangleType.C:
-                    console.log(`- found C-type triangle T${adj}`);
-                    this.startAtTypeC(adj, adjTri, ccIndex, showDebug);
+                    if (showDebug) console.log(`- found C-type triangle T${adj.i}`);
+                    this.startAtTypeC(adj.i, adj.t, maIndexOfThis, showDebug);
                     return;
                 default:
-                    console.error(`erm.`);
+                    console.error(`T${adj.i} type is ${adj.info.type}.`);
                     return;
             }
 
@@ -362,10 +367,10 @@ class MedialAxisConstructor {
             // If a B-type triangle is met, all the line segments between the considered B-type triangle and the last C-type triangle, 
             // generated by A-type triangles, are firstly removed from the solution.
             // After that, the circumcentre of the last C-type triangle is connected to the B-type triangle's top vertex.
-        });
 
-        // The algorithm then recursively visits the neighbouring triangles and upon each individual triangle type,
-        // adds a contribution to the final MA.
+            // The algorithm then recursively visits the neighbouring triangles and upon each individual triangle type,
+            // adds a contribution to the final MA.
+        });
     }
 
 
@@ -384,35 +389,42 @@ class MedialAxisConstructor {
 
         let prev = { i: -1, t: prevCTri };
         let curr = { i: index, t: triangle, info: this.triInfo[index]! };
+
         const addedMidpointVertices: Vec2[] = [];
 
         for (let j = 0; j < maxSteps; j++) {
             // starting from an A vertex.
-            console.log(`~~ visiting A-type triangle T${curr.i} ~~`);
-            if (curr.info.visited) { console.log(`- visited, returning`); return; }
+            if (showDebug) console.log(`~~ visiting A-type triangle T${curr.i} ~~`);
+            if (curr.info.visited) { if (showDebug) console.log(`- visited, returning`); return; }
             curr.info.visited = true;
 
             const adjacentTriangles = this.g.getAdjacentTriangles(curr.t);
             if (adjacentTriangles.length != 2) {
-                console.error(`type A triangle ${curr.i} has ${adjacentTriangles.length} adjacent triangles`);
-                console.error(adjacentTriangles);
+                if (showDebug) console.error(`type A triangle ${curr.i} has ${adjacentTriangles.length} adjacent triangles`);
+                if (showDebug) console.error(adjacentTriangles);
                 return;
             }
 
             const nextIndex = adjacentTriangles.find(i => !this.triInfo[i]?.visited);
-            if (nextIndex == undefined) { console.error(`- all adjacent visited`); console.error(adjacentTriangles); return; }
+            if (nextIndex == undefined) {
+                if (showDebug) {
+                    console.error(`- all adjacent visited`);
+                    console.error(adjacentTriangles);
+                }
+                return;
+            }
             const next = { i: nextIndex, t: this.g.triangles[nextIndex]!, info: this.triInfo[nextIndex]! }
 
             if (next.info.type == TriangleType.B) {
-                console.log(`- found B-type triangle T${next.i}`);
+                if (showDebug) console.log(`- found B-type triangle T${next.i}`);
                 const topVertexIndex = next.t.find(vertIndex => !curr.t.includes(vertIndex));
-                if (topVertexIndex == undefined) { console.error(`curr triangle == next triangle`); return; }
+                if (topVertexIndex == undefined) { if (showDebug) console.error(`curr triangle == next triangle`); return; }
                 this.ma.points.push(this.g.vertices[topVertexIndex]!);
                 // connect last added
                 this.ma.edges.push([prevCIndex, this.ma.points.length - 1]);
                 return;
             } else if (next.info.type == TriangleType.C) {
-                console.log(`- found C-type triangle T${next.i}`);
+                if (showDebug) console.log(`- found C-type triangle T${next.i}`);
                 // add and connect all previous
 
                 if (addedMidpointVertices.length == 0) {
@@ -442,7 +454,7 @@ class MedialAxisConstructor {
                 const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, next.t)!;
                 addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
             } else {
-                console.log(`T${next.i} is disabled, skipping.`);
+                if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
             }
 
             // type A
@@ -450,6 +462,6 @@ class MedialAxisConstructor {
             curr = next;
         }
 
-        console.error(`john fuck`);
+        console.error(`maximum type-A search iterations exceeded (T${index})`);
     }
 }
