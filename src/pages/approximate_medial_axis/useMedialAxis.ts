@@ -44,7 +44,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function setToRectExample() {
         clearCanvasOverlays();
         clearCanvas();
-        SetPointsAndLinesTo([
+        setPointsAndLinesTo([
             { x: 400, y: 500 },
             { x: 900, y: 500 },
             { x: 900, y: 300 },
@@ -55,7 +55,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function setToFig10Example() {
         clearCanvasOverlays();
         clearCanvas();
-        SetPointsAndLinesTo([
+        setPointsAndLinesTo([
             { x: 380.2228250647914, y: 153.64437459688003 },
             { x: 296.6573690065955, y: 366.7362875452796 },
             { x: 643.4540116481085, y: 687.0705357683639 },
@@ -66,7 +66,21 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         ]);
     }
 
-    function SetPointsAndLinesTo(newPoints: Vec2[]) {
+    function setToObtuseExample() {
+        clearCanvasOverlays();
+        clearCanvas();
+        setPointsAndLinesTo([
+            { x: 625.8333206176758, y: 94.67012617323134 },
+            { x: 1243.8888761732312, y: 525.2256817287869 },
+            { x: 938.3333206176758, y: 421.05901506212024 },
+            { x: 700.8333206176758, y: 290.50345950656464 },
+            { x: 404.9999872843424, y: 572.447903951009 },
+            { x: 186.9444317287869, y: 433.55901506212024 },
+            { x: 175.83332061767578, y: 104.39234839545355 }
+        ]);
+    }
+
+    function setPointsAndLinesTo(newPoints: Vec2[]) {
         setPoints(newPoints);
         setLines(newPoints.map((p, i) => [
             p, newPoints[(i + 1) % newPoints.length]!
@@ -126,8 +140,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function constructMedialAxisFromTriangulation() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        const ma = medialAxis.constructMedialAxis(tg);
-        // const ma = medialAxis.constructMedialAxis(tg, true); // debug mode
+        // const ma = medialAxis.constructMedialAxis(tg);
+        const ma = medialAxis.constructMedialAxis(tg, true); // debug mode
         if (!ma) { console.error(`no ma :(`); return; }
         console.log(ma);
         addDrawBundleToCanvas({
@@ -148,6 +162,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
             //     }   
             // }))
         });
+        console.log(tg);
     }
 
     function checkForObtuse() {
@@ -284,7 +299,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
         getMedialAxis, checkForObtuse,
-        setToRectExample, setToFig10Example,
+        setToRectExample, setToFig10Example, setToObtuseExample,
         showGraph
     };
 }

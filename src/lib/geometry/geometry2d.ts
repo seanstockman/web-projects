@@ -42,7 +42,7 @@ export const geometry2d = {
         };
     },
 
-    getMidpoint(a: Vec2, b: Vec2): Vec2 {
+    midpoint(a: Vec2, b: Vec2): Vec2 {
         return {
             x: (a.x + b.x) / 2,
             y: (a.y + b.y) / 2
@@ -89,7 +89,7 @@ export const geometry2d = {
 
     /** Returns the Point or undefined from the lines defined by (p1-p2) and (p3-p4) */
     getInterceptFromPoints(p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2): Vec2 | undefined {
-        const denominator = (p1.x - p2.x) * (p3.y = p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+        const denominator = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
         if (denominator == 0) return undefined;
 
         return {
@@ -128,6 +128,7 @@ export const geometry2d = {
         p.y *= -1;
     },
 
+    /** Returns the signed area of the triangle ABC. Will be positive if the triangle is wound counter-clockwise. */
     getSignedArea(A: Vec2, B: Vec2, C: Vec2) {
         // shoelace formula
         return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y) - (A.y * B.x + B.y * C.x + C.y * A.x));

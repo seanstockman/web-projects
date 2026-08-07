@@ -16,6 +16,7 @@ import DetailsIcon from '@mui/icons-material/Details';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import PentagonOutlinedIcon from '@mui/icons-material/PentagonOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
+import RoundedCornerOutlinedIcon from '@mui/icons-material/RoundedCornerOutlined';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -34,7 +35,7 @@ export default function ApproximateMedialAxis() {
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
         getMedialAxis, checkForObtuse,
-        setToRectExample, setToFig10Example,
+        setToRectExample, setToFig10Example, setToObtuseExample,
         showGraph
     } = useMedialAxisDraw(canvasRef, drawModes);
 
@@ -74,6 +75,7 @@ export default function ApproximateMedialAxis() {
         {
             label: "Check for obtuse.", icon: <PanoramaFishEyeIcon />, action: () => {
                 checkForObtuse();
+                showGraph();
             }
         },
         {
@@ -97,12 +99,19 @@ export default function ApproximateMedialAxis() {
                 setToRectExample();
             }
         },
-        
+
         {
             label: "Sets the canvas to the box example in Figure 10.", icon: <PentagonOutlinedIcon />, action: () => {
                 setToFig10Example();
             }
-        }
+        },
+        
+        {
+            label: "Sets the canvas to an example with an obtuse triangle with 3 neighbours and whose circumcircle lies outside the polygon.",
+            icon: <RoundedCornerOutlinedIcon />, action: () => {
+                setToObtuseExample();
+            }
+        },
     ];
 
     useEffect(() => { redrawCanvas(); }, [redrawCanvas]);

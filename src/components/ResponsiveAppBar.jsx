@@ -22,6 +22,7 @@ const navItems = [
     children: [
       // { label: 'Interlining', to: '/web-projects/interlining' },
       { label: 'Delaunay Triangulation', to: '/web-projects/delaunay' },
+      { label: 'Medial Axis Approximation', to: '/web-projects/medial-axis' },
     ],
   },
   // { label: 'Pricing', to: '/pricing' },

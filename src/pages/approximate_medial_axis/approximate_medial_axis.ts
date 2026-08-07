@@ -68,7 +68,7 @@ export const medialAxis = {
 
 /** Adds the Steiner points to resolve convex triangles with 3 neighbours. */
 function addObtuseThreeNeighbourSteinerPoints(g: TriangleGraph) {
-    const obtuseTriangles: { i: number, t: Triangle }[] = [];
+    const obtuseTriangles: number[] = [];
 
     g.triangles.forEach((t, i) => {
         const verts = g.getVertices(t);
@@ -78,34 +78,121 @@ function addObtuseThreeNeighbourSteinerPoints(g: TriangleGraph) {
         // does this have three neighbours?
         if (getNumberOfPolygonEdges(g, t) != 0) return;
 
-        obtuseTriangles.push({ t: t, i: i });
+        obtuseTriangles.push(i);
     });
 
     if (obtuseTriangles.length == 0) return;
 
-    console.log(`found ${obtuseTriangles.length} obtuse triangle/s with three adjacent triangles:`);
-    console.log(obtuseTriangles.map(tri => tri.i));
-
-    obtuseTriangles.forEach(obtuseTriangle => addSteinerPointForObtuseCase(g, obtuseTriangle));
+    obtuseTriangles.forEach(i => addSteinerPointForObtuseCase(g, i));
 }
 
-function addSteinerPointForObtuseCase(g: TriangleGraph, obtuse: BundledTriangle) {
+function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: number) {
+    const obtuseTriangle = { i: obtuseTriangleIndex, t: g.triangles[obtuseTriangleIndex]! }
     // a ray is sent from the obtuse vertex towards c_i (circumcentre of t_i)
     // only those triangles intersected by the ray are inspected
-    const circumcentre = g.getCircumcircleOfTriangle(obtuse.t).center;
-    const obtuseVertex = g.getObtuseVertexOfTriangle(obtuse.t)!;
-    const intersectedTris = g.traceRay(obtuseVertex.v, g2d.sub(circumcentre, obtuseVertex.v), obtuse.i, circumcentre);
-    console.log(`intersectedFaces for triangle ${obtuse.i}`);
-    console.log(intersectedTris);
+    const c_i = g.getCircumcircleOfTriangle(obtuseTriangle.t).center;
+    const obtuseVertex = g.getObtuseVertexOfTriangle(obtuseTriangle.t)!;
+    const trace = g.traceRay(obtuseVertex.v, g2d.sub(c_i, obtuseVertex.v), obtuseTriangle.i, c_i);
 
     // if the ray does not intersect any polygon edge, c_i is inside the polygon and the triangle is considered acceptable.
-    if (g.isPointInTriangle(g.triangles[intersectedTris[intersectedTris.length - 1]!]!, circumcentre)) {
-        console.log(`circumcentre of T${obtuse.i} is inside the last pierced triangle T${intersectedTris[intersectedTris.length - 1]}`);
+    if (g.isPointInTriangle(g.triangles[trace.facesHit[trace.facesHit.length - 1]!]!, c_i)) {
         return;
     }
 
-    console.warn(`circumcentre of T${obtuse.i} is outside the polygon`);
-    return circumcentre;
+    console.log(`circumcentre of T${obtuseTriangle.i} is outside the polygon. faces hit:`);
+    console.log(trace.facesHit);
+    // A steiner point is inserted at the intersected polygon edge as follows:
+    // Firstly, a common vertex v_o is found that is on the intersected polygon edge and is a member of the obtuse triangle
+    const commonVertexIndex = trace.lastEdgeHit?.filter(e => obtuseTriangle.t.includes(e))[0];
+    const lastEdgeHitVerts = g.getVerticesFromIndices(...trace.lastEdgeHit!) as [Vertex, Vertex];
+    if (commonVertexIndex == undefined) { console.error(`could not find common vertex`); return; }
+
+    const common = { i: commonVertexIndex, v: g.vertices[commonVertexIndex]! };
+
+    // The edge of the obtuse triangle that does not contain vertex v_o is selected.
+    // Its midpoint p is calculated and vector c_i->p is formed
+    const otherEdgeIndices = obtuseTriangle.t.filter(i => i != common.i);
+    const otherEdge = g.getVerticesFromIndices(...otherEdgeIndices) as [Vertex, Vertex];
+    const M = g2d.midpoint(...otherEdge);
+
+    console.log({
+        trace: trace,
+        M: M,
+        c: c_i
+    });
+
+    // its intersection with the previously determined polygon edge is calculated and the point is added
+    const intersection = g2d.getInterceptFromPoints(M, c_i, ...lastEdgeHitVerts);
+    if (!intersection) { console.error(`could not find intersection`); return; }
+    console.log(`found intersection`);
+    console.log(intersection);
+
+    // needs to be spliced in to retain polygon ordering.
+    const indexOfNew = trace.lastEdgeHit![1];
+    g.vertices.splice(indexOfNew, 0, { x: intersection.x, y: intersection.y, connections: [], steiner: false });
+    trace.lastEdgeHit![1]++;
+
+    if (common.i >= indexOfNew) common.i = common.i + 1;
+    if (obtuseVertex.i >= indexOfNew) obtuseVertex.i = obtuseVertex.i + 1;
+
+    for (let i = 0; i < g.vertices.length; i++) {
+        const vert = g.vertices[i]!;
+        vert.connections.forEach((conn, ind) => {
+            if (conn >= indexOfNew) { vert.connections[ind] = conn + 1; console.log(`v${i}: updated conn ${conn} to ${vert.connections[ind]}`); }
+        });
+    }
+
+    for (let i = 0; i < g.triangles.length; i++) {
+        const t = g.triangles[i]!;
+        let changed = false;
+        t.forEach((val, t_i) => {
+            if (val < indexOfNew) return;
+            if (!changed) g.removeTriangleIndexFromMap(i);
+            t[t_i] = val + 1;
+            changed = true;
+        })
+        if (changed) g.addTriangleToMap(i);
+    }
+
+    /** Added steiner point */
+    const s = { i: indexOfNew, v: g.vertices[indexOfNew]! }
+
+    // shift all triangles connected at common to be connected at steiner
+    let other = { i: obtuseVertex.i };
+    trace.facesHit.forEach(t_i => {
+        console.log(`T${t_i}:`);
+        const t = g.triangles[t_i]!;
+        const indexOfCommon = t.findIndex(i => i == common.i);
+        if (indexOfCommon == -1) { console.error(`vertex ${common.i} not found in intersected triangle T${t_i}`); return; }
+        g.removeTriangleIndexFromMap(t_i);
+        t[indexOfCommon] = s.i;
+        g.addTriangleToMap(t_i);
+
+        console.log(`disconnecting ${common.i} from ${other.i}, connecting to ${s.i} instead.`);
+        // we want to disconnect other from common and connect it to steiner
+        // if (connectionToRemove == obtuse.t[(obtuse.t.findIndex(i => i == common.i) + 2) % 3])
+        g.disconnectVertices(common.i, other.i);
+        g.connectVertices(s.i, other.i);
+        other.i = t.find(i => i != s.i && i != other.i)!;
+        // common.v.connections.filter(conn => conn != t[indexOfCommon - 1]);
+    });
+
+    // connect last other to steiner
+    console.log(`last other index: ${other.i}`);
+    g.disconnectVertices(common.i, other.i);
+    g.connectVertices(other.i, s.i);
+
+    // re-add in connection from C-Ob, connection C-S and add triangle C-S-oB
+
+    // add in triangle common-s-obtuseVertex
+    g.connectVertices(common.i, obtuseVertex.i);
+    g.connectVertices(s.i, common.i);
+
+    const triVerts: [number, number, number] = [s.i, common.i, obtuseVertex.i];
+    if (g2d.getSignedArea(s.v, common.v, obtuseVertex.v) < 0) triVerts.reverse();
+
+    g.triangles.push(triVerts);
+    g.addTriangleToMap(g.triangles.length - 1);
 }
 
 /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
@@ -285,7 +372,7 @@ class MedialAxisConstructor {
             const vO = obtuseVertex.v;
             const dir = g2d.normalise(g2d.sub(cc, vO));
 
-            const facesTraversed = this.g.traceRay(vO, dir, i, cc);
+            const facesTraversed = this.g.traceRay(vO, dir, i, cc).facesHit;
 
             // All the triangles of type A, pierced by this vector, are marked as disabled
             // and do not participate in the final solution.
@@ -421,7 +508,7 @@ class MedialAxisConstructor {
                     const O = { v: this.ma.points[prevCIndex]! }
                     const OB = g2d.normalise(g2d.sub(B.v, O.v));
                     const [L, R] = firstAddedEdge!;
-                    
+
                     const intersection = g2d.getRaySegmentIntersection(O.v, OB, L.v, R.v);
                     const threshold = 0.25; // percent each side. max is 0.5
 
@@ -449,13 +536,13 @@ class MedialAxisConstructor {
                     // add the midpoint 
                     const edge = this.g.getEdgeBetweenTriangles(curr.t, prev.t)!;
                     firstAddedEdge = edge;
-                    addedMidpointVertices.push(g2d.getMidpoint(edge[0].v, edge[1].v));
+                    addedMidpointVertices.push(g2d.midpoint(edge[0].v, edge[1].v));
                     addedFirstMidpoint = true;
                 }
 
                 // add the midpoint
                 const edge = this.g.getEdgeBetweenTriangles(curr.t, next.t)!;
-                addedMidpointVertices.push(g2d.getMidpoint(edge[0].v, edge[1].v));
+                addedMidpointVertices.push(g2d.midpoint(edge[0].v, edge[1].v));
             } else {
                 if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
             }

@@ -153,20 +153,20 @@ export class TriangleGraph {
         return vertexA.connections.filter(conn => vertexB.connections.includes(conn));
     }
 
-    /** Adds the given triangle to the map. */
-    private addTriangleToMap(triangleIndex: number) {
+    /** Adds (or updates) the given triangle to the map. */
+    public addTriangleToMap(triangleIndex: number) {
         const key = this.getKeyFromTriangleIndex(triangleIndex)
         if (key) this.triangleMap.set(key, triangleIndex);
     }
 
     /** Removes the given triangle to the map using its index in the `triangles` array. */
-    private removeTriangleIndexFromMap(triangleIndex: number) {
+    public removeTriangleIndexFromMap(triangleIndex: number) {
         const key = this.getKeyFromTriangleIndex(triangleIndex);
         if (key) this.triangleMap.delete(key);
     }
 
     /** Removes the given triangle to the map. */
-    private removeTriangleFromMap(t: Triangle) {
+    public removeTriangleFromMap(t: Triangle) {
         const key = this.getKeyFromVertexIndices(t[0], t[1], t[2]);
         if (key) this.triangleMap.delete(key);
     }
@@ -256,12 +256,14 @@ export class TriangleGraph {
      * @param startTriangle Index of the triangle `origin` lies within.
      * @param target Ray end. Optional - will terminate the ray trace once the target is in the triangle.
      */
-    public traceRay(origin: Vec2, direction: Vec2, startTriangle: number, target: Vec2 | undefined = undefined, maxSteps = this.triangles.length): number[] {
+    public traceRay(origin: Vec2, direction: Vec2, startTriangle: number, target: Vec2 | undefined = undefined, maxSteps = this.triangles.length) {
         const facesHit: number[] = [];
 
         let currentTriangleIndex: number | undefined = startTriangle;
         let entryEdge: [number, number] | undefined = undefined;
         let rayOrigin: Vec2 = origin;
+        let lastHit;
+        let lastEdgeHit;
 
         for (let step = 0; step < maxSteps && currentTriangleIndex !== undefined; step++) {
             const t = this.triangles[currentTriangleIndex];
@@ -289,6 +291,9 @@ export class TriangleGraph {
                     nearestT = hit.t;
                     exitEdge = edge;
                     exitPoint = hit.point;
+                    
+                    lastHit = hit;
+                    lastEdgeHit = edge;
                 }
             }
 
@@ -300,7 +305,11 @@ export class TriangleGraph {
             rayOrigin = exitPoint;
         }
 
-        return facesHit;
+        return {
+            facesHit: facesHit,
+            lastHit: lastHit,
+            lastEdgeHit: lastEdgeHit
+        };
     }
 
     private isSameEdge(a: [number, number], b: [number, number]) {
