@@ -100,28 +100,28 @@ export class TriangleGraph {
     }
 
     /** Flips the triangles along the edge AB. */
-    public flipTrianglesAlongEdge(A: number, B: number): boolean {
+    public flipTrianglesAlongEdge(A: number, B: number) {
         // confirm that A is connected to B
         const vA = this.vertices[A], vB = this.vertices[B];
-        if (!vA || !vB) { console.error(`could not fetch vertex ${A} or ${B}`); return false; }
+        if (!vA || !vB) { console.error(`could not fetch vertex ${A} or ${B}`); return; }
 
         // confirm that A and B have 2 shared connections
         const sharedConns = this.getSharedConnections(vA, vB);
-        if (sharedConns.length != 2) { console.error(`vertex ${A} and ${B} have ${sharedConns.length} connections, not 2.`); return false; }
+        if (sharedConns.length != 2) { console.error(`vertex ${A} and ${B} have ${sharedConns.length} connections, not 2.`); return; }
 
         // confirm X and Y exist
         const X = sharedConns[0], Y = sharedConns[1];
-        if (X == undefined || Y == undefined) { console.error(`could not get ${X} or ${Y}`); return false; }
+        if (X == undefined || Y == undefined) { console.error(`could not get ${X} or ${Y}`); return; }
 
         const vX = this.vertices[X], vY = this.vertices[Y];
-        if (!vX || !vY) { console.error(`could not fetch vertex ${X} or ${Y}`); return false; }
+        if (!vX || !vY) { console.error(`could not fetch vertex ${X} or ${Y}`); return; }
 
         // get face ABX and ABY
         const ABX = this.getTriangleFromVertexIndices(A, B, X);
         const ABY = this.getTriangleFromVertexIndices(A, B, Y);
 
-        if (!ABX) { console.error(`face ${A}-${B}-${X} does not exist in the triangle map`); return false; }
-        if (!ABY) { console.error(`face ${A}-${B}-${Y} does not exist in the triangle map`); return false; }
+        if (!ABX) { console.error(`face ${A}-${B}-${X} does not exist in the triangle map`); return; }
+        if (!ABY) { console.error(`face ${A}-${B}-${Y} does not exist in the triangle map`); return; }
 
         // determine direction of X (which will imply direction of Y). if AB is in order AB, X is on left by CCW winding.
         const orderedIndexOfA = ABX.triangle.findIndex(i => i == A);
@@ -145,7 +145,7 @@ export class TriangleGraph {
         this.disconnectVertices(A, B);
         this.connectVertices(L, R);
 
-        return true;
+        return [L, R] as [number, number];
     }
 
     /** Finds and returns an array of indices of vertices which the two given vertices share. */
@@ -182,7 +182,7 @@ export class TriangleGraph {
         return `${sorted[0]}-${sorted[1]}-${sorted[2]}`;
     }
 
-    private getTriangleFromVertexIndices(A: number, B: number, C: number) {
+    public getTriangleFromVertexIndices(A: number, B: number, C: number) {
         const key = this.getKeyFromVertexIndices(A, B, C);
         const index_t = this.triangleMap.get(key);
         if (index_t == undefined) return undefined;

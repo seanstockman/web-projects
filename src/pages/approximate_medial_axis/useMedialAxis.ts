@@ -173,6 +173,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function getMedialAxis() {
         initialiseCDTFromCanvasPoints();
         addSteinerPoints();
+        checkForObtuse();
         flipRemainingConvex();
         showGraph();
         constructMedialAxisFromTriangulation();

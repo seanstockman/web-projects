@@ -48,7 +48,31 @@ export const medialAxis = {
             const incorrectConnections = V_curr.connections.filter(conn => conn != next && conn != prev);
             if (incorrectConnections.length == 0) continue;
 
-            incorrectConnections.forEach(conn => g.flipTrianglesAlongEdge(i, conn));
+            incorrectConnections.forEach(conn => {
+                // if flipping results in creating a c-type with its cc outside the polygon, dont flip.
+                const res = g.flipTrianglesAlongEdge(i, conn);
+                if (!res) return;
+                const [L, R] = res;
+                const newTriangle = g.getTriangleFromVertexIndices(L, R, conn)!;
+                const numConns = g.getAdjacentTriangles(newTriangle.triangle);
+                if (numConns.length != 3) return;
+                const cc = g.getCircumcircleOfTriangle(newTriangle.triangle).center;
+
+                if (g.isPointInTriangle(newTriangle.triangle, cc)) return;
+                
+                const obtuse = g.getObtuseVertexOfTriangle(newTriangle.triangle)!;
+
+                const dirConnCc = g2d.normalise(g2d.sub(cc, obtuse.v));
+                
+                const trace = g.traceRay(obtuse.v, dirConnCc, newTriangle.index, cc);
+                if (!trace) return;
+                
+                const lastFaceHit = trace.facesHit[trace.facesHit.length - 1]!;
+                console.log(`T${newTriangle.index} last face hit: ${lastFaceHit}`);
+                if (g.isPointInTriangle(g.triangles[lastFaceHit]!, cc)) return;
+
+                g.flipTrianglesAlongEdge(L, R); 
+            });
         }
     },
 
