@@ -7,7 +7,7 @@
 
 
 import * as poly2tri from "poly2tri";
-import { geometry2d, type Vec2 } from "../../lib/geometry/geometry2d.ts";
+import { geometry2d as g2d, type Vec2 } from "../../lib/geometry/geometry2d.ts";
 import { TriangleGraph, type BundledTriangle, type Triangle, type Vertex } from "../../lib/geometry/triangle_graph.ts";
 
 type insertedConvexSteinerPoints = {
@@ -38,7 +38,7 @@ export const medialAxis = {
             const next = (i + 1) % g.vertices.length;
             const V_next = g.vertices[next]!;
 
-            const turn = geometry2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+            const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
 
             // CCW wound    
             // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
@@ -72,8 +72,8 @@ function addObtuseThreeNeighbourSteinerPoints(g: TriangleGraph) {
 
     g.triangles.forEach((t, i) => {
         const verts = g.getVertices(t);
-        const circumcentre = geometry2d.getCircumcircle(...verts).center;
-        if (geometry2d.isPointInTriangle(circumcentre, ...verts)) return;
+        const circumcentre = g2d.getCircumcircle(...verts).center;
+        if (g2d.isPointInTriangle(circumcentre, ...verts)) return;
 
         // does this have three neighbours?
         if (getNumberOfPolygonEdges(g, t) != 0) return;
@@ -94,7 +94,7 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuse: BundledTriangle)
     // only those triangles intersected by the ray are inspected
     const circumcentre = g.getCircumcircleOfTriangle(obtuse.t).center;
     const obtuseVertex = g.getObtuseVertexOfTriangle(obtuse.t)!;
-    const intersectedTris = g.traceRay(obtuseVertex.v, geometry2d.sub(circumcentre, obtuseVertex.v), obtuse.i, circumcentre);
+    const intersectedTris = g.traceRay(obtuseVertex.v, g2d.sub(circumcentre, obtuseVertex.v), obtuse.i, circumcentre);
     console.log(`intersectedFaces for triangle ${obtuse.i}`);
     console.log(intersectedTris);
 
@@ -121,7 +121,7 @@ function addConvexVertexSteinerPoints(g: TriangleGraph) {
         const V_next = g.vertices[(i + 1) % g.vertices.length]!;
         const V_prev = g.vertices[(i - 1 + g.vertices.length) % g.vertices.length]!;
         // CW wound    
-        const turn = geometry2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+        const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
         // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
         const isConvex = turn < Math.PI;
         if (isConvex) convexVertices.push(i);
@@ -143,13 +143,13 @@ function addConvexVertexSteinerPoints(g: TriangleGraph) {
             continue;
         }
         // dont push repeats (test before only)
-        if (!verticesWithSteinerPointsAdded.find(v => geometry2d.isApproximatelyEqual(v, steinerPointsAtVertex.before))) {
+        if (!verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.before))) {
             verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.before);
         }
         verticesWithSteinerPointsAdded.push(g.vertices[i]!);
         // dont push repeat on last vertex's after.
         if (i == g.vertices.length - 1 &&
-            verticesWithSteinerPointsAdded.find(v => geometry2d.isApproximatelyEqual(v, steinerPointsAtVertex.after))
+            verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.after))
         ) {
             continue;
         }
@@ -169,20 +169,20 @@ function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSt
     // the nearest polygon vertex v_n in regard to vertex v_c is found.
     const v_c = g.vertices[c]!;
     const n = [...v_c.connections].filter(v => !g.vertices[v]?.steiner)
-        .sort((a, b) => geometry2d.distance(v_c, g.vertices[a]!) - geometry2d.distance(v_c, g.vertices[b]!))[0]!;
+        .sort((a, b) => g2d.dist(v_c, g.vertices[a]!) - g2d.dist(v_c, g.vertices[b]!))[0]!;
     const v_n = g.vertices[n]!;
 
     // the distance d = |v_c v_n| represents the radius of circle c_c the centre of which is v_c.
-    const d = geometry2d.distance(v_n, v_c);
+    const d = g2d.dist(v_n, v_c);
 
     // 2 steiner points v_s1 and v_s2 are inserted at the intersections between c_c with halved-radius and polygon edges terminating in vertex v_c.
     const v_prev = g.vertices[(c - 1 + g.vertices.length) % g.vertices.length]!;
-    const distToPrev = geometry2d.distance(v_prev, v_c);
+    const distToPrev = g2d.dist(v_prev, v_c);
     const cToPrev: Vec2 = { x: v_prev.x - v_c.x, y: v_prev.y - v_c.y };
     const cToPrevNormalised = { x: cToPrev.x / distToPrev, y: cToPrev.y / distToPrev };
 
     const v_next = g.vertices[(c + 1) % g.vertices.length]!;
-    const distToNext = geometry2d.distance(v_next, v_c);
+    const distToNext = g2d.dist(v_next, v_c);
     const cToNext: Vec2 = { x: v_next.x - v_c.x, y: v_next.y - v_c.y };
     const cToNextNormalised = { x: cToNext.x / distToNext, y: cToNext.y / distToNext }
 
@@ -283,7 +283,7 @@ class MedialAxisConstructor {
             if (!obtuseVertex) return;
 
             const vO = obtuseVertex.v;
-            const dir = geometry2d.normalise(geometry2d.sub(cc, vO));
+            const dir = g2d.normalise(g2d.sub(cc, vO));
 
             const facesTraversed = this.g.traceRay(vO, dir, i, cc);
 
@@ -369,9 +369,13 @@ class MedialAxisConstructor {
      * - If a type-B triangle is reached, the last point added to the `MA` will be connected 
      *   to the top of the B-type triangle and the traversal will end.
      * - If a type-C triangle is reached, all midpoints traversed will be connected and a search 
-     *   at triangle C will be initialised. */
+     *   at triangle C will be initialised. 
+     * 
+     * @param prevCIndex The index of the circumcentre of the last C-type triangle added in `this.ma.points`.
+     * */
     private startAtTypeA(prevCIndex: number, prevCTri: Triangle, index: number, triangle: Triangle, showDebug: boolean = false, maxSteps = this.g.triangles.length) {
         let addedFirstMidpoint = false;
+        let firstAddedEdge;
 
         // at start, find first NOT disabled A type.
         // first non-disabled A-type, add the front AND end midpoints.
@@ -407,9 +411,33 @@ class MedialAxisConstructor {
 
             if (next.info.type == TriangleType.B) {
                 if (showDebug) console.log(`- found B-type triangle T${next.i}`);
-                const topVertexIndex = next.t.find(vertIndex => !curr.t.includes(vertIndex));
-                if (topVertexIndex == undefined) { if (showDebug) console.error(`curr triangle == next triangle`); return; }
-                this.ma.points.push(this.g.vertices[topVertexIndex]!);
+
+                const B_i = next.t.find(vertIndex => !curr.t.includes(vertIndex));
+                if (B_i == undefined) { if (showDebug) console.error(`curr triangle == next triangle`); return; }
+                const B = { i: B_i, v: this.g.vertices[B_i]! };
+
+                if (addedMidpointVertices.length != 0) {
+                    // percent of the distance from L to R. 1 will force M to be added.
+                    const O = { v: this.ma.points[prevCIndex]! }
+                    const OB = g2d.normalise(g2d.sub(B.v, O.v));
+                    const [L, R] = firstAddedEdge!;
+                    
+                    const intersection = g2d.getRaySegmentIntersection(O.v, OB, L.v, R.v);
+                    const threshold = 0.25; // percent each side. max is 0.5
+
+                    // console.log(`intersection from T${index} to ${L.i}-${R.i}`);
+                    console.log(intersection);
+                    if (!intersection || intersection.u > 0.5 + threshold || intersection.u < 0.5 - threshold) {
+                        this.ma.points.push(addedMidpointVertices[0]!);
+                        this.ma.points.push(B.v);
+
+                        this.ma.edges.push([prevCIndex, this.ma.points.length - 2]);
+                        this.ma.edges.push([this.ma.points.length - 2, this.ma.points.length - 1]);
+                        return;
+                    }
+                }
+
+                this.ma.points.push(B.v);
                 // connect last added
                 this.ma.edges.push([prevCIndex, this.ma.points.length - 1]);
                 return;
@@ -419,13 +447,15 @@ class MedialAxisConstructor {
             if (!curr.info.disabled) {
                 if (!addedFirstMidpoint) {
                     // add the midpoint 
-                    const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, prev.t)!;
-                    addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
+                    const edge = this.g.getEdgeBetweenTriangles(curr.t, prev.t)!;
+                    firstAddedEdge = edge;
+                    addedMidpointVertices.push(g2d.getMidpoint(edge[0].v, edge[1].v));
                     addedFirstMidpoint = true;
                 }
+
                 // add the midpoint
-                const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, next.t)!;
-                addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
+                const edge = this.g.getEdgeBetweenTriangles(curr.t, next.t)!;
+                addedMidpointVertices.push(g2d.getMidpoint(edge[0].v, edge[1].v));
             } else {
                 if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
             }

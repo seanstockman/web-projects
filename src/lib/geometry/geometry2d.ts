@@ -66,22 +66,22 @@ export const geometry2d = {
         };
     },
 
-    /** Returns the intersection of a ray (starting at O, travelling in direction D) with the
-     * segment AB, or undefined if the ray and segment don't cross.
-     * `t` is the ray parameter (P = O + t*D, t >= 0) and `u` is the segment parameter (0-1). */
-    getRaySegmentIntersection(O: Vec2, D: Vec2, A: Vec2, B: Vec2): { point: Vec2, t: number, u: number } | undefined {
+    /** Returns the intersection of a ray (starting at `O`, travelling in direction `dir`) with the
+     * segment `AB`, or undefined if the ray and segment don't cross.
+     * `t` is the ray parameter (`P = O + t * dir`, `t >= 0`) and `u` is the segment parameter (0-1). */
+    getRaySegmentIntersection(O: Vec2, dir: Vec2, A: Vec2, B: Vec2): { point: Vec2, t: number, u: number } | undefined {
         const sx = B.x - A.x, sy = B.y - A.y;
-        const denom = D.x * sy - D.y * sx;
+        const denom = dir.x * sy - dir.y * sx;
         if (Math.abs(denom) < 1e-12) return undefined; // parallel (or degenerate segment)
 
         const dx = A.x - O.x, dy = A.y - O.y;
         const t = (dx * sy - dy * sx) / denom;
-        const u = (dx * D.y - dy * D.x) / denom;
+        const u = (dx * dir.y - dy * dir.x) / denom;
 
         if (t < 0 || u < 0 || u > 1) return undefined;
 
         return {
-            point: { x: O.x + D.x * t, y: O.y + D.y * t },
+            point: { x: O.x + dir.x * t, y: O.y + dir.y * t },
             t,
             u
         };
@@ -98,16 +98,16 @@ export const geometry2d = {
         }
     },
 
-    distance(a: Vec2, b: Vec2) {
+    dist(a: Vec2, b: Vec2) {
         return (Math.hypot(b.x - a.x, b.y - a.y));
     },
 
     getClosestPointToP(P: Vec2, candidates: Vec2[]) {
-        return candidates.toSorted((A, B) => this.distance(A, P) - this.distance(B, P))[0];
+        return candidates.toSorted((A, B) => this.dist(A, P) - this.dist(B, P))[0];
     },
 
     getFurthestPointFromP(P: Vec2, candidates: Vec2[]) {
-        return candidates.toSorted((A, B) => this.distance(B, P) - this.distance(A, P))[0];
+        return candidates.toSorted((A, B) => this.dist(B, P) - this.dist(A, P))[0];
     },
 
     /** Returns the angle (in radians) between segments AB and BC, along the left side of the direction of the line ABC. 
@@ -120,7 +120,7 @@ export const geometry2d = {
     },
 
     /** Returns the angle in radians of the vector AB. Angles will be in the range [0, 2π). */
-    getDirectionFromAToB(A: Vec2, B: Vec2) {
+    getAngleAB(A: Vec2, B: Vec2) {
         return (Math.atan2(B.y - A.y, B.x - A.x) + Math.PI * 2) % (Math.PI * 2);
     },
 
@@ -137,25 +137,25 @@ export const geometry2d = {
     constructVectorAB(A: Vec2, B: Vec2): Vector {
         return {
             origin: A,
-            direction: this.getDirectionFromAToB(A, B),
-            magnitude: this.distance(A, B)
+            direction: this.getAngleAB(A, B),
+            magnitude: this.dist(A, B)
         }
     },
 
-    /** Returns which of A (0), B (1), or C (2) has the largest interior angle of the triangle.
-     * Uses the law of cosines on squared edge lengths — the largest angle is always opposite the
-     * longest side — so, unlike `getAngleBetweenPoints`, this is completely independent of winding
-     * direction (CW vs CCW) and immune to atan2 wraparound issues. If the triangle is obtuse, this
-     * is also its obtuse vertex, since a triangle can only have one angle > π/2. */
-    indexOfLargestAngleVertex(A: Vec2, B: Vec2, C: Vec2): 0 | 1 | 2 {
-        const a2 = this.distance(B, C) ** 2; // side opposite A
-        const b2 = this.distance(A, C) ** 2; // side opposite B
-        const c2 = this.distance(A, B) ** 2; // side opposite C
+    // /** Returns which of A (0), B (1), or C (2) has the largest interior angle of the triangle.
+    //  * Uses the law of cosines on squared edge lengths — the largest angle is always opposite the
+    //  * longest side — so, unlike `getAngleBetweenPoints`, this is completely independent of winding
+    //  * direction (CW vs CCW) and immune to atan2 wraparound issues. If the triangle is obtuse, this
+    //  * is also its obtuse vertex, since a triangle can only have one angle > π/2. */
+    // indexOfLargestAngleVertex(A: Vec2, B: Vec2, C: Vec2): 0 | 1 | 2 {
+    //     const a2 = this.distance(B, C) ** 2; // side opposite A
+    //     const b2 = this.distance(A, C) ** 2; // side opposite B
+    //     const c2 = this.distance(A, B) ** 2; // side opposite C
 
-        if (a2 >= b2 && a2 >= c2) return 0;
-        if (b2 >= a2 && b2 >= c2) return 1;
-        return 2;
-    },
+    //     if (a2 >= b2 && a2 >= c2) return 0;
+    //     if (b2 >= a2 && b2 >= c2) return 1;
+    //     return 2;
+    // },
 
     /** Tests if the three points are collinear. */
     arePointsCollinear(A: Vec2, B: Vec2, C: Vec2): boolean {
@@ -232,12 +232,12 @@ export const geometry2d = {
         return { x: A.x + B.x, y: A.y + B.y };
     },
 
-    /** Returns the point that is the result of A * s. */
+    /** Returns the point that is the result of `A * s`. */
     scalarMult(A: Vec2, s: number) {
         return { x: A.x * s, y: A.y * s };
     },
 
-    /** Returns the point that is the result of A / s. */
+    /** Returns the point that is the result of `A / s`. */
     divScalar(A: Vec2, s: number) {
         return { x: A.x / s, y: A.y / s };
     },
@@ -248,15 +248,34 @@ export const geometry2d = {
         return { x: A.x / dist, y: A.y / dist };
     },
 
-    /** Returns the perpendicular vector of A. */
-    perp(A: Vec2) {
+    /** Returns the vector pointing perpendicular to the right of A. */
+    perpRHS(A: Vec2) {
         return { x: A.y, y: - A.x };
+    },
+
+    /** Returns the vector pointing perpendicular to the left of A. */
+    perpLHS(A: Vec2) {
+        return { x: -A.y, y: A.x };
     },
 
     isApproximatelyEqual(A: Vec2, B: Vec2) {
         const epsilon = 0.0001;
         return (Math.abs(A.x - B.x) < epsilon && Math.abs(A.y - B.y) < epsilon)
     },
+
+    /** Returns the dot product `a ⋅ b` */
+    dot(a: Vec2, b: Vec2) {
+        return a.x * b.x + a.y * b.y;
+    },
+
+    magnitude(a: Vec2) {
+        return Math.sqrt(a.x ^ 2 + a.y ^ 2);
+    },
+
+    /** Returns the vector projection of `a` onto `b`. */
+    projectAOntoB(a: Vec2, b: Vec2) {
+        return this.scalarMult(b, (this.dot(a, b)) / (this.magnitude(b) ^ 2));
+    }
 }
 
 

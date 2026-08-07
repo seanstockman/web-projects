@@ -275,7 +275,7 @@ export class HalfEdgeGraph {
             if (!edge) { return; }
             const target = this.vertices[edge.target];
             if (!target) { return; }
-            angleMap.set(geometry2d.getDirectionFromAToB(origin, target), edge);
+            angleMap.set(geometry2d.getAngleAB(origin, target), edge);
         });
 
         // return angleMap;
@@ -461,7 +461,7 @@ export const halfEdgeTriangular = {
     traverse(g: HalfEdgeGraph, A: number, B: number): number[] {
         // console.log(`Starting traversal from vertices ${A}->${B}.`);
         if (!g.vertices[A] || !g.vertices[B]) return [];
-        const angleAB = geometry2d.getDirectionFromAToB(g.vertices[A], g.vertices[B]);
+        const angleAB = geometry2d.getAngleAB(g.vertices[A], g.vertices[B]);
         return halfEdgeTriangular.traverseStartingAtPoint(g, A, g.vertices[A]!, angleAB, B);
     },
 
@@ -484,7 +484,7 @@ export const halfEdgeTriangular = {
 
             // specific case
             const loopCheckVertex = g.halfEdges[edge.prev]!.origin;
-            if (geometry2d.getDirectionFromAToB(g.vertices[M], g.vertices[loopCheckVertex]!) == theta) {
+            if (geometry2d.getAngleAB(g.vertices[M], g.vertices[loopCheckVertex]!) == theta) {
                 if (loopCheckVertex == endVertexIndex) {
                     // console.log(`- found end (vertex ${endVertexIndex})`);
                     return [edge.face];
@@ -542,7 +542,7 @@ export const halfEdgeTriangular = {
         const oppositeVertex = g.getTarget(nextEdge);
         if (!oppositeVertex) return [];
 
-        const alpha = geometry2d.getDirectionFromAToB(startVertex, oppositeVertex);
+        const alpha = geometry2d.getAngleAB(startVertex, oppositeVertex);
         if (alpha == theta) {
             return [E.face, ...this.traverseStartingAtPoint(g, nextEdge.target, startVertex, theta, endVertexIndex)];
         }

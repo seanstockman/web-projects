@@ -6,6 +6,13 @@ export type Vertex = Vec2 & {
     steiner: boolean // whether this is not part of the original
 }
 
+type VertexExtended = {
+    /** The vertex object. */
+    v: Vertex,
+    /** The index of the vector in `this.vertices`. */
+    i: number
+}
+
 export type VectorTuple = [Vertex, Vertex, Vertex];
 export type Triangle = [number, number, number];
 export type BundledTriangle = { i: number, t: Triangle };
@@ -300,14 +307,16 @@ export class TriangleGraph {
         return (a[0] === b[0] && a[1] === b[1]) || (a[0] === b[1] && a[1] === b[0]);
     }
 
+    /** Returns the `{index, vertex}` pairs of the vertices which form the shared edge of the two triangles, 
+     * wound CCW from the perspective of `t1`. */
     public getEdgeBetweenTriangles(t1: Triangle, t2: Triangle) {
         const shared = t1.filter(i => t2.includes(i));
         if (shared.length != 2) return;
-        return shared as [number, number];
-    }
-
-    public getEdgeBetweenTrianglesAsVertices(t1: Triangle, t2: Triangle) {
-        return this.getEdgeBetweenTriangles(t1, t2)!.map(i => this.vertices[i]!) as [Vertex, Vertex];
+        if (t1[2] == shared[0]) shared.reverse();
+        return shared.map(i => ({
+            v: this.vertices[i]!,
+            i: i
+        })) as [VertexExtended, VertexExtended];
     }
 
     public getObtuseVertexOfTriangle(t: Triangle) {

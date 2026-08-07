@@ -15,6 +15,7 @@ import ControlPointIcon from '@mui/icons-material/ControlPoint';
 import DetailsIcon from '@mui/icons-material/Details';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import PentagonOutlinedIcon from '@mui/icons-material/PentagonOutlined';
+import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -48,6 +49,11 @@ export default function ApproximateMedialAxis() {
     ];
 
     const stepByStepActions = [
+        {
+            label: "Reset overlays and medial axis construction.", icon: <RestartAltOutlinedIcon />, action: () => {
+                clearCanvasOverlays();
+            }
+        },
         {
             label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
                 initialiseCDTFromCanvasPoints();

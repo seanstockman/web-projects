@@ -44,7 +44,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function setToRectExample() {
         clearCanvasOverlays();
         clearCanvas();
-        setPoints([
+        SetPointsAndLinesTo([
             { x: 400, y: 500 },
             { x: 900, y: 500 },
             { x: 900, y: 300 },
@@ -55,7 +55,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
     function setToFig10Example() {
         clearCanvasOverlays();
         clearCanvas();
-        setPoints([
+        SetPointsAndLinesTo([
             { x: 380.2228250647914, y: 153.64437459688003 },
             { x: 296.6573690065955, y: 366.7362875452796 },
             { x: 643.4540116481085, y: 687.0705357683639 },
@@ -64,6 +64,13 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
             { x: 1176.8801728195924, y: 391.8059243627384 },
             { x: 655.9888300568379, y: 270.63601307835427 },
         ]);
+    }
+
+    function SetPointsAndLinesTo(newPoints: Vec2[]) {
+        setPoints(newPoints);
+        setLines(newPoints.map((p, i) => [
+            p, newPoints[(i + 1) % newPoints.length]!
+        ]));
     }
 
     function initialiseCDTFromCanvasPoints() {
@@ -119,7 +126,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function constructMedialAxisFromTriangulation() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        const ma = medialAxis.constructMedialAxis(tg, true);
+        const ma = medialAxis.constructMedialAxis(tg);
+        // const ma = medialAxis.constructMedialAxis(tg, true); // debug mode
         if (!ma) { console.error(`no ma :(`); return; }
         console.log(ma);
         addDrawBundleToCanvas({
@@ -276,7 +284,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
         getMedialAxis, checkForObtuse,
-        setToRectExample, setToFig10Example, 
+        setToRectExample, setToFig10Example,
         showGraph
     };
 }
