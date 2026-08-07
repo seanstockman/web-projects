@@ -59,19 +59,19 @@ export const medialAxis = {
                 const cc = g.getCircumcircleOfTriangle(newTriangle.triangle).center;
 
                 if (g.isPointInTriangle(newTriangle.triangle, cc)) return;
-                
+
                 const obtuse = g.getObtuseVertexOfTriangle(newTriangle.triangle)!;
 
                 const dirConnCc = g2d.normalise(g2d.sub(cc, obtuse.v));
-                
+
                 const trace = g.traceRay(obtuse.v, dirConnCc, newTriangle.index, cc);
                 if (!trace) return;
-                
+
                 const lastFaceHit = trace.facesHit[trace.facesHit.length - 1]!;
                 console.log(`T${newTriangle.index} last face hit: ${lastFaceHit}`);
                 if (g.isPointInTriangle(g.triangles[lastFaceHit]!, cc)) return;
 
-                g.flipTrianglesAlongEdge(L, R); 
+                g.flipTrianglesAlongEdge(L, R);
             });
         }
     },
@@ -221,9 +221,14 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
 
 /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
 function addConvexVertexSteinerPoints(g: TriangleGraph) {
+    /** TODO: 
+     * This is clearly incorrect and is causing a lot of extra hurdles. Keep an eye on it, 
+     * but a better approach would be following the instructions instead of adding the points then CDT'ing.
+    */
+
     // find all convex vertices (interior angle < 180)
 
-    // wound CW.
+    // wound CCW.
 
     const convexVertices = [];
 
