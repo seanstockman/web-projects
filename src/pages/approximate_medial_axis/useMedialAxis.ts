@@ -52,7 +52,22 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         ]);
     }
 
+    function setToFig10Example() {
+        clearCanvasOverlays();
+        clearCanvas();
+        setPoints([
+            { x: 380.2228250647914, y: 153.64437459688003 },
+            { x: 296.6573690065955, y: 366.7362875452796 },
+            { x: 643.4540116481085, y: 687.0705357683639 },
+            { x: 736.7687709130939, y: 493.47722923354337 },
+            { x: 1082.172655953637, y: 602.1123221091981 },
+            { x: 1176.8801728195924, y: 391.8059243627384 },
+            { x: 655.9888300568379, y: 270.63601307835427 },
+        ]);
+    }
+
     function initialiseCDTFromCanvasPoints() {
+        console.log(points);
         tg = getConstrainedDelaunayTriangulation(points);
         showTriangleGraph(tg);
     }
@@ -104,7 +119,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function constructMedialAxisFromTriangulation() {
         if (!tg) { console.warn(`Triangle Graph is not defined. Have you ran Delaunay Triangulation first?`); return; }
-        const ma = medialAxis.constructMedialAxis(tg);
+        const ma = medialAxis.constructMedialAxis(tg, true);
         if (!ma) { console.error(`no ma :(`); return; }
         console.log(ma);
         addDrawBundleToCanvas({
@@ -125,6 +140,11 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
             //     }   
             // }))
         });
+    }
+
+    function checkForObtuse() {
+        if (!tg) return;
+        medialAxis.checkForObtuse(tg);
     }
 
     function getMedialAxis() {
@@ -255,7 +275,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
-        getMedialAxis,
-        setToRectExample, showGraph
+        getMedialAxis, checkForObtuse,
+        setToRectExample, setToFig10Example, 
+        showGraph
     };
 }

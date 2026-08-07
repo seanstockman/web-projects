@@ -9,6 +9,7 @@ export interface Vec2 {
 }
 
 export interface Vector {
+    origin: Vec2,
     direction: number,
     magnitude: number
 }
@@ -132,8 +133,10 @@ export const geometry2d = {
         return 0.5 * ((A.x * B.y + B.x * C.y + C.x * A.y) - (A.y * B.x + B.y * C.x + C.y * A.x));
     },
 
-    getVectorFromAToB(A: Vec2, B: Vec2): Vector {
+    /** Returns the vector from A to B. */
+    constructVectorAB(A: Vec2, B: Vec2): Vector {
         return {
+            origin: A,
             direction: this.getDirectionFromAToB(A, B),
             magnitude: this.distance(A, B)
         }

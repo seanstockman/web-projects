@@ -8,26 +8,12 @@
 
 import * as poly2tri from "poly2tri";
 import { geometry2d, type Vec2 } from "../../lib/geometry/geometry2d.ts";
-import { TriangleGraph, type Triangle, type Vertex } from "../../lib/geometry/triangle_graph.ts";
+import { TriangleGraph, type BundledTriangle, type Triangle, type Vertex } from "../../lib/geometry/triangle_graph.ts";
 
 type insertedConvexSteinerPoints = {
     vertexIndex: number,
     before: Vertex,
     after: Vertex
-}
-
-/** The types of triangles outlined in section 2.3. 
- *  Each value corresponds with the number of polygon edges coinciding with each triangle.
- *  - Type A represents a triangle with one coinciding polygon edge. 
- *  - Type B represents a triangle with two coinciding polygon edges. 
- *  - Type C represents a triangle with no coinciding polygon edges. */
-enum TriangleType {
-    /** No polygon edges */
-    C,
-    /** One polygon edge */
-    A,
-    /** Two polygon edges */
-    B,
 }
 
 export const medialAxis = {
@@ -37,8 +23,9 @@ export const medialAxis = {
     },
 
     getPolygonWithAddedSteinerPoints(g: TriangleGraph) {
-        // addObtuseThreeNeighbourSteinerPoints(g); TODO
+        // addObtuseThreeNeighbourSteinerPoints(g); //TODO
         return addConvexVertexSteinerPoints(g);
+        return g.vertices;
     },
 
     flipRemainingConvexVertices(g: TriangleGraph) {
@@ -65,6 +52,10 @@ export const medialAxis = {
         }
     },
 
+    checkForObtuse(g: TriangleGraph) {
+        addObtuseThreeNeighbourSteinerPoints(g);
+    },
+
     constructMedialAxis(g: TriangleGraph, showDebug: boolean = false) {
         return new MedialAxisConstructor(g).construct(showDebug);
     }
@@ -77,31 +68,44 @@ export const medialAxis = {
 
 /** Adds the Steiner points to resolve convex triangles with 3 neighbours. */
 function addObtuseThreeNeighbourSteinerPoints(g: TriangleGraph) {
-    const obtuseTriangles: Triangle[] = [];
+    const obtuseTriangles: { i: number, t: Triangle }[] = [];
 
-    g.triangles.forEach(t => {
+    g.triangles.forEach((t, i) => {
         const verts = g.getVertices(t);
         const circumcentre = geometry2d.getCircumcircle(...verts).center;
         if (geometry2d.isPointInTriangle(circumcentre, ...verts)) return;
 
         // does this have three neighbours?
-        for (let i = 0; i < 3; i++) {
-            const vertexA = verts[i]!;
-            const vertexB = i == 2 ? verts[0] : verts[i + 1]!;
-            const sharedConnections = g.getSharedConnections(vertexA, vertexB);
+        if (getNumberOfPolygonEdges(g, t) != 0) return;
 
-            const C = i == 0 ? 2 : i - 1;
-            sharedConnections.filter(connection => connection != t[C]);
-            if (sharedConnections.length == 0) return;
-        }
-
-        obtuseTriangles.push(t);
+        obtuseTriangles.push({ t: t, i: i });
     });
 
     if (obtuseTriangles.length == 0) return;
 
-    console.warn(`not implemented: found obtuseTriangles with three points:`);
-    console.log(obtuseTriangles);
+    console.log(`found ${obtuseTriangles.length} obtuse triangle/s with three adjacent triangles:`);
+    console.log(obtuseTriangles.map(tri => tri.i));
+
+    obtuseTriangles.forEach(obtuseTriangle => addSteinerPointForObtuseCase(g, obtuseTriangle));
+}
+
+function addSteinerPointForObtuseCase(g: TriangleGraph, obtuse: BundledTriangle) {
+    // a ray is sent from the obtuse vertex towards c_i (circumcentre of t_i)
+    // only those triangles intersected by the ray are inspected
+    const circumcentre = g.getCircumcircleOfTriangle(obtuse.t).center;
+    const obtuseVertex = g.getObtuseVertexOfTriangle(obtuse.t)!;
+    const intersectedTris = g.traceRay(obtuseVertex.v, geometry2d.sub(circumcentre, obtuseVertex.v), obtuse.i, circumcentre);
+    console.log(`intersectedFaces for triangle ${obtuse.i}`);
+    console.log(intersectedTris);
+
+    // if the ray does not intersect any polygon edge, c_i is inside the polygon and the triangle is considered acceptable.
+    if (g.isPointInTriangle(g.triangles[intersectedTris[intersectedTris.length - 1]!]!, circumcentre)) {
+        console.log(`circumcentre of T${obtuse.i} is inside the last pierced triangle T${intersectedTris[intersectedTris.length - 1]}`);
+        return;
+    }
+
+    console.warn(`circumcentre of T${obtuse.i} is outside the polygon`);
+    return circumcentre;
 }
 
 /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
@@ -190,24 +194,25 @@ function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSt
         before: v_s1,
         after: v_s2
     };
-
-    // insertedSteinerPoints[0]!.isBeforeVertex = true;
-
-    // return insertedSteinerPoints;
-
-
-    // the triangles from T_s are now changed as follows:
-    // firstly the bisector of /_ v_c-1 v_c v_c+1 is determined and after that the angle at vertex v_c is calculated.
-
-
-    // the triangles from T_s are processed sequentially in a ccw direction.
-
-    // until the cumulative value of the angles at v_c is smalled than the half of /_ v_c-1 v_c v_c+1, the triangle vertex is moved.
 }
 
-export type MedialAxis = {
+type MedialAxis = {
     points: Vec2[],
     edges: [number, number][];
+}
+
+/** The types of triangles outlined in section 2.3. 
+ *  Each value corresponds with the number of polygon edges coinciding with each triangle.
+ *  - Type A represents a triangle with one coinciding polygon edge. 
+ *  - Type B represents a triangle with two coinciding polygon edges. 
+ *  - Type C represents a triangle with no coinciding polygon edges. */
+enum TriangleType {
+    /** No polygon edges */
+    C,
+    /** One polygon edge */
+    A,
+    /** Two polygon edges */
+    B,
 }
 
 type TriangleInfo = {
@@ -223,7 +228,6 @@ class MedialAxisConstructor {
     private triInfo: TriangleInfo[];
     private finished = false;
     private ma: MedialAxis = { points: [], edges: [] };
-
 
     constructor(tg: TriangleGraph) {
         this.g = tg;
@@ -258,14 +262,7 @@ class MedialAxisConstructor {
 
     private assignTriTypes() {
         this.g.triangles.forEach((t, triangleIndex) => {
-            let numberOfPolygonEdges = 0;
-
-            // CCW winding helpful here 
-            if ((t[0] + 1) % this.g.vertices.length == t[1]) numberOfPolygonEdges++;
-            if ((t[1] + 1) % this.g.vertices.length == t[2]) numberOfPolygonEdges++;
-            if ((t[2] + 1) % this.g.vertices.length == t[0]) numberOfPolygonEdges++;
-
-            this.triInfo[triangleIndex]!.type = numberOfPolygonEdges;
+            this.triInfo[triangleIndex]!.type = getNumberOfPolygonEdges(this.g, t);
         });
     }
 
@@ -282,17 +279,10 @@ class MedialAxisConstructor {
             // const obtuseVertex = geometry2d.getFurthestPointFromP(circumcentre.center, triangle.map(i => this.g.vertices[i]!));
             if (showDebug) console.log(`T${i} (c-type): circumcentre is not in the triangle`);
 
-            let obtuseVertexIndex;
-            const triVerts = this.g.getVertices(t);
-            for (let i = 0; i < t.length; i++) {
-                if (geometry2d.getAngleBetweenPoints(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
-                obtuseVertexIndex = i;
+            const obtuseVertex = this.g.getObtuseVertexOfTriangle(t);
+            if (!obtuseVertex) return;
 
-                break;
-            }
-            if (obtuseVertexIndex == undefined) { console.error(`could not find obtuse vertex`); return; }
-
-            const vO = triVerts[obtuseVertexIndex]!;
+            const vO = obtuseVertex.v;
             const dir = geometry2d.normalise(geometry2d.sub(cc, vO));
 
             const facesTraversed = this.g.traceRay(vO, dir, i, cc);
@@ -423,7 +413,24 @@ class MedialAxisConstructor {
                 // connect last added
                 this.ma.edges.push([prevCIndex, this.ma.points.length - 1]);
                 return;
-            } else if (next.info.type == TriangleType.C) {
+            }
+
+
+            if (!curr.info.disabled) {
+                if (!addedFirstMidpoint) {
+                    // add the midpoint 
+                    const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, prev.t)!;
+                    addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
+                    addedFirstMidpoint = true;
+                }
+                // add the midpoint
+                const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, next.t)!;
+                addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
+            } else {
+                if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
+            }
+
+            if (next.info.type == TriangleType.C) {
                 if (showDebug) console.log(`- found C-type triangle T${next.i}`);
                 // add and connect all previous
 
@@ -443,20 +450,6 @@ class MedialAxisConstructor {
                 return;
             }
 
-            if (!next.info.disabled) {
-                if (!addedFirstMidpoint) {
-                    // add the midpoint 
-                    const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, prev.t)!;
-                    addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
-                    addedFirstMidpoint = true;
-                }
-                // add the midpoint
-                const edge = this.g.getEdgeBetweenTrianglesAsVertices(curr.t, next.t)!;
-                addedMidpointVertices.push(geometry2d.getMidpoint(...edge));
-            } else {
-                if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
-            }
-
             // type A
             prev = curr;
             curr = next;
@@ -464,4 +457,15 @@ class MedialAxisConstructor {
 
         console.error(`maximum type-A search iterations exceeded (T${index})`);
     }
+}
+
+function getNumberOfPolygonEdges(tg: TriangleGraph, t: Triangle) {
+    let numberOfPolygonEdges = 0;
+
+    // CCW winding helpful here 
+    if ((t[0] + 1) % tg.vertices.length == t[1]) numberOfPolygonEdges++;
+    if ((t[1] + 1) % tg.vertices.length == t[2]) numberOfPolygonEdges++;
+    if ((t[2] + 1) % tg.vertices.length == t[0]) numberOfPolygonEdges++;
+
+    return numberOfPolygonEdges;
 }

@@ -14,6 +14,7 @@ import FastForwardIcon from '@mui/icons-material/FastForward';
 import ControlPointIcon from '@mui/icons-material/ControlPoint';
 import DetailsIcon from '@mui/icons-material/Details';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
+import PentagonOutlinedIcon from '@mui/icons-material/PentagonOutlined';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -31,8 +32,9 @@ export default function ApproximateMedialAxis() {
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
-        getMedialAxis,
-        setToRectExample, showGraph
+        getMedialAxis, checkForObtuse,
+        setToRectExample, setToFig10Example,
+        showGraph
     } = useMedialAxisDraw(canvasRef, drawModes);
 
     const drawActions = [
@@ -64,6 +66,11 @@ export default function ApproximateMedialAxis() {
             }
         },
         {
+            label: "Check for obtuse.", icon: <PanoramaFishEyeIcon />, action: () => {
+                checkForObtuse();
+            }
+        },
+        {
             label: "Construct Medial Axis from the triangulation.", icon: <LinearScaleIcon />, action: () => {
                 constructMedialAxisFromTriangulation();
             }
@@ -82,6 +89,12 @@ export default function ApproximateMedialAxis() {
         {
             label: "Sets the canvas to the box example in Figure 7.", icon: <Crop32Icon />, action: () => {
                 setToRectExample();
+            }
+        },
+        
+        {
+            label: "Sets the canvas to the box example in Figure 10.", icon: <PentagonOutlinedIcon />, action: () => {
+                setToFig10Example();
             }
         }
     ];

@@ -8,6 +8,7 @@ export type Vertex = Vec2 & {
 
 export type VectorTuple = [Vertex, Vertex, Vertex];
 export type Triangle = [number, number, number];
+export type BundledTriangle = { i: number, t: Triangle };
 
 export class TriangleGraph {
     public vertices: Vertex[];
@@ -307,5 +308,17 @@ export class TriangleGraph {
 
     public getEdgeBetweenTrianglesAsVertices(t1: Triangle, t2: Triangle) {
         return this.getEdgeBetweenTriangles(t1, t2)!.map(i => this.vertices[i]!) as [Vertex, Vertex];
+    }
+
+    public getObtuseVertexOfTriangle(t: Triangle) {
+        let obtuseVertexIndex;
+        const triVerts = this.getVertices(t);
+        for (let i = 0; i < t.length; i++) {
+            if (geometry2d.getAngleBetweenPoints(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
+            obtuseVertexIndex = i;
+            break;
+        }
+        if (obtuseVertexIndex == undefined) { console.error(`could not find obtuse vertex`); return; }
+        return { i: t[obtuseVertexIndex]!, v: triVerts[obtuseVertexIndex]! }
     }
 }
