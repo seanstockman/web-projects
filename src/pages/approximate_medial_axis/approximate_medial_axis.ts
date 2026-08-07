@@ -17,7 +17,38 @@ type insertedConvexSteinerPoints = {
 }
 
 export const medialAxis = {
-    /** */
+    /** Gets the approximated medial axis and returns the TriangleGraph `tg` used to construct it 
+     * as well as the independent MedialAxis struct `ma` which holds standalone versions of the points. */
+    getApproximatedMedialAxis(points: Vec2[]) {
+        let tg = this.getConstrainedDelaunayTriangulation(points);
+        const pointsWithSteiner = this.getPolygonWithAddedSteinerPoints(tg);
+        tg = this.getConstrainedDelaunayTriangulation(pointsWithSteiner);
+        this.flipRemainingConvexVertices(tg);
+        this.checkForObtuse(tg);
+        const ma = new MedialAxisConstructor(tg).construct(true);
+        if (!ma) return;
+        return {
+            tg: tg,
+            ma: ma
+        }
+    },
+
+    getConstrainedDelaunayTriangulation(vertices: Vec2[]) {
+        const orderedVerts = [...vertices];
+
+        // ensure points are ordered counter-clockwise for consistent winding
+        if (!g2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
+
+        var contour: poly2tri.Point[] = [];
+        orderedVerts.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
+
+        const sweepCtx = new poly2tri.SweepContext(contour);
+        sweepCtx.triangulate();
+
+        return medialAxis.initialise(orderedVerts, sweepCtx.getTriangles());
+    },
+
+    /** Initialises a triangle graph from a poly2tri CDT triangulation. */
     initialise(points: Vec2[], tris: poly2tri.Triangle[]): TriangleGraph {
         return new TriangleGraph(points, tris);
     },
@@ -25,7 +56,6 @@ export const medialAxis = {
     getPolygonWithAddedSteinerPoints(g: TriangleGraph) {
         // addObtuseThreeNeighbourSteinerPoints(g); //TODO
         return addConvexVertexSteinerPoints(g);
-        return g.vertices;
     },
 
     flipRemainingConvexVertices(g: TriangleGraph) {
@@ -312,7 +342,7 @@ function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSt
     };
 }
 
-type MedialAxis = {
+export type MedialAxis = {
     points: Vec2[],
     edges: [number, number][];
 }
@@ -490,8 +520,7 @@ class MedialAxisConstructor {
      * @param prevCIndex The index of the circumcentre of the last C-type triangle added in `this.ma.points`.
      * */
     private startAtTypeA(prevCIndex: number, prevCTri: Triangle, index: number, triangle: Triangle, showDebug: boolean = false, maxSteps = this.g.triangles.length) {
-        let addedFirstMidpoint = false;
-        let firstAddedEdge;
+        let addedEdges = [];
 
         // at start, find first NOT disabled A type.
         // first non-disabled A-type, add the front AND end midpoints.
@@ -532,45 +561,33 @@ class MedialAxisConstructor {
                 if (B_i == undefined) { if (showDebug) console.error(`curr triangle == next triangle`); return; }
                 const B = { i: B_i, v: this.g.vertices[B_i]! };
 
-                if (addedMidpointVertices.length != 0) {
-                    // percent of the distance from L to R. 1 will force M to be added.
-                    const O = { v: this.ma.points[prevCIndex]! }
-                    const OB = g2d.normalise(g2d.sub(B.v, O.v));
-                    const [L, R] = firstAddedEdge!;
+                let lastPointToConnect = prevCIndex;
 
-                    const intersection = g2d.getRaySegmentIntersection(O.v, OB, L.v, R.v);
-                    const threshold = 0.25; // percent each side. max is 0.5
-
-                    // console.log(`intersection from T${index} to ${L.i}-${R.i}`);
-                    console.log(intersection);
-                    if (!intersection || intersection.u > 0.5 + threshold || intersection.u < 0.5 - threshold) {
-                        this.ma.points.push(addedMidpointVertices[0]!);
-                        this.ma.points.push(B.v);
-
-                        this.ma.edges.push([prevCIndex, this.ma.points.length - 2]);
-                        this.ma.edges.push([this.ma.points.length - 2, this.ma.points.length - 1]);
-                        return;
-                    }
+                for (let i = 0; i < addedEdges.length; i++) {
+                    const e = addedEdges[i]!;
+                    const O = { v: this.ma.points[lastPointToConnect]! }
+                    if (!this.isRayIsOutsideThreshold(O, B, ...e, 0.25)) continue;
+                    this.ma.points.push(addedMidpointVertices[i]!);
+                    this.ma.edges.push([lastPointToConnect, this.ma.points.length - 1]);
+                    lastPointToConnect = this.ma.points.length - 1;
                 }
 
                 this.ma.points.push(B.v);
-                // connect last added
-                this.ma.edges.push([prevCIndex, this.ma.points.length - 1]);
+                this.ma.edges.push([lastPointToConnect, this.ma.points.length - 1]);
                 return;
             }
 
 
             if (!curr.info.disabled) {
-                if (!addedFirstMidpoint) {
+                if (addedEdges.length == 0) {
                     // add the midpoint 
-                    const edge = this.g.getEdgeBetweenTriangles(curr.t, prev.t)!;
-                    firstAddedEdge = edge;
-                    addedMidpointVertices.push(g2d.midpoint(edge[0].v, edge[1].v));
-                    addedFirstMidpoint = true;
+                    addedEdges.push(this.g.getEdgeBetweenTriangles(curr.t, prev.t)!);
+                    addedMidpointVertices.push(g2d.midpoint(addedEdges[0]![0].v, addedEdges[0]![1].v));
                 }
 
                 // add the midpoint
                 const edge = this.g.getEdgeBetweenTriangles(curr.t, next.t)!;
+                addedEdges.push(edge);
                 addedMidpointVertices.push(g2d.midpoint(edge[0].v, edge[1].v));
             } else {
                 if (showDebug) console.log(`T${next.i} is disabled, skipping.`);
@@ -602,6 +619,12 @@ class MedialAxisConstructor {
         }
 
         console.error(`maximum type-A search iterations exceeded (T${index})`);
+    }
+
+    private isRayIsOutsideThreshold(O: { v: Vec2 }, B: { v: Vec2 }, L: { v: Vec2 }, R: { v: Vec2 }, threshold: number = 0.25) {
+        const OB = g2d.normalise(g2d.sub(B.v, O.v));
+        const intersection = g2d.getRaySegmentIntersection(O.v, OB, L.v, R.v);
+        return !intersection || intersection.u > 0.5 + threshold || intersection.u < 0.5 - threshold;
     }
 }
 

@@ -3,7 +3,7 @@ import { useCanvasDraw, type DefaultCanvasProps, type OverlayCircle, type Overla
 import type { SelectableDrawMode } from '../../components/drawingCanvas/draw_modes/types.ts';
 import * as poly2tri from 'poly2tri';
 import { geometry2d, type Vec2 } from '../../lib/geometry/geometry2d.ts';
-import { medialAxis } from './approximate_medial_axis.ts';
+import { medialAxis, type MedialAxis } from './approximate_medial_axis.ts';
 import type { TriangleGraph } from '../../lib/geometry/triangle_graph.ts';
 
 const drawingColour = '#2768f5';
@@ -144,6 +144,11 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         const ma = medialAxis.constructMedialAxis(tg, true); // debug mode
         if (!ma) { console.error(`no ma :(`); return; }
         console.log(ma);
+        visualiseMedialAxis(ma);
+        console.log(tg);
+    }
+
+    function visualiseMedialAxis(ma: MedialAxis) {
         addDrawBundleToCanvas({
             lines: ma.edges.map(e => ({
                 points: [ma.points[e[0]]!, ma.points[e[1]]!],
@@ -162,7 +167,6 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
             //     }   
             // }))
         });
-        console.log(tg);
     }
 
     function checkForObtuse() {
@@ -170,13 +174,12 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         medialAxis.checkForObtuse(tg);
     }
 
-    function getMedialAxis() {
-        initialiseCDTFromCanvasPoints();
-        addSteinerPoints();
-        checkForObtuse();
-        flipRemainingConvex();
-        showGraph();
-        constructMedialAxisFromTriangulation();
+    function getAndShowMedialAxis() {
+        clearCanvasOverlays();
+        const res = medialAxis.getApproximatedMedialAxis(points);
+        if (!res) return;
+        showTriangleGraph(res.tg);
+        visualiseMedialAxis(res.ma);
     }
 
     function addDrawBundleToCanvas(bundle: CustomDrawBundle) {
@@ -299,7 +302,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
         initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
-        getMedialAxis, checkForObtuse,
+        getMedialAxis: getAndShowMedialAxis, checkForObtuse,
         setToRectExample, setToFig10Example, setToObtuseExample,
         showGraph
     };

@@ -264,6 +264,7 @@ export class TriangleGraph {
         let rayOrigin: Vec2 = origin;
         let lastHit;
         let lastEdgeHit;
+        let leftGraph = false;
 
         for (let step = 0; step < maxSteps && currentTriangleIndex !== undefined; step++) {
             const t = this.triangles[currentTriangleIndex];
@@ -297,7 +298,7 @@ export class TriangleGraph {
                 }
             }
 
-            if (!exitEdge || !exitPoint) break; // ray is parallel to / doesn't reach any far edge
+            if (!exitEdge || !exitPoint) {leftGraph = true; break;} // ray is parallel to / doesn't reach any far edge
 
             const opposite = t.find(v => v !== exitEdge![0] && v !== exitEdge![1])!;
             currentTriangleIndex = this.getTriangleOnOtherSideOfABfromO(exitEdge[0], exitEdge[1], opposite);
@@ -308,7 +309,8 @@ export class TriangleGraph {
         return {
             facesHit: facesHit,
             lastHit: lastHit,
-            lastEdgeHit: lastEdgeHit
+            lastEdgeHit: lastEdgeHit,
+            leftGraph: leftGraph
         };
     }
 
