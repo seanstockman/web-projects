@@ -89,24 +89,8 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
     function initialiseCDTFromCanvasPoints() {
         console.log(points);
-        tg = getConstrainedDelaunayTriangulation(points);
+        tg = medialAxis.getConstrainedDelaunayTriangulation(points);
         showTriangleGraph(tg);
-    }
-
-    function getConstrainedDelaunayTriangulation(vertices: Vec2[]) {
-        clearCanvasOverlays();
-        const orderedVerts = [...vertices];
-
-        // ensure points are ordered counter-clockwise for consistent winding
-        if (!geometry2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
-
-        var contour: poly2tri.Point[] = [];
-        orderedVerts.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
-
-        const sweepCtx = new poly2tri.SweepContext(contour);
-        sweepCtx.triangulate();
-
-        return medialAxis.initialise(orderedVerts, sweepCtx.getTriangles());
     }
 
     function addSteinerPoints() {
@@ -114,7 +98,7 @@ export function useMedialAxisDraw(canvasRef: RefObject<HTMLCanvasElement | null>
 
         const polygonWithSteiner = medialAxis.getPolygonWithAddedSteinerPoints(tg);
 
-        tg = getConstrainedDelaunayTriangulation(polygonWithSteiner);
+        tg = medialAxis.getConstrainedDelaunayTriangulation(polygonWithSteiner);
 
         // addDrawBundleToCanvas({
         //     circles: [

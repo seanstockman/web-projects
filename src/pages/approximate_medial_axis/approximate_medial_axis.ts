@@ -25,7 +25,7 @@ export const medialAxis = {
         tg = this.getConstrainedDelaunayTriangulation(pointsWithSteiner);
         this.flipRemainingConvexVertices(tg);
         this.checkForObtuse(tg);
-        const ma = new MedialAxisConstructor(tg).construct(true);
+        const ma = new MedialAxisConstructor(tg).construct();
         if (!ma) return;
         return {
             tg: tg,
@@ -98,7 +98,7 @@ export const medialAxis = {
                 if (!trace) return;
 
                 const lastFaceHit = trace.facesHit[trace.facesHit.length - 1]!;
-                console.log(`T${newTriangle.index} last face hit: ${lastFaceHit}`);
+                // console.log(`T${newTriangle.index} last face hit: ${lastFaceHit}`);
                 if (g.isPointInTriangle(g.triangles[lastFaceHit]!, cc)) return;
 
                 g.flipTrianglesAlongEdge(L, R);
@@ -153,8 +153,8 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
         return;
     }
 
-    console.log(`circumcentre of T${obtuseTriangle.i} is outside the polygon. faces hit:`);
-    console.log(trace.facesHit);
+    // console.log(`circumcentre of T${obtuseTriangle.i} is outside the polygon. faces hit:`);
+    // console.log(trace.facesHit);
     // A steiner point is inserted at the intersected polygon edge as follows:
     // Firstly, a common vertex v_o is found that is on the intersected polygon edge and is a member of the obtuse triangle
     const commonVertexIndex = trace.lastEdgeHit?.filter(e => obtuseTriangle.t.includes(e))[0];
@@ -169,17 +169,17 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
     const otherEdge = g.getVerticesFromIndices(...otherEdgeIndices) as [Vertex, Vertex];
     const M = g2d.midpoint(...otherEdge);
 
-    console.log({
-        trace: trace,
-        M: M,
-        c: c_i
-    });
+    // console.log({
+    //     trace: trace,
+    //     M: M,
+    //     c: c_i
+    // });
 
     // its intersection with the previously determined polygon edge is calculated and the point is added
     const intersection = g2d.getInterceptFromPoints(M, c_i, ...lastEdgeHitVerts);
     if (!intersection) { console.error(`could not find intersection`); return; }
-    console.log(`found intersection`);
-    console.log(intersection);
+    // console.log(`found intersection`);
+    // console.log(intersection);
 
     // needs to be spliced in to retain polygon ordering.
     const indexOfNew = trace.lastEdgeHit![1];
@@ -192,7 +192,7 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
     for (let i = 0; i < g.vertices.length; i++) {
         const vert = g.vertices[i]!;
         vert.connections.forEach((conn, ind) => {
-            if (conn >= indexOfNew) { vert.connections[ind] = conn + 1; console.log(`v${i}: updated conn ${conn} to ${vert.connections[ind]}`); }
+            if (conn >= indexOfNew) vert.connections[ind] = conn + 1;
         });
     }
 
@@ -214,7 +214,7 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
     // shift all triangles connected at common to be connected at steiner
     let other = { i: obtuseVertex.i };
     trace.facesHit.forEach(t_i => {
-        console.log(`T${t_i}:`);
+        // console.log(`T${t_i}:`);
         const t = g.triangles[t_i]!;
         const indexOfCommon = t.findIndex(i => i == common.i);
         if (indexOfCommon == -1) { console.error(`vertex ${common.i} not found in intersected triangle T${t_i}`); return; }
@@ -222,7 +222,7 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
         t[indexOfCommon] = s.i;
         g.addTriangleToMap(t_i);
 
-        console.log(`disconnecting ${common.i} from ${other.i}, connecting to ${s.i} instead.`);
+        // console.log(`disconnecting ${common.i} from ${other.i}, connecting to ${s.i} instead.`);
         // we want to disconnect other from common and connect it to steiner
         // if (connectionToRemove == obtuse.t[(obtuse.t.findIndex(i => i == common.i) + 2) % 3])
         g.disconnectVertices(common.i, other.i);
@@ -232,7 +232,7 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
     });
 
     // connect last other to steiner
-    console.log(`last other index: ${other.i}`);
+    // console.log(`last other index: ${other.i}`);
     g.disconnectVertices(common.i, other.i);
     g.connectVertices(other.i, s.i);
 
@@ -400,7 +400,7 @@ class MedialAxisConstructor {
         const firstTypeCTriangle = this.g.triangles[firstTypeCTriangleIndex];
         if (!firstTypeCTriangle) { console.error(`No C type triangles exist.`); return; }
 
-        this.startAtTypeC(firstTypeCTriangleIndex, firstTypeCTriangle, -1, showDebug);
+        this.startAtTypeC(firstTypeCTriangleIndex, firstTypeCTriangle, -1, false, false, showDebug);
 
         this.finished = true;
         return this.ma;
@@ -442,23 +442,29 @@ class MedialAxisConstructor {
         });
     }
 
-    private startAtTypeC(index: number, triangle: Triangle, lastCIndex: number = -1, showDebug: boolean = false) {
+    private startAtTypeC(index: number, triangle: Triangle, lastCIndex: number, ignoreThis: boolean, aAddedMidpoints: boolean, showDebug: boolean) {
         if (showDebug) console.log(`~~ visiting C-type triangle T${index} ~~`);
         this.triInfo[index]!.visited = true;
 
-        // Firstly, it is checked as to whether the centre of the triangles circumcircle is inside the triangle.
-        const circumcentre = this.g.getCircumcircleOfTriangle(triangle)?.center;
-        if (!circumcentre) { console.error(`Could not compute circumcentre`); return; }
 
-        this.ma.points.push(circumcentre);
-        const maIndexOfThis = this.ma.points.length - 1;
-        // connect to last point added (if it exists)
-        if (this.ma.points.length > 1) {
-            if (lastCIndex != -1) {
-                this.ma.edges.push([lastCIndex, maIndexOfThis]);
-            } else {
-                this.ma.edges.push([this.ma.points.length - 2, maIndexOfThis]);
+        const maIndexOfThis = ignoreThis ? lastCIndex : this.ma.points.length;
+        const thisCC = this.g.getCircumcircleOfTriangle(triangle)?.center;
+        if (!ignoreThis) {
+
+            // Firstly, it is checked as to whether the centre of the triangles circumcircle is inside the triangle.
+            if (!thisCC) { console.error(`Could not compute circumcentre`); return; }
+
+            this.ma.points.push(thisCC);
+            // connect to last point added (if it exists)
+            if (this.ma.points.length > 1) {
+                if (!aAddedMidpoints) {
+                    this.ma.edges.push([lastCIndex, maIndexOfThis]);
+                } else {
+                    this.ma.edges.push([this.ma.points.length - 2, maIndexOfThis]);
+                }
             }
+        } else {
+            // console.warn(`ignoreing T${index}`)
         }
 
         /* The circumcentre represents a vertex on the medial axis and the algorithm 
@@ -492,7 +498,36 @@ class MedialAxisConstructor {
                     return;
                 case TriangleType.C:
                     if (showDebug) console.log(`- found C-type triangle T${adj.i}`);
-                    this.startAtTypeC(adj.i, adj.t, maIndexOfThis, showDebug);
+                    // tell the next C type triangle to ignore itself IF 
+                    // its cc is in the opposite direction to the last C index
+
+                    let ignoreNext = false;
+                    const prevCC = this.ma.points[lastCIndex];
+                    if (!ignoreThis && prevCC) {
+                        const nextCC = this.g.getCircumcircleOfTriangle(adj.t).center;
+                        const thisToPrev = g2d.sub(prevCC, thisCC);
+                        const thisToNext = g2d.sub(nextCC, thisCC);
+                        const dot = g2d.dot(thisToPrev, thisToNext);
+                        ignoreNext = dot > 0;
+                        // console.log({
+                        //     this: index,
+                        //     next: adj.i,
+                        //     ptt: thisToPrev,
+                        //     ptn: thisToNext,
+                        //     d: dot
+                        // });
+                    } else {
+                        // console.log({
+                        //     index: index,
+                        //     ignored: ignoreThis,
+                        //     prevCC: prevCC,
+                        //     lastCIndex: lastCIndex
+                        // })
+                    }
+
+                    // this.ma.points.splice(this.ma/)
+                    // if (showDebug) console.log(`- found C-type triangle T${adj.i}`);
+                    this.startAtTypeC(adj.i, adj.t, maIndexOfThis, ignoreNext, false, showDebug);
                     return;
                 default:
                     console.error(`T${adj.i} type is ${adj.info.type}.`);
@@ -526,7 +561,7 @@ class MedialAxisConstructor {
         // first non-disabled A-type, add the front AND end midpoints.
         // then every subsequent non-disabled, add only end midpoint.
 
-        let prev = { i: -1, t: prevCTri };
+        let prev = { i: prevCIndex, t: prevCTri };
         let curr = { i: index, t: triangle, info: this.triInfo[index]! };
 
         const addedMidpointVertices: Vec2[] = [];
@@ -598,7 +633,7 @@ class MedialAxisConstructor {
                 // add and connect all previous
 
                 if (addedMidpointVertices.length == 0) {
-                    this.startAtTypeC(next.i, next.t, prevCIndex, showDebug);
+                    this.startAtTypeC(next.i, next.t, prevCIndex, false, false, showDebug);
                     return;
                 }
 
@@ -608,7 +643,7 @@ class MedialAxisConstructor {
                 }
                 this.ma.points.push(...addedMidpointVertices);
 
-                this.startAtTypeC(next.i, next.t, -1, showDebug);
+                this.startAtTypeC(next.i, next.t, prevCIndex, false, true, showDebug);
 
                 return;
             }
