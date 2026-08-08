@@ -2,17 +2,18 @@ import { geometry2d as g2d, type Vec2 } from "../../lib/geometry/geometry2d.ts";
 import { SkeletonBuilder, type Skeleton } from 'straight-skeleton';
 // import type { MedialAxis } from "./approximate_medial_axis.ts";
 type Road = {
-    vertices: { v: Vec2, i: number }[],
+    segment: number[],
     attraction: number,
 }
 
 export class ParcelGenerator {
     public polygon: Vec2[];
-    public roads: number[][];
+    public roads: Road[];
     public skeleton: Skeleton | null = null;
+    public frontageMap: Map<number, number> | undefined;
     // private skeleton: Skeleton | undefined = undefined;
 
-    constructor(polygon: Vec2[], roads: number[][]) {
+    constructor(polygon: Vec2[], roads: Road[] = []) {
         this.polygon = g2d.windPolygonCCW(polygon);
         this.roads = roads;
     }
@@ -30,44 +31,53 @@ export class ParcelGenerator {
      * @author Parcel Manager (Algorithm 4)
      */
     public generatePeripheralRoads(angleThreshold = (Math.PI / 3), minLength = 0, maxLength = 0) {
+        if (!this.skeleton) return;
         if (maxLength == 0) {
-            this.polygon.forEach((v, i) => {
-                maxLength += g2d.dist(v, this.polygon[(i + 1) % this.polygon.length]!);
+            this.skeleton.Edges.forEach(e => {
+                maxLength += e.Edge.Begin.DistanceTo(e.Edge.End);
             });
             maxLength /= 2;
         }
+
         /** Maps edges (in ccw order) to roads. */
-        const frontageMap = new Map<[number, number], number>();
+        this.frontageMap = new Map<number, number>();
         /** A list of  */
         const peripheralRoads: Road[] = [];
 
-        let roadSegment = [{ i: this.polygon.length - 1, v: this.polygon[this.polygon.length - 1]! }];
+        let roadSegment: number[] = [];
         let cumulativeLength = 0;
 
-        this.polygon.forEach((v, i) => {
-            // if (i == this.polygon.length - 1) return;
-            const curr = { i: i, v: v, };
-            const prev = roadSegment[roadSegment.length - 1]!;
-            const next_v = this.polygon[(curr.i + 1) % this.polygon.length]!;
-            cumulativeLength += g2d.dist(curr.v, prev.v)
-            roadSegment.push(curr);
-            frontageMap.set([prev.i, curr.i], peripheralRoads.length);
-            const angle = g2d.getAngleDifferenceBetweenABandBC(prev.v, curr.v, next_v);
+        this.skeleton.Edges.forEach((e, i) => {
+            cumulativeLength += e.Edge.Begin.DistanceTo(e.Edge.End);
+            roadSegment.push(i);
+            this.frontageMap!.set(i, peripheralRoads.length);
+            const next = this.skeleton!.Edges[(i + 1) % this.skeleton!.Edges.length]!;
+            const angle = g2d.getAngleDifferenceBetweenABandBC(
+                { x: e.Edge.Begin.X, y: e.Edge.Begin.Y },
+                { x: e.Edge.End.X, y: e.Edge.End.Y },
+                { x: next.Edge.End.X, y: next.Edge.End.Y }
+            );
             if ((angle >= angleThreshold && cumulativeLength >= minLength) || cumulativeLength >= maxLength) {
-                peripheralRoads.push({ vertices: roadSegment, attraction: 1 });
+                peripheralRoads.push({ segment: roadSegment, attraction: 1 });
                 roadSegment = [roadSegment[roadSegment.length - 1]!];
                 cumulativeLength = 0;
             }
         });
-
         // TODO: Merge last road with first road if angle is good.
-
-        return { roads: peripheralRoads, frontageMap: frontageMap };
+        this.roads = peripheralRoads;
+        return { roads: peripheralRoads, frontageMap: this.frontageMap };
     }
 
     // determine roads from parcel? or get given?
     public mergeIntoAlphaStrip() {
-        
+        if (!this.skeleton) return;
+        const alphaStrips = [];
+        this.roads.forEach(r => {
+            // delete the straight skeleton values for each thing. so we need to turn the s polygon into strips.
+            for (let i = 1; i < r.segment.length - 1; i++) {
+                this.skeleton!.Edges[i]!.Polygon.Clear();
+            }
+        });
     }
 
     public mergeIntoBetaStrip() {

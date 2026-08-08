@@ -12,6 +12,9 @@ import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import RoundedCornerOutlinedIcon from '@mui/icons-material/RoundedCornerOutlined';
 import AccessibilityIcon from '@mui/icons-material/Accessibility';
 import AddRoadOutlinedIcon from '@mui/icons-material/AddRoadOutlined';
+import HdrAutoOutlinedIcon from '@mui/icons-material/HdrAutoOutlined';
+import FormatBoldOutlinedIcon from '@mui/icons-material/FormatBoldOutlined';
+
 
 import { ParcelGenerator } from './parcel-generator.ts';
 
@@ -20,7 +23,7 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import { manipulateMode } from '../../components/drawingCanvas/draw_modes/manipulate.ts';
 // import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
 import { polygonStartMode } from '../../components/drawingCanvas/draw_modes/polygonTool.ts';
-import { SkeletonBuilder } from 'straight-skeleton';
+import { Skeleton, SkeletonBuilder } from 'straight-skeleton';
 import type { CustomDrawBundle } from '../../components/drawingCanvas/useCanvasDraw.tsx';
 
 let pg: ParcelGenerator | undefined = undefined;
@@ -55,30 +58,8 @@ export default function ParcelGeneration() {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
-                const polygons = s.Edges.map(e => e.Polygon);
+                drawSkeleton(pg);
 
-                canvasCtx.clearCanvasOverlays();
-                const overlay: CustomDrawBundle = { texts: [] };
-
-                canvasCtx.addDrawBundleToCanvas({
-                    lines: polygons.map(poly => ({
-                        points: [...poly.map(v => ({ x: v.X, y: v.Y }))
-                            , { x: poly[0]!.X, y: poly[0]!.Y }],
-                        props: {
-                            width: 2,
-                            color: `red`,
-                            dashed: true,
-                        }
-                    })),
-                });
-
-                pg.polygon.forEach((v, i) => {
-                    overlay.texts!.push({
-                        text: `V${i}`,
-                        position: { x: v.x + 6, y: v.y - 8 }
-                    });
-                });
-                canvasCtx.addDrawBundleToCanvas(overlay);
                 // clearCanvasOverlays();
             }
         },
@@ -89,7 +70,49 @@ export default function ParcelGeneration() {
                 console.log(roads);
             }
         },
+        {
+            label: "Merge into alpha strip", icon: <HdrAutoOutlinedIcon />, action: () => {
+                if (!pg) { console.error(`pg not defined`); return; }
+                pg.mergeIntoAlphaStrip();
+                drawSkeleton(pg);
+            }
+        },
+        {
+            label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
+                if (!pg) { console.error(`pg not defined`); return; }
+                pg.mergeIntoBetaStrip();
+            }
+        },
     ];
+
+    function drawSkeleton(pg: ParcelGenerator) {
+        const s = pg.skeleton;
+        if (!s) return;
+        const polygons = s.Edges.map(e => e.Polygon);
+
+        canvasCtx.clearCanvasOverlays();
+        const overlay: CustomDrawBundle = { texts: [] };
+
+        canvasCtx.addDrawBundleToCanvas({
+            lines: polygons.filter(p => p.length >= 3).map(poly => ({
+                points: [...poly.map(v => ({ x: v.X, y: v.Y }))
+                    , { x: poly[0]!.X, y: poly[0]!.Y }],
+                props: {
+                    width: 2,
+                    color: `red`,
+                    dashed: true,
+                }
+            })),
+        });
+
+        pg.polygon.forEach((v, i) => {
+            overlay.texts!.push({
+                text: `V${i}`,
+                position: { x: v.x + 6, y: v.y - 8 }
+            });
+        });
+        canvasCtx.addDrawBundleToCanvas(overlay);
+    }
 
     const actions = [
         {
