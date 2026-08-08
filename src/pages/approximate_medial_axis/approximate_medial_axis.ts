@@ -20,9 +20,8 @@ export const medialAxis = {
     /** Gets the approximated medial axis and returns the TriangleGraph `tg` used to construct it 
      * as well as the independent MedialAxis struct `ma` which holds standalone versions of the points. */
     getApproximatedMedialAxis(points: Vec2[]) {
-        let tg = this.getConstrainedDelaunayTriangulation(points);
-        const pointsWithSteiner = this.getPolygonWithAddedSteinerPoints(tg);
-        tg = this.getConstrainedDelaunayTriangulation(pointsWithSteiner);
+        const pointsWithSteiner = this.addConvexSteinerPoints(points);
+        const tg = this.getConstrainedDelaunayTriangulation(pointsWithSteiner);
         this.flipRemainingConvexVertices(tg);
         this.checkForObtuse(tg);
         const ma = new MedialAxisConstructor(tg).construct();
@@ -33,29 +32,84 @@ export const medialAxis = {
         }
     },
 
-    getConstrainedDelaunayTriangulation(vertices: Vec2[]) {
-        const orderedVerts = [...vertices];
-
+    /** Returns the set of vertices that define the edge of the polygon such that they are wound counter-clockwise. */
+    windPolygonCCW(points: Vec2[]) {
+        const orderedVerts = [...points];
         // ensure points are ordered counter-clockwise for consistent winding
         if (!g2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
+        return orderedVerts;
+    },
 
+    /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
+    addConvexSteinerPoints(unorderedPoints: Vec2[]) {
+        /** TODO: 
+         * This is clearly incorrect and is causing a lot of extra hurdles. Keep an eye on it, 
+         * but a better approach would be following the instructions instead of adding the points then CDT'ing.
+        */
+
+        // find all convex vertices (interior angle < 180)
+
+        // wound CCW.
+        const points = this.windPolygonCCW(unorderedPoints);
+
+        const convexVertices = [];
+
+        for (let i = 0; i < points.length; i++) {
+            const V_curr = points[i]!;
+            const V_next = points[(i + 1) % points.length]!;
+            const V_prev = points[(i - 1 + points.length) % points.length]!;
+            // CW wound    
+            const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+            // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
+            const isConvex = turn < Math.PI;
+            if (isConvex) convexVertices.push(i);
+        }
+
+        // console.log(`convex vertices:`);
+        // console.log(convexVertices);
+
+        const steinerVertices = convexVertices.map(c => getSteinerPointsAtVertex(points, c));
+
+        // insert these steiner points into the array of polygon vertices to get re-CDT'ed.
+        const verticesWithSteinerPointsAdded: Vec2[] = [];
+        for (let i = 0; i < points.length; i++) {
+            // if the vertex index i is in the steiner vertices array, add the before and after.
+            // otherwise just push the point.
+            const steinerPointsAtVertex = steinerVertices.find(sv => sv.vertexIndex == i);
+            if (steinerPointsAtVertex == undefined) {
+                verticesWithSteinerPointsAdded.push(points[i]!);
+                continue;
+            }
+            // dont push repeats (test before only)
+            if (!verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.before))) {
+                verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.before);
+            }
+            verticesWithSteinerPointsAdded.push(points[i]!);
+            // dont push repeat on last vertex's after.
+            if (i == points.length - 1 &&
+                verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.after))
+            ) {
+                continue;
+            }
+            verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.after);
+        }
+
+        return verticesWithSteinerPointsAdded;
+    },
+
+    getConstrainedDelaunayTriangulation(vertices: Vec2[]) {
         var contour: poly2tri.Point[] = [];
-        orderedVerts.forEach(p => contour.push(new poly2tri.Point(p.x, p.y)));
+        vertices.forEach(v => contour.push(new poly2tri.Point(v.x, v.y)));
 
         const sweepCtx = new poly2tri.SweepContext(contour);
         sweepCtx.triangulate();
 
-        return medialAxis.initialise(orderedVerts, sweepCtx.getTriangles());
+        return medialAxis.initialise(vertices, sweepCtx.getTriangles());
     },
 
     /** Initialises a triangle graph from a poly2tri CDT triangulation. */
     initialise(points: Vec2[], tris: poly2tri.Triangle[]): TriangleGraph {
         return new TriangleGraph(points, tris);
-    },
-
-    getPolygonWithAddedSteinerPoints(g: TriangleGraph) {
-        // addObtuseThreeNeighbourSteinerPoints(g); //TODO
-        return addConvexVertexSteinerPoints(g);
     },
 
     flipRemainingConvexVertices(g: TriangleGraph) {
@@ -249,85 +303,28 @@ function addSteinerPointForObtuseCase(g: TriangleGraph, obtuseTriangleIndex: num
     g.addTriangleToMap(g.triangles.length - 1);
 }
 
-/** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
-function addConvexVertexSteinerPoints(g: TriangleGraph) {
-    /** TODO: 
-     * This is clearly incorrect and is causing a lot of extra hurdles. Keep an eye on it, 
-     * but a better approach would be following the instructions instead of adding the points then CDT'ing.
-    */
-
-    // find all convex vertices (interior angle < 180)
-
-    // wound CCW.
-
-    const convexVertices = [];
-
-    for (let i = 0; i < g.vertices.length; i++) {
-        const V_curr = g.vertices[i]!;
-        const V_next = g.vertices[(i + 1) % g.vertices.length]!;
-        const V_prev = g.vertices[(i - 1 + g.vertices.length) % g.vertices.length]!;
-        // CW wound    
-        const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
-        // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
-        const isConvex = turn < Math.PI;
-        if (isConvex) convexVertices.push(i);
-    }
-
-    // console.log(`convex vertices:`);
-    // console.log(convexVertices);
-
-    const steinerVertices = convexVertices.map(c => getSteinerPointsAtVertex(g, c));
-
-    // insert these steiner points into the array of polygon vertices to get re-CDT'ed.
-    const verticesWithSteinerPointsAdded: Vec2[] = [];
-    for (let i = 0; i < g.vertices.length; i++) {
-        // if the vertex index i is in the steiner vertices array, add the before and after.
-        // otherwise just push the point.
-        const steinerPointsAtVertex = steinerVertices.find(sv => sv.vertexIndex == i);
-        if (steinerPointsAtVertex == undefined) {
-            verticesWithSteinerPointsAdded.push(g.vertices[i]!);
-            continue;
-        }
-        // dont push repeats (test before only)
-        if (!verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.before))) {
-            verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.before);
-        }
-        verticesWithSteinerPointsAdded.push(g.vertices[i]!);
-        // dont push repeat on last vertex's after.
-        if (i == g.vertices.length - 1 &&
-            verticesWithSteinerPointsAdded.find(v => g2d.isApproximatelyEqual(v, steinerPointsAtVertex.after))
-        ) {
-            continue;
-        }
-        verticesWithSteinerPointsAdded.push(steinerPointsAtVertex.after);
-    }
-
-    return verticesWithSteinerPointsAdded;
-}
-
-function getSteinerPointsAtVertex(g: TriangleGraph, c: number): insertedConvexSteinerPoints {
+function getSteinerPointsAtVertex(points: Vec2[], c: number): insertedConvexSteinerPoints {
     // firstly a list of triangles originating in v_c is formed
-    const trianglesOriginatingAtC = g.triangles.filter(t => t[0] == c || t[1] == c || t[2] == c);
+    // const trianglesOriginatingAtC = g.triangles.filter(t => t[0] == c || t[1] == c || t[2] == c);
 
     // these triangles are sorted in a ccw direction around vertex v_c in order to form a triangle strip T_s (an ccw array of Ts)
-    const ccwSortedTriangles = g.sortTrianglesCCW(trianglesOriginatingAtC, c);
+    // const ccwSortedTriangles = g.sortTrianglesCCW(trianglesOriginatingAtC, c);
 
     // the nearest polygon vertex v_n in regard to vertex v_c is found.
-    const v_c = g.vertices[c]!;
-    const n = [...v_c.connections].filter(v => !g.vertices[v]?.steiner)
-        .sort((a, b) => g2d.dist(v_c, g.vertices[a]!) - g2d.dist(v_c, g.vertices[b]!))[0]!;
-    const v_n = g.vertices[n]!;
+    const v_c = points[c]!;
+    const v_n = points.filter((_, i) => i != c)
+        .sort((a, b) => g2d.dist(v_c, a) - g2d.dist(v_c, b))[0]!;
 
     // the distance d = |v_c v_n| represents the radius of circle c_c the centre of which is v_c.
     const d = g2d.dist(v_n, v_c);
 
     // 2 steiner points v_s1 and v_s2 are inserted at the intersections between c_c with halved-radius and polygon edges terminating in vertex v_c.
-    const v_prev = g.vertices[(c - 1 + g.vertices.length) % g.vertices.length]!;
+    const v_prev = points[(c - 1 + points.length) % points.length]!;
     const distToPrev = g2d.dist(v_prev, v_c);
     const cToPrev: Vec2 = { x: v_prev.x - v_c.x, y: v_prev.y - v_c.y };
     const cToPrevNormalised = { x: cToPrev.x / distToPrev, y: cToPrev.y / distToPrev };
 
-    const v_next = g.vertices[(c + 1) % g.vertices.length]!;
+    const v_next = points[(c + 1) % points.length]!;
     const distToNext = g2d.dist(v_next, v_c);
     const cToNext: Vec2 = { x: v_next.x - v_c.x, y: v_next.y - v_c.y };
     const cToNextNormalised = { x: cToNext.x / distToNext, y: cToNext.y / distToNext }

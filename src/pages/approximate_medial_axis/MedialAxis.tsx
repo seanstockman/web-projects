@@ -33,9 +33,9 @@ export default function ApproximateMedialAxis() {
         handleMouseMove, handleMouseDown, handleMouseUp, handleMouseLeave, handleRightClick,
         redrawCanvas,
         drawMode, setDrawMode, clearCanvas, clearCanvasOverlays,
-        initialiseCDTFromCanvasPoints, addSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
+        initialiseCDTFromCanvasPoints, addSteinerPoints: addConvexSteinerPoints, flipRemainingConvex, constructMedialAxisFromTriangulation,
         getMedialAxis, checkForObtuse,
-        setToRectExample, setToFig10Example, setToObtuseExample,
+        setToRectExample, setToFig10Example, setToObtuseExample, setToBrokenExample,
         showGraph
     } = useMedialAxisDraw(canvasRef, drawModes);
 
@@ -56,14 +56,14 @@ export default function ApproximateMedialAxis() {
             }
         },
         {
-            label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
-                initialiseCDTFromCanvasPoints();
+            label: "Adds the convex steiner points to assist in medial axis construction and re-computes the CDT.", icon: <ControlPointIcon />, action: () => {
+                addConvexSteinerPoints();
+                // showGraph();
             }
         },
         {
-            label: "Adds the steiner points to assist in medial axis construction and re-computes the CDT.", icon: <ControlPointIcon />, action: () => {
-                addSteinerPoints();
-                showGraph();
+            label: "Gets the Constrained Delaunay Triangulation (CDT) of the mesh.", icon: <ChangeHistoryIcon />, action: () => {
+                initialiseCDTFromCanvasPoints();
             }
         },
         {
@@ -105,11 +105,18 @@ export default function ApproximateMedialAxis() {
                 setToFig10Example();
             }
         },
-        
+
         {
             label: "Sets the canvas to an example with an obtuse triangle with 3 neighbours and whose circumcircle lies outside the polygon.",
             icon: <RoundedCornerOutlinedIcon />, action: () => {
                 setToObtuseExample();
+            }
+        },
+
+        {
+            label: "Sets the canvas to broken example.",
+            icon: <LayersClearIcon />, action: () => {
+                setToBrokenExample();
             }
         },
     ];
