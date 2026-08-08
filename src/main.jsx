@@ -8,6 +8,7 @@ import App from './App.tsx';
 import Interlining from './pages/interlining/Interlining.jsx';
 import DelaunayTriangulation from './pages/delaunay-triangulation/DelaunayTriangulation.tsx';
 import ApproximateMedialAxis from './pages/approximate_medial_axis/MedialAxis.tsx'
+import ParcelGeneration from './pages/parcel_generation/ParcelGen.tsx'
 import { Container, createTheme, ThemeProvider } from '@mui/material';
 import { lime, red } from '@mui/material/colors';
 import ResponsiveAppBar from './components/ResponsiveAppBar.jsx';
@@ -76,6 +77,7 @@ function Root() {
             <Route path="/delaunay" element={<DelaunayTriangulation />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/medial-axis" element={<ApproximateMedialAxis />} />
+            <Route path="/parcel" element={<ParcelGeneration />} />
           </Routes>
         </Container>
       </BrowserRouter>

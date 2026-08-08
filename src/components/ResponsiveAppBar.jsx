@@ -23,6 +23,7 @@ const navItems = [
       // { label: 'Interlining', to: '/web-projects/interlining' },
       { label: 'Delaunay Triangulation', to: '/web-projects/delaunay' },
       { label: 'Medial Axis Approximation', to: '/web-projects/medial-axis' },
+      { label: 'Parcel Division', to: '/web-projects/parcel' },
     ],
   },
   // { label: 'Pricing', to: '/pricing' },

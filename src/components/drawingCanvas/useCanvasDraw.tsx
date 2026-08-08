@@ -18,6 +18,12 @@ export type OverlayCircle = {
     props: CircleDrawProperties
 }
 
+export type CustomDrawBundle = {
+    lines?: OverlayLine[],
+    circles?: OverlayCircle[],
+    texts?: OverlayText[]
+}
+
 export type OverlayText = {
     text: string,
     position: Vec2,
@@ -108,6 +114,19 @@ export function useCanvasDraw(
         findNearestPoint,
     };
 
+    function addPolygon(newPoints: Vec2[]) {
+        if (newPoints.length < 3) return;
+        setPoints([...points, ...newPoints]);
+        const newLine = [...newPoints, newPoints[0]!];
+        setLines([...lines, newLine]);
+    }
+
+    function addDrawBundleToCanvas(bundle: CustomDrawBundle) {
+        if (bundle.lines) setOverlayLines(e => [...e, ...bundle.lines!]);
+        if (bundle.circles) setOverlayCircles(e => [...e, ...bundle.circles!]);
+        if (bundle.texts) setOverlayTexts(e => [...e, ...bundle.texts!]);
+    }
+
     const clearCanvas = () => {
         setLines([]);
         setPoints([]);
@@ -186,6 +205,8 @@ export function useCanvasDraw(
         overlayCircles, setOverlayCircles,
         overlayLines, setOverlayLines,
         overlayTexts, setOverlayTexts,
+
+        addPolygon, addDrawBundleToCanvas,
 
         clearCanvas,
         clearCanvasOverlays,
