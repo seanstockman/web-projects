@@ -32,14 +32,6 @@ export const medialAxis = {
         }
     },
 
-    /** Returns the set of vertices that define the edge of the polygon such that they are wound counter-clockwise. */
-    windPolygonCCW(points: Vec2[]) {
-        const orderedVerts = [...points];
-        // ensure points are ordered counter-clockwise for consistent winding
-        if (!g2d.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
-        return orderedVerts;
-    },
-
     /** Finds and returns the Steiner Points to be added to resolve three-neighbour obtuse triangles (section 2.1). */
     addConvexSteinerPoints(unorderedPoints: Vec2[]) {
         /** TODO: 
@@ -50,7 +42,7 @@ export const medialAxis = {
         // find all convex vertices (interior angle < 180)
 
         // wound CCW.
-        const points = this.windPolygonCCW(unorderedPoints);
+        const points = g2d.windPolygonCCW(unorderedPoints);
 
         const convexVertices = [];
 
@@ -59,7 +51,7 @@ export const medialAxis = {
             const V_next = points[(i + 1) % points.length]!;
             const V_prev = points[(i - 1 + points.length) % points.length]!;
             // CW wound    
-            const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+            const turn = g2d.getAngleABC(V_prev, V_curr, V_next);
             // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);
             const isConvex = turn < Math.PI;
             if (isConvex) convexVertices.push(i);
@@ -122,7 +114,7 @@ export const medialAxis = {
             const next = (i + 1) % g.vertices.length;
             const V_next = g.vertices[next]!;
 
-            const turn = g2d.getAngleBetweenPoints(V_prev, V_curr, V_next);
+            const turn = g2d.getAngleABC(V_prev, V_curr, V_next);
 
             // CCW wound    
             // const turn = geometry2d.crossProduct(V_prev, V_i, V_next);

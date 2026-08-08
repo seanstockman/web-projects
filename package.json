@@ -25,7 +25,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router": "^7.15.1",
-    "straight-skeleton": "^3.0.0",
+    "straight-skeleton": "^1.1.0",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {

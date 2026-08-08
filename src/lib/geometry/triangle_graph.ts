@@ -334,7 +334,7 @@ export class TriangleGraph {
         let obtuseVertexIndex;
         const triVerts = this.getVertices(t);
         for (let i = 0; i < t.length; i++) {
-            if (geometry2d.getAngleBetweenPoints(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
+            if (geometry2d.getAngleABC(triVerts[(i + 2) % 3]!, triVerts[i]!, triVerts[(i + 1) % 3]!) <= (Math.PI / 2)) continue;
             obtuseVertexIndex = i;
             break;
         }

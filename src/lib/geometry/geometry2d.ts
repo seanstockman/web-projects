@@ -112,7 +112,7 @@ export const geometry2d = {
 
     /** Returns the angle (in radians) between segments AB and BC, along the left side of the direction of the line ABC. 
      * Returns the angle as a value in range [0, 2*pi) */
-    getAngleBetweenPoints(A: Vec2, B: Vec2, C: Vec2) {
+    getAngleABC(A: Vec2, B: Vec2, C: Vec2) {
         const angleBA = Math.atan2(A.y - B.y, A.x - B.x);
         const angleBC = Math.atan2(C.y - B.y, C.x - B.x);
         const angleBetween = (angleBA - angleBC + Math.PI * 2) % (Math.PI * 2);
@@ -170,6 +170,15 @@ export const geometry2d = {
     radiansToDegrees(n: number) {
         return n * 180 / Math.PI;
     },
+
+    getAngleDifferenceBetweenABandBC(A: Vec2, B: Vec2, C: Vec2): number {
+        const headingAB = this.getAngleAB(A, B);
+        const headingBC = this.getAngleAB(B, C);
+        let diff = headingBC - headingAB;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        return Math.abs(diff);
+    },
+
 
     /** Checks if a point P is inside a triangle ABC using the Cross-Product (Sign) Method. 
      * Works for both clockwise and counter-clockwise vertex orders. */
@@ -276,7 +285,15 @@ export const geometry2d = {
     /** Returns the vector projection of `a` onto `b`. */
     projectAOntoB(a: Vec2, b: Vec2) {
         return this.scalarMult(b, (this.dot(a, b)) / (this.magnitude(b) ^ 2));
-    }
+    },
+
+    /** Returns the set of vertices that define the edge of the polygon such that they are wound counter-clockwise. */
+    windPolygonCCW(points: Vec2[]) {
+        const orderedVerts = [...points];
+        // ensure points are ordered counter-clockwise for consistent winding
+        if (!this.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
+        return orderedVerts;
+    },
 }
 
 

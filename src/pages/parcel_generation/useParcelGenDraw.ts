@@ -18,11 +18,9 @@ export function useParcelGenDraw(canvasRef: RefObject<HTMLCanvasElement | null>,
     const canvasCtx = useCanvasDraw(canvasRef, defaultCanvasProps, canvasModes);
 
     function setCanvasToPolygon(polygon: Vec2[]) {
-        canvasCtx.clearCanvasOverlays();
-        canvasCtx.clearCanvas();
-        canvasCtx.setPoints([]);
-        canvasCtx.setLines([]);
-        canvasCtx.addPolygon(polygon);
+        if (polygon.length < 3) return;
+        canvasCtx.setPoints(polygon);
+        canvasCtx.setLines([[...polygon, polygon[0]!]]);
     }
 
     const setToExamples = {

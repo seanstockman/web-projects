@@ -4,19 +4,14 @@ import { useEffect, useRef } from 'react';
 import { useParcelGenDraw } from './useParcelGenDraw.ts';
 
 import DeleteIcon from '@mui/icons-material/Delete';
-import PanoramaFishEyeIcon from '@mui/icons-material/PanoramaFishEye';
 import Crop32Icon from '@mui/icons-material/Crop32';
-import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
 import LayersClearIcon from '@mui/icons-material/LayersClear';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import FastForwardIcon from '@mui/icons-material/FastForward';
-import ControlPointIcon from '@mui/icons-material/ControlPoint';
-import DetailsIcon from '@mui/icons-material/Details';
-import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import PentagonOutlinedIcon from '@mui/icons-material/PentagonOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import RoundedCornerOutlinedIcon from '@mui/icons-material/RoundedCornerOutlined';
+import AccessibilityIcon from '@mui/icons-material/Accessibility';
+import AddRoadOutlinedIcon from '@mui/icons-material/AddRoadOutlined';
 
 import { ParcelGenerator } from './parcel-generator.ts';
 
@@ -26,14 +21,14 @@ import { manipulateMode } from '../../components/drawingCanvas/draw_modes/manipu
 // import { pointDrawMode } from '../components/drawingCanvas/draw_modes/pointDraw.ts';
 import { polygonStartMode } from '../../components/drawingCanvas/draw_modes/polygonTool.ts';
 import { SkeletonBuilder } from 'straight-skeleton';
+import type { CustomDrawBundle } from '../../components/drawingCanvas/useCanvasDraw.tsx';
+
+let pg: ParcelGenerator | undefined = undefined;
 
 export default function ParcelGeneration() {
-    SkeletonBuilder.init();
-
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const drawModes = [polygonStartMode, manipulateMode];
 
-    let pg: ParcelGenerator | undefined = undefined;
 
     const parcelCtx = useParcelGenDraw(canvasRef, drawModes);
     const canvasCtx = parcelCtx.canvasCtx;
@@ -56,24 +51,42 @@ export default function ParcelGeneration() {
             }
         },
         {
-            label: "Generate straight skeleton.", icon: <RestartAltOutlinedIcon />, action: () => {
+            label: "Generate straight skeleton", icon: <AccessibilityIcon />, action: () => {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
+                const polygons = s.Edges.map(e => e.Polygon);
 
                 canvasCtx.clearCanvasOverlays();
+                const overlay: CustomDrawBundle = { texts: [] };
+
                 canvasCtx.addDrawBundleToCanvas({
-                    lines: s.polygons.map(poly => ({
-                        points: [...poly.map(i => ({ x: s.vertices[i]![0], y: s.vertices[i]![1] }))
-                            , {x: s.vertices[poly[0]!]![0], y: s.vertices[poly[0]!]![1]}],
+                    lines: polygons.map(poly => ({
+                        points: [...poly.map(v => ({ x: v.X, y: v.Y }))
+                            , { x: poly[0]!.X, y: poly[0]!.Y }],
                         props: {
                             width: 2,
                             color: `red`,
                             dashed: true,
                         }
-                    }))
+                    })),
                 });
+
+                pg.polygon.forEach((v, i) => {
+                    overlay.texts!.push({
+                        text: `V${i}`,
+                        position: { x: v.x + 6, y: v.y - 8 }
+                    });
+                });
+                canvasCtx.addDrawBundleToCanvas(overlay);
                 // clearCanvasOverlays();
+            }
+        },
+        {
+            label: "Generate peripheral roads", icon: <AddRoadOutlinedIcon />, action: () => {
+                if (!pg) { console.error(`pg not defined`); return; }
+                const roads = pg.generatePeripheralRoads();
+                console.log(roads);
             }
         },
     ];
@@ -81,7 +94,11 @@ export default function ParcelGeneration() {
     const actions = [
         {
             label: "Runs the full parcel generation and only shows the result.", icon: <PlayArrowIcon />, action: () => {
-                // getMedialAxis();
+                pg = new ParcelGenerator(canvasCtx.points, []);
+                const s = pg.generateStraightSkeleton();
+                if (!s) return;
+                const r = pg.generatePeripheralRoads();
+                console.log(r);
             }
         },
     ];
@@ -114,7 +131,7 @@ export default function ParcelGeneration() {
     useEffect(() => { canvasCtx.redrawCanvas(); }, [canvasCtx.redrawCanvas]);
     return (
         <PageStack>
-            <Typography variant='h3'>ParcelGeneration</Typography>
+            <Typography variant='h3'>Parcel Generation</Typography>
 
             <Stack direction="row" spacing={2} divider={<Divider orientation="vertical" flexItem />}>
                 <ButtonGroup>
