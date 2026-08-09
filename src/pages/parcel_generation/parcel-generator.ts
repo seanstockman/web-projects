@@ -112,7 +112,7 @@ export class ParcelGenerator {
      * @param maxLength The maximum length of a road. If set to 0 will default to `exteriorEdges.length / 2`.
      * @author Parcel Manager (Algorithm 4)
      */
-    public generatePeripheralRoads(angleThreshold = (Math.PI / 3), minLength = 0, maxLength = 0) {
+    public generateLogicalRoads(angleThreshold = (Math.PI / 3), minLength = 0, maxLength = 0) {
         if (!this.skeleton) return;
         if (maxLength == 0) {
             this.polygon.forEach((v, i) => {
@@ -120,6 +120,8 @@ export class ParcelGenerator {
             });
             maxLength /= 2;
         }
+
+        // TODO: need a more robust way to define roads.
 
         /** Maps edges (in ccw order) to roads. */
         this.frontageMap = new Map<string, number>();
@@ -162,7 +164,6 @@ export class ParcelGenerator {
             }
         }
 
-        // TODO: Merge last road with first road if angle is good.
         this.roads = peripheralRoads;
         return { roads: this.roads, frontageMap: this.frontageMap };
     }
@@ -207,10 +208,19 @@ export class ParcelGenerator {
         // verify junction exists
         const junction = s.nodes.find(node => node.connections.length > 2);
 
+        /** Maps from inside vertex index to exterior nodes to fix. */
+        const betaFixMap = new Map<number, { n: number, road: Road }[]>();
+
+        /**
+         * TODO:
+         * Change this so that each inside neighbour gets assigned the node to connect to/
+         */
+
         s.nodes.forEach((n, i) => {
             // for each external node on the alpha-strip:
             if (i >= this.polygon.length) return;
             if (!n.active) return;
+            if (n.connections.length == 0) return;
 
             // - c) add new node that is the orthoganal projection onto one of the two external edges connecting the node
             // find longest (replace with attraction later)
@@ -227,37 +237,71 @@ export class ParcelGenerator {
             let insideNeighbour = s.nodes[insideNeighbourIndex]!;
 
             if (g2d.getAngleABC(prevExternalNode, n.v, nextExternalNode) > Math.PI) {
-                // remove conn?
+                // if obtuse, remove connection
+                // TODO: will there be a case where it doesnt intersect with a junction on the alpha graph?
                 this.disconnect(s, i, insideNeighbourIndex);
                 return;
             }
+
             this.disconnect(s, insideNeighbourIndex, i);
+            n.active = false;
 
             if (junction) {
                 while (insideNeighbour.connections.length == 1) {
-                    const next = insideNeighbour.connections[0]!;
-                    this.disconnect(s, next, insideNeighbourIndex);
-                    const nextNode = s.nodes[next]!;
-                    insideNeighbour = nextNode;
-                    insideNeighbourIndex = next;
+                    if (betaFixMap.get(insideNeighbourIndex)) break;
+                    const nextInLink = insideNeighbour.connections[0]!;
+                    this.disconnect(s, nextInLink, insideNeighbourIndex);
+                    const nextNodeInLink = s.nodes[nextInLink]!;
+                    insideNeighbour = nextNodeInLink;
+                    insideNeighbourIndex = nextInLink;
                 }
             }
-
-
 
             const prevRoad = this.roads[this.frontageMap!.get(`${prev},${i}`)!]!;
             const nextRoad = this.roads[this.frontageMap!.get(`${i},${next}`)!]!;
 
             const chosenRoad = nextRoad.attraction > prevRoad.attraction ? nextRoad : prevRoad;
-            const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, chosenRoad.segment.map(i => this.polygon[i]!));
 
+            betaFixMap.getOrInsert(insideNeighbourIndex, []).push({ n: i, road: chosenRoad });
+        });
 
-            s.nodes.push({ v: closestPointOnRoad, active: true, connections: [insideNeighbourIndex] });
-            n.active = false;
+        betaFixMap.forEach((conns, interiorIndex) => {
+            if (conns.length == 2) {
+                // add to the midpoint intersection instead
+                const A = conns[0]!;
+                const B = conns[1]!;
+                const O = s.nodes[interiorIndex]!;
+                const midpointAB = g2d.midpoint(s.nodes[A.n]!.v, s.nodes[B.n]!.v);
+                const dir = g2d.normalise(g2d.sub(midpointAB, O.v));
 
-            this.connect(s, s.nodes.length - 1, insideNeighbourIndex);
-            // - b) disconnect
-            // - d) connect that edge
+                if (conns[0]!.road == conns[1]!.road) {
+                    const intersection = g2d.getRayLineIntersection(O.v, dir, A.road.segment.map(i => s.nodes[i]!.v))!;
+                    s.nodes.push({ v: intersection.point, active: true, connections: [interiorIndex] });
+                    this.connect(s, s.nodes.length - 1, interiorIndex);
+                } else {
+                    const perpRHS = g2d.perpRHS(dir);
+                    const OA = g2d.sub(s.nodes[A.n]!.v, O.v);
+                    const [L, R] = g2d.dot(OA, perpRHS) > 0 ? [B, A] : [A, B];
+
+                    const dirLR = g2d.normalise(g2d.sub(s.nodes[R.n]!.v, s.nodes[L.n]!.v));
+
+                    const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.road.segment.map(i => s.nodes[i]!.v))!;
+                    const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.road.segment.map(i => s.nodes[i]!.v))!;
+                    s.nodes.push({ v: intersectionL.point, active: true, connections: [interiorIndex] });
+                    s.nodes.push({ v: intersectionR.point, active: true, connections: [interiorIndex] });
+                    this.connect(s, s.nodes.length - 2, interiorIndex);
+                    this.connect(s, s.nodes.length - 1, interiorIndex);
+                }
+                return;
+            }
+
+            const insideNeighbour = s.nodes[interiorIndex]!
+            conns.forEach(conn => {
+                const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.road.segment.map(i => this.polygon[i]!));
+
+                s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex] });
+                this.connect(s, s.nodes.length - 1, interiorIndex);
+            });
         });
     }
 

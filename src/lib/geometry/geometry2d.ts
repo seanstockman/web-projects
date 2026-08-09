@@ -87,6 +87,16 @@ export const geometry2d = {
         };
     },
 
+    /** Returns the intersection of a ray (starting at `O`, travelling in direction `dir`) with the
+     * line `AB`, or undefined if the ray and segment don't cross.
+     * `t` is the ray parameter (`P = O + t * dir`, `t >= 0`) and `u` is the segment parameter (0-1). */
+    getRayLineIntersection(O: Vec2, dir: Vec2, line: Vec2[]): { point: Vec2, t: number, u: number } | undefined {
+        for (let i = 0; i < line.length - 1; i++) {
+            const intersection = this.getRaySegmentIntersection(O, dir, line[i]!, line[i + 1]!);
+            if (intersection) return intersection;
+        }
+    },
+
     /** Returns the Point or undefined from the lines defined by (p1-p2) and (p3-p4) */
     getInterceptFromPoints(p1: Vec2, p2: Vec2, p3: Vec2, p4: Vec2): Vec2 | undefined {
         const denominator = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
@@ -327,7 +337,11 @@ export const geometry2d = {
             closestDist = dist;
         }
         return closestPoint;
-    }
+    },
+
+    getAverageOfTwoAngles(a: number, b: number) {
+        return Math.atan2(Math.sin(a) + Math.sin(b), Math.cos(a) + Math.cos(b));
+    },
 }
 
 

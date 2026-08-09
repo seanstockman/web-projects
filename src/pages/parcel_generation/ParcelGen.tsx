@@ -68,7 +68,7 @@ export default function ParcelGeneration() {
         {
             label: "Generate peripheral roads", icon: <AddRoadOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
-                const roads = pg.generatePeripheralRoads();
+                const roads = pg.generateLogicalRoads();
                 console.log(roads);
             }
         },
@@ -120,7 +120,7 @@ export default function ParcelGeneration() {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
-                pg.generatePeripheralRoads();
+                pg.generateLogicalRoads();
                 pg.mergeIntoAlphaStrip();
                 pg.mergeIntoBetaStrip();
                 drawSkeleton(pg);
