@@ -303,7 +303,8 @@ export const geometry2d = {
         const AP = this.sub(P, A);
         const AB = this.sub(B, A);
         const projectionPAB = this.projectAOntoB(AP, AB);
-        const u = Math.hypot(projectionPAB.x, projectionPAB.y) / Math.hypot(AB.x, AB.y);
+        let u = Math.hypot(projectionPAB.x, projectionPAB.y) / Math.hypot(AB.x, AB.y);
+        if (this.dot(projectionPAB, AB) < 0) u *= -1;
         return { p: this.add(A, projectionPAB), u: u };
     },
 

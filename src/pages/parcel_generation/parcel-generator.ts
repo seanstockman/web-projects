@@ -8,7 +8,7 @@ type Road = {
 
 type SkeletonGraph = {
     /** Vertices in the graph. First n vertices correspond to the n external polygon vertices. */
-    nodes: { v: Vec2, active: boolean }[],
+    nodes: { v: Vec2, active: boolean, connections: number[] }[],
     /** Unique connections between edges */
     edges: [number, number][],
 }
@@ -42,7 +42,7 @@ export class ParcelGenerator {
      * exactly to the original polygon vertices, in order.
      */
     private buildSkeletonGraph(skeleton: Skeleton, precision = 6): SkeletonGraph {
-        const nodes: { v: Vec2, active: true }[] = [];
+        const nodes: { v: Vec2, active: true, connections: number[] }[] = [];
         const keyToIndex = new Map<string, number>();
 
         const keyOf = (x: number, y: number) => `${x.toFixed(precision)},${y.toFixed(precision)}`;
@@ -53,7 +53,7 @@ export class ParcelGenerator {
             if (idx === undefined) {
                 idx = nodes.length;
                 keyToIndex.set(key, idx);
-                nodes.push({ v: { x: x, y: y }, active: true });
+                nodes.push({ v: { x: x, y: y }, active: true, connections: [] });
             }
             return idx;
         };
@@ -85,6 +85,8 @@ export class ParcelGenerator {
                 if (!edgeSet.has(edgeKey)) {
                     edgeSet.add(edgeKey);
                     edges.push([lo, hi]);
+                    nodes[lo]!.connections.push(hi);
+                    nodes[hi]!.connections.push(lo);
                 }
             }
         }
@@ -93,7 +95,11 @@ export class ParcelGenerator {
             const edgeValue: [number, number] = [i, (i + 1) % this.polygon.length];
             edgeValue.sort((a, b) => a - b);
             const edgeIndex = edges.findIndex(e => e[0] == edgeValue[0] && e[1] == edgeValue[1]);
-            if (edgeIndex != -1) edges.splice(edgeIndex, 1);
+            if (edgeIndex != -1) {
+                edges.splice(edgeIndex, 1);
+                nodes[edgeValue[0]]!.connections = nodes[edgeValue[0]]!.connections.filter(c => c != edgeValue[1]);
+                nodes[edgeValue[1]]!.connections = nodes[edgeValue[1]]!.connections.filter(c => c != edgeValue[0]);
+            }
         });
 
         return { nodes: nodes, edges: edges };
@@ -163,51 +169,45 @@ export class ParcelGenerator {
 
     public mergeIntoAlphaStrip() {
         if (!this.skeleton) return;
+        const s = this.skeleton!;
         this.roads.forEach(r => {
             // delete the straight skeleton values for each thing. so we need to turn the s polygon into strips.
             for (let i = 1; i < r.segment.length - 1; i++) {
                 const remove_i = r.segment[i]!;
                 // filter edges with vertex remove_i}
-                this.skeleton!.edges = this.skeleton!.edges.filter(e => e[0] != remove_i && e[1] != remove_i);
-                this.skeleton!.nodes[remove_i]!.active = false;
+                const removedNode = s.nodes[remove_i]!;
+                removedNode.active = false;
+                removedNode.connections.forEach(c => {
+                    this.disconnect(s, c, remove_i);
+                });
             }
         });
 
         // clean up loose middle bits
-        const occurrences: number[][] = this.skeleton.nodes.map(() => []);
-        this.skeleton.edges.forEach((e, i) => {
-            occurrences[e[0]]!.push(i);
-            occurrences[e[1]]!.push(i);
-        });
-
-        const edgesToSplice: number[] = [];
-        occurrences.forEach((o, i) => {
-            if (i < this.polygon.length || o.length !== 1) return;
+        this.skeleton.nodes.forEach((n, i) => {
+            if (i < this.polygon.length || n.connections.length !== 1) return;
             // console.log(`loose vertex found: V${i}`);
             let curr = i;
-            while (occurrences[curr]!.length == 1) {
-                let edgeToSplice = occurrences[curr]![0]!;
-                let edgeToSpliceEdge = this.skeleton!.edges[edgeToSplice]!;
-                edgesToSplice.push(edgeToSplice);
-                let next = edgeToSpliceEdge.find(ei => ei != i)!;
-                occurrences[next]! = occurrences[next]!.filter(e => e != edgeToSplice);
-                occurrences[curr]! = occurrences[curr]!.filter(e => e != edgeToSplice);
-                this.skeleton!.nodes[curr]!.active = false;
+            let currNode = n;
+            while (currNode.connections.length == 1) {
+                let next = currNode.connections[0]!;
+                const nextNode = this.skeleton!.nodes[next]!
+                this.disconnect(this.skeleton!, curr, next);
                 curr = next;
+                currNode = nextNode;
             }
         });
-        edgesToSplice.sort().reverse();
-        edgesToSplice.forEach(e => {
-            // console.log(`splicing ${this.skeleton!.edges[e]?.[0]},${this.skeleton!.edges[e]![1]}`);
-            this.skeleton!.edges.splice(e, 1);
-        })
     }
 
     public mergeIntoBetaStrip() {
         // for all e: exterior edges:\
         if (!this.skeleton) return;
+        const s = this.skeleton;
 
-        this.skeleton.nodes.forEach((n, i) => {
+        // verify junction exists
+        const junction = s.nodes.find(node => node.connections.length > 2);
+
+        s.nodes.forEach((n, i) => {
             // for each external node on the alpha-strip:
             if (i >= this.polygon.length) return;
             if (!n.active) return;
@@ -221,38 +221,65 @@ export class ParcelGenerator {
             const prevExternalNode = this.polygon[prev]!;
             const nextExternalNode = this.polygon[next]!;
 
-            if (g2d.getAngleABC(prevExternalNode, n.v, nextExternalNode) > Math.PI) return;
-
             // - a) find the connecting node
-            const connectionEdge = this.skeleton!.edges.find(e => e[0] == i || e[1] == i)!;
-            const insideNeighbourIndex = connectionEdge.find(nodeIndex => nodeIndex != i)!;
-            console.log(`v${i}:`);
 
-            const attractionOfPrev = this.roads[this.frontageMap!.get(`${prev},${i}`)!]!.attraction;
-            console.log(`- attractionOfPrev: ${attractionOfPrev}`);
+            let insideNeighbourIndex = n.connections[0]!;
+            let insideNeighbour = s.nodes[insideNeighbourIndex]!;
 
-            const attractionOfNext = this.roads[this.frontageMap!.get(`${i},${next}`)!]!.attraction;
-            console.log(`- attractionOfNext: ${attractionOfNext}`);
+            if (g2d.getAngleABC(prevExternalNode, n.v, nextExternalNode) > Math.PI) {
+                // remove conn?
+                this.disconnect(s, i, insideNeighbourIndex);
+                return;
+            }
+            this.disconnect(s, insideNeighbourIndex, i);
+
+            if (junction) {
+                while (insideNeighbour.connections.length == 1) {
+                    const next = insideNeighbour.connections[0]!;
+                    this.disconnect(s, next, insideNeighbourIndex);
+                    const nextNode = s.nodes[next]!;
+                    insideNeighbour = nextNode;
+                    insideNeighbourIndex = next;
+                }
+            }
 
 
-            const edgeEnd = attractionOfNext < attractionOfPrev ? nextExternalNode : prevExternalNode;
-            const thisToEdgeEnd = g2d.sub(edgeEnd, n.v);
-            const thisToInsideNeighbour = g2d.sub(this.skeleton!.nodes[insideNeighbourIndex]!.v, n.v)
 
-            console.log(`exterior node v${i}: modifying connection with V${insideNeighbourIndex}`);
+            const prevRoad = this.roads[this.frontageMap!.get(`${prev},${i}`)!]!;
+            const nextRoad = this.roads[this.frontageMap!.get(`${i},${next}`)!]!;
 
-            const newNodeRelativeToThis = g2d.projectAOntoB(thisToInsideNeighbour, thisToEdgeEnd);
+            const chosenRoad = nextRoad.attraction > prevRoad.attraction ? nextRoad : prevRoad;
+            const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, chosenRoad.segment.map(i => this.polygon[i]!));
 
-            // if (g2d.dot(newNodeRelativeToThis, thisToFurthestEdge) < 0) return;
 
-            const newNode = g2d.add(newNodeRelativeToThis, n.v);
-            this.skeleton!.nodes.push({ v: newNode, active: true });
+            s.nodes.push({ v: closestPointOnRoad, active: true, connections: [insideNeighbourIndex] });
             n.active = false;
 
-            connectionEdge[0] = insideNeighbourIndex;
-            connectionEdge[1] = this.skeleton!.nodes.length - 1;
+            this.connect(s, s.nodes.length - 1, insideNeighbourIndex);
             // - b) disconnect
             // - d) connect that edge
         });
+    }
+
+    private connect(s: SkeletonGraph, A: number, B: number) {
+        const nodeA = s.nodes[A], nodeB = s.nodes[B];
+        if (!nodeA || !nodeB) { console.error(`node ${A} or ${B} does not exist`); return; }
+
+        if (!nodeA.connections.includes(B)) nodeA.connections.push(B);
+        if (!nodeB.connections.includes(A)) nodeB.connections.push(A);
+
+        s.edges.push([A, B].sort((a, b) => a - b) as [number, number]);
+    }
+
+    private disconnect(s: SkeletonGraph, A: number, B: number) {
+        const nodeA = s.nodes[A], nodeB = s.nodes[B];
+        if (!nodeA || !nodeB) { console.error(`node ${A} or ${B} does not exist`); return; }
+
+        nodeA.connections = nodeA.connections.filter(conn => conn != B);
+        nodeB.connections = nodeB.connections.filter(conn => conn != A);
+
+        const key = [A, B].sort((a, b) => a - b) as [number, number];
+
+        s.edges = s.edges.filter(e => e[0] != key[0] || e[1] != key[1]);
     }
 }
