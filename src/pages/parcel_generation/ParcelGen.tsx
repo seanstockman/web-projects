@@ -88,24 +88,21 @@ export default function ParcelGeneration() {
     function drawSkeleton(pg: ParcelGenerator) {
         const s = pg.skeleton;
         if (!s) return;
-        const polygons = s.Edges.map(e => e.Polygon);
-
         canvasCtx.clearCanvasOverlays();
-        const overlay: CustomDrawBundle = { texts: [] };
+        const overlay: CustomDrawBundle = { lines: [], texts: [] };
 
-        canvasCtx.addDrawBundleToCanvas({
-            lines: polygons.filter(p => p.length >= 3).map(poly => ({
-                points: [...poly.map(v => ({ x: v.X, y: v.Y }))
-                    , { x: poly[0]!.X, y: poly[0]!.Y }],
+        s.edges.forEach(e => {
+            overlay.lines!.push({
+                points: [s.vertices[e[0]]!, s.vertices[e[1]]!],
                 props: {
                     width: 2,
                     color: `red`,
                     dashed: true,
                 }
-            })),
+            });
         });
 
-        pg.polygon.forEach((v, i) => {
+        s.vertices.forEach((v, i) => {
             overlay.texts!.push({
                 text: `V${i}`,
                 position: { x: v.x + 6, y: v.y - 8 }
