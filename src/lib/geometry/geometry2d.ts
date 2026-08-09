@@ -210,6 +210,7 @@ export const geometry2d = {
         // If sum > 0, it is CW
         return sum < 0;
     },
+
     /** Returns a copy of the array with duplicates removed.
      * @link https://www.geeksforgeeks.org/typescript/remove-duplicate-elements-from-typescript-array/#approach-1-using-typescript-filter-method
      */
@@ -217,6 +218,7 @@ export const geometry2d = {
         return arr.filter((item,
             index) => arr.indexOf(item) === index);
     },
+
     /** Removes duplicate points (exact x/y match) from an array, keeping the first occurrence of each. */
     removeDuplicatePoints(points: Vec2[]): Vec2[] {
         const seen = new Set<string>();
@@ -233,38 +235,38 @@ export const geometry2d = {
     },
 
     /** Returns the point that is the result of A - B. */
-    sub(A: Vec2, B: Vec2) {
+    sub(A: Vec2, B: Vec2): Vec2 {
         return { x: A.x - B.x, y: A.y - B.y };
     },
 
     /** Returns the point that is the result of A + B. */
-    add(A: Vec2, B: Vec2) {
+    add(A: Vec2, B: Vec2): Vec2 {
         return { x: A.x + B.x, y: A.y + B.y };
     },
 
     /** Returns the point that is the result of `A * s`. */
-    scalarMult(A: Vec2, s: number) {
+    scalarMult(A: Vec2, s: number): Vec2 {
         return { x: A.x * s, y: A.y * s };
     },
 
     /** Returns the point that is the result of `A / s`. */
-    divScalar(A: Vec2, s: number) {
+    divScalar(A: Vec2, s: number): Vec2 {
         return { x: A.x / s, y: A.y / s };
     },
 
     /** Returns the normalised vector in the direction of A. */
-    normalise(A: Vec2) {
+    normalise(A: Vec2): Vec2 {
         const dist = Math.hypot(A.x, A.y);
         return { x: A.x / dist, y: A.y / dist };
     },
 
     /** Returns the vector pointing perpendicular to the right of A. */
-    perpRHS(A: Vec2) {
+    perpRHS(A: Vec2): Vec2 {
         return { x: A.y, y: - A.x };
     },
 
     /** Returns the vector pointing perpendicular to the left of A. */
-    perpLHS(A: Vec2) {
+    perpLHS(A: Vec2): Vec2 {
         return { x: -A.y, y: A.x };
     },
 
@@ -284,7 +286,7 @@ export const geometry2d = {
 
     /** Returns the vector projection of `a` onto `b`. */
     projectAOntoB(a: Vec2, b: Vec2) {
-        return this.scalarMult(b, (this.dot(a, b)) / (this.magnitude(b) ^ 2));
+        return this.scalarMult(b, this.dot(a, b) / this.dot(b, b));
     },
 
     /** Returns the set of vertices that define the edge of the polygon such that they are wound counter-clockwise. */
@@ -294,6 +296,37 @@ export const geometry2d = {
         if (!this.isCounterClockwise(orderedVerts)) { orderedVerts.reverse(); }
         return orderedVerts;
     },
+
+    /** Get the orthogonal projection of point P onto the line segment AB. Also returns the parameter `u`, 
+     * which is where the projection landed relative to AB (i.e. u = 0.25 indicates it landed a quarter of the way from A to B.). */
+    orthogonalProjection(P: Vec2, A: Vec2, B: Vec2) {
+        const AP = this.sub(P, A);
+        const AB = this.sub(B, A);
+        const projectionPAB = this.projectAOntoB(AP, AB);
+        const u = Math.hypot(projectionPAB.x, projectionPAB.y) / Math.hypot(AB.x, AB.y);
+        return { p: this.add(A, projectionPAB), u: u };
+    },
+
+    getClosestPointToPOnLine(P: Vec2, line: Vec2[]) {
+        let closestPoint: Vec2 = { x: Infinity, y: Infinity };
+        let closestDist = Infinity;
+        for (let i = 0; i < line.length - 1; i++) {
+            const A = line[i]!;
+            const B = line[i + 1]!;
+            const projection = this.orthogonalProjection(P, A, B);
+            let closestPointOnSegment = projection.p;
+            if (projection.u > 1) {
+                closestPointOnSegment = B;
+            } else if (projection.u < 0) {
+                closestPointOnSegment = A;
+            }
+            const dist = this.dist(closestPointOnSegment, P);
+            if (dist >= closestDist) continue;
+            closestPoint = closestPointOnSegment;
+            closestDist = dist;
+        }
+        return closestPoint;
+    }
 }
 
 

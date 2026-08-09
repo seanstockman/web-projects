@@ -60,6 +60,8 @@ export default function ParcelGeneration() {
                 if (!s) return;
                 drawSkeleton(pg);
 
+                console.log(canvasCtx.points);
+
                 // clearCanvasOverlays();
             }
         },
@@ -81,6 +83,7 @@ export default function ParcelGeneration() {
             label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 pg.mergeIntoBetaStrip();
+                drawSkeleton(pg);
             }
         },
     ];
@@ -93,7 +96,7 @@ export default function ParcelGeneration() {
 
         s.edges.forEach(e => {
             overlay.lines!.push({
-                points: [s.vertices[e[0]]!, s.vertices[e[1]]!],
+                points: [s.nodes[e[0]]!.v, s.nodes[e[1]]!.v],
                 props: {
                     width: 2,
                     color: `red`,
@@ -102,10 +105,10 @@ export default function ParcelGeneration() {
             });
         });
 
-        s.vertices.forEach((v, i) => {
+        s.nodes.forEach((n, i) => {
             overlay.texts!.push({
                 text: `V${i}`,
-                position: { x: v.x + 6, y: v.y - 8 }
+                position: { x: n.v.x + 6, y: n.v.y - 8 }
             });
         });
         canvasCtx.addDrawBundleToCanvas(overlay);
@@ -117,8 +120,11 @@ export default function ParcelGeneration() {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
-                const r = pg.generatePeripheralRoads();
-                console.log(r);
+                pg.generatePeripheralRoads();
+                pg.mergeIntoAlphaStrip();
+                pg.mergeIntoBetaStrip();
+                drawSkeleton(pg);
+                console.log(pg.skeleton);
             }
         },
     ];
@@ -144,6 +150,12 @@ export default function ParcelGeneration() {
             label: "Sets the canvas to broken example.",
             icon: <LayersClearIcon />, action: () => {
                 parcelCtx.setToExamples.broken();
+            }
+        },
+        {
+            label: "Sets the canvas to Figure 4.",
+            icon: <LayersClearIcon />, action: () => {
+                parcelCtx.setToExamples.fig4();
             }
         },
     ];
