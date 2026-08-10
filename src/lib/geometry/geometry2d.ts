@@ -98,7 +98,7 @@ export const geometry2d = {
             if (closestIntersection) {
                 if (this.dist(closestIntersection.intersection.point, O) <= this.dist(intersection.point, O)) continue;
             }
-            closestIntersection = { intersection: intersection, edge: [i, i + 1] };
+            closestIntersection = { intersection: intersection, edge: [i, i + 1] as [number, number] };
         }
         return closestIntersection;
     },
@@ -327,6 +327,7 @@ export const geometry2d = {
     getClosestPointToPOnLine(P: Vec2, line: Vec2[]) {
         let closestPoint: Vec2 = { x: Infinity, y: Infinity };
         let closestDist = Infinity;
+        let closestEdge = [-1, -1];
         for (let i = 0; i < line.length - 1; i++) {
             const A = line[i]!;
             const B = line[i + 1]!;
@@ -341,8 +342,10 @@ export const geometry2d = {
             if (dist >= closestDist) continue;
             closestPoint = closestPointOnSegment;
             closestDist = dist;
+            closestEdge[0] = i;
+            closestEdge[1] = i + 1;
         }
-        return closestPoint;
+        return { point: closestPoint, edge: closestEdge as [number, number] };
     },
 
     getAverageOfTwoAngles(a: number, b: number) {

@@ -84,6 +84,14 @@ export default function ParcelGeneration() {
             }
         },
         {
+            label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
+                if (!pg) { console.error(`pg not defined`); return; }
+                pg.mergeIntoBetaStrip();
+                canvasCtx.clearCanvasOverlays();
+                drawSkeleton(pg.strip!);
+            }
+        },
+        {
             label: "Split strips into parcels", icon: <SplitscreenOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 // pg.mergeIntoBetaStrip();
