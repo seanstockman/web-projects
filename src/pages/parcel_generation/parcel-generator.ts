@@ -5,6 +5,8 @@ import { PairedNumberMap } from "../../lib/geometry/pairedNumberMap.ts";
 type Road = {
     segment: number[],
     attraction: number,
+    verticesOnLeft?: number[],
+    verticesOnRight?: number[],
 }
 
 type SkeletonGraphNode = {
@@ -23,7 +25,7 @@ export type SkeletonGraph = {
     edges: [number, number][],
 }
 
-type FinalStripResult = {
+type SubBlock = {
     vertices: number[], //indices into the strip graph, wound ccw
     frontageVertices: number[],
     internalEdge: number[],
@@ -288,7 +290,7 @@ export class ParcelGenerator {
             betaFixMap.getOrInsert(insideNeighbour, []).push({ n: n, roadToCollapseTo: chosenRoad, roadToFace: roadToFace });
         });
 
-        const collapsesToResolve: { corner: SkeletonGraphNode, inserted: SkeletonGraphNode, e: [number, number], r: Road }[] = [];
+        const collapsesToResolve: { corner: SkeletonGraphNode, inserted: SkeletonGraphNode, e: [number, number], rCollapse: Road, rFace: Road }[] = [];
         betaFixMap.forEach((conns, interiorNode) => {
             if (conns.length == 2 && (conns[0]!.roadToFace == conns[1]!.roadToFace || conns[0]!.roadToCollapseTo == conns[1]!.roadToCollapseTo)) {
                 // add to the midpoint intersection instead
@@ -326,8 +328,8 @@ export class ParcelGenerator {
                 this.connect(s, newNodeL, interiorNode);
                 this.connect(s, newNodeR, interiorNode);
 
-                this.resolveStripCollapse(L.n, newNodeL, intersectionL.edge.map(ei => L.roadToCollapseTo.segment[ei]!) as [number, number], L.roadToCollapseTo, showDebug);
-                this.resolveStripCollapse(R.n, newNodeR, intersectionR.edge.map(ei => R.roadToCollapseTo.segment[ei]!) as [number, number], R.roadToCollapseTo, showDebug);
+                this.resolveStripCollapse(L.n, newNodeL, intersectionL.edge.map(ei => L.roadToCollapseTo.segment[ei]!) as [number, number], L.roadToCollapseTo, L.roadToFace, showDebug);
+                this.resolveStripCollapse(R.n, newNodeR, intersectionR.edge.map(ei => R.roadToCollapseTo.segment[ei]!) as [number, number], R.roadToCollapseTo, R.roadToFace, showDebug);
                 return;
             }
 
@@ -340,13 +342,14 @@ export class ParcelGenerator {
                 collapsesToResolve.push({
                     corner: conn.n, inserted: s.nodes[s.nodes.length - 1]!,
                     e: closestPointOnRoad.edge.map(ei => conn.roadToCollapseTo.segment[ei]!) as [number, number],
-                    r: conn.roadToCollapseTo
+                    rCollapse: conn.roadToCollapseTo,
+                    rFace: conn.roadToFace,
                 });
             });
         });
 
         collapsesToResolve.forEach(c => {
-            this.resolveStripCollapse(c.corner, c.inserted, c.e, c.r, showDebug);
+            this.resolveStripCollapse(c.corner, c.inserted, c.e, c.rCollapse, c.rFace, showDebug);
         });
 
         this.correctStraightSkeletons();
@@ -393,6 +396,7 @@ export class ParcelGenerator {
         insertedNode: SkeletonGraphNode,
         edgeOntoIndices: [number, number],
         roadCollapsedOnto: Road,
+        roadToFace: Road,
         showDebug = false) {
 
         // const edgeOnto = edgeOntoIndices.map(i => roadCollapsedOnto.segment[i]!)
@@ -416,14 +420,24 @@ export class ParcelGenerator {
         }
 
         for (let i = spliceIndex; i < spliceIndex + spliceLength - 1; i++) {
+            // per edge
             this.frontageMap.delete(crSeg[i]!, crSeg[i + 1]!);
         }
 
         for (let i = spliceIndex; i < spliceIndex + spliceLength; i++) {
+            // per vert
             const lastTouched = this.recursivelyDisconnectTillJunctionOrStatic(this.skeleton!, this.skeleton!.nodes[crSeg[i]!]!);
             lastTouched.static = true;
             this.lastTouchedNodes.push(lastTouched);
             if (showDebug) console.log(`disconnecting node V${crSeg[i]!}, lt: ${lastTouched.i}`);
+        }
+
+        const vertsMoved = crSeg.slice(spliceIndex, spliceIndex + spliceLength);
+        
+        if (collapsedLeft) {
+            roadToFace.verticesOnRight = [insertedNode.i, ...vertsMoved];
+        } else { 
+            roadToFace.verticesOnLeft = [...vertsMoved, insertedNode.i];
         }
 
         this.frontageMap.delete(edgeOntoIndices[0], edgeOntoIndices[1]);
@@ -436,7 +450,7 @@ export class ParcelGenerator {
     private correctStraightSkeletons(showDebug: boolean = false) {
         const sk = this.skeleton!;
         const strip = this.strip!;
-        const strSkelsToRecompute:number[] = [];
+        const strSkelsToRecompute: number[] = [];
 
         // de static all the nodes
         sk.nodes.forEach(n => { n.static = false; });
@@ -459,8 +473,8 @@ export class ParcelGenerator {
         // explore up and down till we hit a static node, removing connections along the way.
 
         // console.log(this.lastTouchedNodes.map(n => n.i).toString());
-        console.log(this.skeleton);
-
+        // console.log(this.skeleton);
+        console.log(this.roads);
         // const strip = this.strip, sk = this.skeleton;
         // if (!strip || !sk) return;
         // const staticNodeIndexes = strip.nodes.filter(n => n.static).map(n => n.i);
@@ -474,7 +488,7 @@ export class ParcelGenerator {
         // });
     }
 
-    private generateSubBlocksFromStrip() {
+    private generateSubBlocksFromStrip(s: SkeletonGraph) {
 
     }
 
