@@ -90,11 +90,17 @@ export const geometry2d = {
     /** Returns the intersection of a ray (starting at `O`, travelling in direction `dir`) with the
      * line `AB`, or undefined if the ray and segment don't cross.
      * `t` is the ray parameter (`P = O + t * dir`, `t >= 0`) and `u` is the segment parameter (0-1). */
-    getRayLineIntersection(O: Vec2, dir: Vec2, line: Vec2[]): { point: Vec2, t: number, u: number } | undefined {
+    getRayLineIntersection(O: Vec2, dir: Vec2, line: Vec2[]) {
+        let closestIntersection;
         for (let i = 0; i < line.length - 1; i++) {
             const intersection = this.getRaySegmentIntersection(O, dir, line[i]!, line[i + 1]!);
-            if (intersection) return intersection;
+            if (!intersection) continue;
+            if (closestIntersection) {
+                if (this.dist(closestIntersection.intersection.point, O) <= this.dist(intersection.point, O)) continue;
+            }
+            closestIntersection = { intersection: intersection, edge: [i, i + 1] };
         }
+        return closestIntersection;
     },
 
     /** Returns the Point or undefined from the lines defined by (p1-p2) and (p3-p4) */

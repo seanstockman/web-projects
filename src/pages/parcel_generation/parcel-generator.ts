@@ -11,6 +11,7 @@ type SkeletonGraphNode = {
     active: boolean,
     connections: number[],
     elevation: number,
+    static: boolean,
 }
 
 export type SkeletonGraph = {
@@ -18,6 +19,12 @@ export type SkeletonGraph = {
     nodes: SkeletonGraphNode[],
     /** Unique connections between edges */
     edges: [number, number][],
+}
+
+type FinalStripResult = {
+    vertices: number[], //indices into the strip graph, wound ccw
+    frontageVertices: number[],
+    internalEdge: number[],
 }
 
 export class ParcelGenerator {
@@ -61,7 +68,7 @@ export class ParcelGenerator {
             if (idx === undefined) {
                 idx = nodes.length;
                 keyToIndex.set(key, idx);
-                nodes.push({ v: { x: x, y: y }, active: true, connections: [], elevation: 0 });
+                nodes.push({ v: { x: x, y: y }, active: true, connections: [], elevation: 0, static: false });
             }
             return idx;
         };
@@ -103,7 +110,7 @@ export class ParcelGenerator {
             // `distance` is the elevation of the vertex located on `pointPos`.
             const pi = getIndex(pointPos.X, pointPos.Y);
             if (!pi) continue;
-            nodes[pi]!.elevation = distance;  
+            nodes[pi]!.elevation = distance;
         }
 
         this.polygon.forEach((_, i) => {
@@ -293,7 +300,7 @@ export class ParcelGenerator {
 
                 if (conns[0]!.roadToMovePointTo == conns[1]!.roadToMovePointTo) {
                     const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToMovePointTo.segment.map(i => s.nodes[i]!.v))!;
-                    s.nodes.push({ v: intersection.point, active: true, connections: [interiorIndex], elevation: 0 });
+                    s.nodes.push({ v: intersection.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false });
                     this.connect(s, s.nodes.length - 1, interiorIndex);
                 } else {
                     const perpRHS = g2d.perpRHS(dir);
@@ -306,9 +313,8 @@ export class ParcelGenerator {
                     const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.roadToMovePointTo.segment.map(i => s.nodes[i]!.v));
                     if (!intersectionL) { console.error({ message: `could not get intersection L, from V${interiorIndex} in direction ${R.n}->${L.n}`, road: L.roadToMovePointTo.segment }); return; }
                     if (!intersectionR) { console.error({ message: `could not get intersection R, from V${interiorIndex} in direction ${L.n}->${R.n}`, road: R.roadToMovePointTo.segment }); return; }
-
-                    s.nodes.push({ v: intersectionL.point, active: true, connections: [interiorIndex], elevation: 0 });
-                    s.nodes.push({ v: intersectionR.point, active: true, connections: [interiorIndex], elevation: 0 });
+                    s.nodes.push({ v: intersectionL.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false });
+                    s.nodes.push({ v: intersectionR.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false });
                     this.connect(s, s.nodes.length - 2, interiorIndex);
                     this.connect(s, s.nodes.length - 1, interiorIndex);
                 }
@@ -319,7 +325,7 @@ export class ParcelGenerator {
             conns.forEach(conn => {
                 const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.roadToMovePointTo.segment.map(i => this.polygon[i]!));
 
-                s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex], elevation: 0 });
+                s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex], elevation: 0, static: false });
                 this.connect(s, s.nodes.length - 1, interiorIndex);
             });
         });
@@ -345,5 +351,13 @@ export class ParcelGenerator {
         const key = [A, B].sort((a, b) => a - b) as [number, number];
 
         s.edges = s.edges.filter(e => e[0] != key[0] || e[1] != key[1]);
+    }
+
+    private recursivelyDisconnectTillJunction(s: SkeletonGraph, curr: { n: SkeletonGraphNode, i: number }) {
+        while (curr.n.connections.length == 1) {
+            const next = { i: curr.n.connections[0]!, n: s.nodes[curr.n.connections[0]!]! };
+            this.disconnect(s, next.i, curr.i);
+            curr = next;
+        }
     }
 }

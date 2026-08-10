@@ -14,7 +14,9 @@ import AccessibilityIcon from '@mui/icons-material/Accessibility';
 import AddRoadOutlinedIcon from '@mui/icons-material/AddRoadOutlined';
 import HdrAutoOutlinedIcon from '@mui/icons-material/HdrAutoOutlined';
 import FormatBoldOutlinedIcon from '@mui/icons-material/FormatBoldOutlined';
-
+import Looks4OutlinedIcon from '@mui/icons-material/Looks4Outlined';
+import HeartBrokenOutlinedIcon from '@mui/icons-material/HeartBrokenOutlined';
+import SplitscreenOutlinedIcon from '@mui/icons-material/SplitscreenOutlined';
 
 import { ParcelGenerator, type SkeletonGraph } from './parcel-generator.ts';
 
@@ -82,11 +84,11 @@ export default function ParcelGeneration() {
             }
         },
         {
-            label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
+            label: "Split strips into parcels", icon: <SplitscreenOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
-                pg.mergeIntoBetaStrip();
-                canvasCtx.clearCanvasOverlays();
-                drawSkeleton(pg.strip!);
+                // pg.mergeIntoBetaStrip();
+                // canvasCtx.clearCanvasOverlays();
+                // drawSkeleton(pg.strip!);
             }
         },
     ];
@@ -150,13 +152,13 @@ export default function ParcelGeneration() {
         },
         {
             label: "Sets the canvas to broken example.",
-            icon: <LayersClearIcon />, action: () => {
+            icon: <HeartBrokenOutlinedIcon />, action: () => {
                 parcelCtx.setToExamples.broken();
             }
         },
         {
             label: "Sets the canvas to Figure 4.",
-            icon: <LayersClearIcon />, action: () => {
+            icon: <Looks4OutlinedIcon />, action: () => {
                 parcelCtx.setToExamples.fig4();
             }
         },
