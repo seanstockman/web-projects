@@ -6,9 +6,16 @@ type Road = {
     attraction: number,
 }
 
+type SkeletonGraphNode = {
+    v: Vec2,
+    active: boolean,
+    connections: number[],
+    elevation: number,
+}
+
 export type SkeletonGraph = {
     /** Vertices in the graph. First n vertices correspond to the n external polygon vertices. */
-    nodes: { v: Vec2, active: boolean, connections: number[] }[],
+    nodes: SkeletonGraphNode[],
     /** Unique connections between edges */
     edges: [number, number][],
 }
@@ -43,7 +50,7 @@ export class ParcelGenerator {
      * exactly to the original polygon vertices, in order.
      */
     private buildSkeletonGraph(skeleton: Skeleton, precision = 6): SkeletonGraph {
-        const nodes: { v: Vec2, active: true, connections: number[] }[] = [];
+        const nodes: SkeletonGraphNode[] = [];
         const keyToIndex = new Map<string, number>();
 
         const keyOf = (x: number, y: number) => `${x.toFixed(precision)},${y.toFixed(precision)}`;
@@ -54,7 +61,7 @@ export class ParcelGenerator {
             if (idx === undefined) {
                 idx = nodes.length;
                 keyToIndex.set(key, idx);
-                nodes.push({ v: { x: x, y: y }, active: true, connections: [] });
+                nodes.push({ v: { x: x, y: y }, active: true, connections: [], elevation: 0 });
             }
             return idx;
         };
@@ -90,6 +97,13 @@ export class ParcelGenerator {
                     nodes[hi]!.connections.push(lo);
                 }
             }
+        }
+
+        for (const [pointPos, distance] of skeleton.Distances) {
+            // `distance` is the elevation of the vertex located on `pointPos`.
+            const pi = getIndex(pointPos.X, pointPos.Y);
+            if (!pi) continue;
+            nodes[pi]!.elevation = distance;  
         }
 
         this.polygon.forEach((_, i) => {
@@ -279,7 +293,7 @@ export class ParcelGenerator {
 
                 if (conns[0]!.roadToMovePointTo == conns[1]!.roadToMovePointTo) {
                     const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToMovePointTo.segment.map(i => s.nodes[i]!.v))!;
-                    s.nodes.push({ v: intersection.point, active: true, connections: [interiorIndex] });
+                    s.nodes.push({ v: intersection.point, active: true, connections: [interiorIndex], elevation: 0 });
                     this.connect(s, s.nodes.length - 1, interiorIndex);
                 } else {
                     const perpRHS = g2d.perpRHS(dir);
@@ -293,8 +307,8 @@ export class ParcelGenerator {
                     if (!intersectionL) { console.error({ message: `could not get intersection L, from V${interiorIndex} in direction ${R.n}->${L.n}`, road: L.roadToMovePointTo.segment }); return; }
                     if (!intersectionR) { console.error({ message: `could not get intersection R, from V${interiorIndex} in direction ${L.n}->${R.n}`, road: R.roadToMovePointTo.segment }); return; }
 
-                    s.nodes.push({ v: intersectionL.point, active: true, connections: [interiorIndex] });
-                    s.nodes.push({ v: intersectionR.point, active: true, connections: [interiorIndex] });
+                    s.nodes.push({ v: intersectionL.point, active: true, connections: [interiorIndex], elevation: 0 });
+                    s.nodes.push({ v: intersectionR.point, active: true, connections: [interiorIndex], elevation: 0 });
                     this.connect(s, s.nodes.length - 2, interiorIndex);
                     this.connect(s, s.nodes.length - 1, interiorIndex);
                 }
@@ -305,7 +319,7 @@ export class ParcelGenerator {
             conns.forEach(conn => {
                 const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.roadToMovePointTo.segment.map(i => this.polygon[i]!));
 
-                s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex] });
+                s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex], elevation: 0 });
                 this.connect(s, s.nodes.length - 1, interiorIndex);
             });
         });

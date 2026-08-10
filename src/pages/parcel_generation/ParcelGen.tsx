@@ -58,6 +58,7 @@ export default function ParcelGeneration() {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
+                canvasCtx.clearCanvasOverlays();
                 drawSkeleton(s);
 
                 console.log(canvasCtx.points);
@@ -76,6 +77,7 @@ export default function ParcelGeneration() {
             label: "Merge into alpha strip", icon: <HdrAutoOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 pg.mergeIntoAlphaStrip();
+                canvasCtx.clearCanvasOverlays();
                 drawSkeleton(pg.strip!);
             }
         },
@@ -83,13 +85,30 @@ export default function ParcelGeneration() {
             label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 pg.mergeIntoBetaStrip();
+                canvasCtx.clearCanvasOverlays();
                 drawSkeleton(pg.strip!);
             }
         },
     ];
 
-    function drawSkeleton(s: SkeletonGraph) {
-        canvasCtx.clearCanvasOverlays();
+    const actions = [
+        {
+            label: "Runs the full parcel generation and only shows the result.", icon: <PlayArrowIcon />, action: () => {
+                pg = new ParcelGenerator(canvasCtx.points, []);
+                const s = pg.generateStraightSkeleton();
+                if (!s) return;
+                pg.generateLogicalRoads();
+                pg.mergeIntoAlphaStrip();
+                pg.mergeIntoBetaStrip();
+                canvasCtx.clearCanvasOverlays();
+                drawSkeleton(s, 'grey');
+                drawSkeleton(pg.strip!);
+                console.log(pg.strip);
+            }
+        },
+    ];
+
+    function drawSkeleton(s: SkeletonGraph, color = 'red') {
         const overlay: CustomDrawBundle = { lines: [], texts: [] };
 
         s.edges.forEach(e => {
@@ -97,7 +116,7 @@ export default function ParcelGeneration() {
                 points: [s.nodes[e[0]]!.v, s.nodes[e[1]]!.v],
                 props: {
                     width: 2,
-                    color: `red`,
+                    color: color,
                     dashed: true,
                 }
             });
@@ -111,21 +130,6 @@ export default function ParcelGeneration() {
         });
         canvasCtx.addDrawBundleToCanvas(overlay);
     }
-
-    const actions = [
-        {
-            label: "Runs the full parcel generation and only shows the result.", icon: <PlayArrowIcon />, action: () => {
-                pg = new ParcelGenerator(canvasCtx.points, []);
-                const s = pg.generateStraightSkeleton();
-                if (!s) return;
-                pg.generateLogicalRoads();
-                pg.mergeIntoAlphaStrip();
-                pg.mergeIntoBetaStrip();
-                drawSkeleton(pg.strip!);
-                console.log(pg.strip);
-            }
-        },
-    ];
 
     const testShapes = [
         {
