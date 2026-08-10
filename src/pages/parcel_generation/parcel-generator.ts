@@ -193,7 +193,24 @@ export class ParcelGenerator {
 
     public mergeIntoAlphaStrip() {
         if (!this.skeleton) return;
-        this.strip = { nodes: [...this.skeleton!.nodes], edges: [...this.skeleton!.edges] };
+
+        // deep copy
+        this.strip = {
+            nodes: [...this.skeleton!.nodes.map(n => ({
+                v: n.v,
+                i: n.i,
+                connections: n.connections,
+                active: n.active,
+                static: n.static,
+                elevation: n.elevation
+            }))],
+            edges: [...this.skeleton!.edges]
+        };
+
+        this.strip.nodes.forEach(n => {
+            n.connections = n.connections.map(c => this.strip!.nodes[c.i]!);
+        });
+
         const strip = this.strip;
         this.roads.forEach(r => {
             // delete the straight skeleton values for each thing. so we need to turn the s polygon into strips.
@@ -260,11 +277,12 @@ export class ParcelGenerator {
             }
 
             this.disconnect(s, insideNeighbour, n);
+
             n.active = false;
 
             if (junction) {
                 while (insideNeighbour.connections.length == 1) {
-                    if (insideNeighbour.static) break;
+                    if (insideNeighbour.static) { console.log(`neighbour ${insideNeighbour.i} static`); break; }
                     const nextInLink = insideNeighbour.connections[0]!;
                     this.disconnect(s, nextInLink, insideNeighbour);
                     insideNeighbour = nextInLink;
@@ -282,6 +300,7 @@ export class ParcelGenerator {
             betaFixMap.getOrInsert(insideNeighbour, []).push({ n: n, roadToCollapseTo: chosenRoad, roadToFace: roadToFace });
         });
 
+        const collapsesToResolve: { corner: SkeletonGraphNode, inserted: SkeletonGraphNode, e: [number, number], r: Road }[] = [];
         betaFixMap.forEach((conns, interiorNode) => {
             if (conns.length == 2 && (conns[0]!.roadToFace == conns[1]!.roadToFace || conns[0]!.roadToCollapseTo == conns[1]!.roadToCollapseTo)) {
                 // add to the midpoint intersection instead
@@ -321,14 +340,18 @@ export class ParcelGenerator {
                 return;
             }
 
+
             conns.forEach(conn => {
                 const closestPointOnRoad = g2d.getClosestPointToPOnLine(interiorNode.v, conn.roadToCollapseTo.segment.map(i => this.polygon[i]!));
 
                 s.nodes.push({ v: closestPointOnRoad.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                 this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
-
-                this.resolveStripCollapse(conn.n, s.nodes[s.nodes.length - 1]!, closestPointOnRoad.edge, conn.roadToCollapseTo, showDebug);
+                collapsesToResolve.push({ corner: conn.n, inserted: s.nodes[s.nodes.length - 1]!, e: closestPointOnRoad.edge, r: conn.roadToCollapseTo });
             });
+        });
+
+        collapsesToResolve.forEach(c => {
+            this.resolveStripCollapse(c.corner, c.inserted, c.e, c.r, showDebug);
         });
 
         console.log(this.roads);
@@ -392,6 +415,11 @@ export class ParcelGenerator {
             this.frontageMap.delete(roadCollapsedOnto.segment[i]!, roadCollapsedOnto.segment[i + 1]!);
         }
 
+        for (let i = spliceIndex; i < spliceIndex + spliceLength; i++) {
+            console.log({ msg: `disconnecting node V${roadCollapsedOnto.segment[i]!}`, node: this.skeleton!.nodes[i]! });
+            this.recursivelyDisconnectTillJunctionOrStatic(this.skeleton!, this.skeleton!.nodes[roadCollapsedOnto.segment[i]!]!);
+        }
+
         this.frontageMap.delete(roadCollapsedOnto.segment[edgeOntoIndices[0]]!, roadCollapsedOnto.segment[edgeOntoIndices[1]]!);
 
         roadCollapsedOnto.segment.splice(spliceIndex, spliceLength, insertedNode.i);
@@ -403,7 +431,7 @@ export class ParcelGenerator {
 
     }
 
-    private correctStraightSkeleton() {
+    private correctStraightSkeletonAtNode() {
 
     }
 }
