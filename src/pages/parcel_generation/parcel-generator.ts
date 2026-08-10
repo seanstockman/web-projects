@@ -37,6 +37,7 @@ export class ParcelGenerator {
     /** Maps edges (in ccw order) to roads. */
     public frontageMap: PairedNumberMap = new PairedNumberMap(false);
     // private skeleton: Skeleton | undefined = undefined;
+    private lastTouchedNodes: SkeletonGraphNode[] = [];
 
     constructor(polygon: Vec2[], roads: Road[] = []) {
         this.polygon = g2d.windPolygonCCW(polygon);
@@ -225,13 +226,7 @@ export class ParcelGenerator {
             }
         });
 
-        // clean up loose middle bits
-        strip.nodes.forEach((n, i) => {
-            if (i < this.polygon.length || n.connections.length !== 1) return;
-            // console.log(`loose vertex found: V${i}`);
-
-            this.recursivelyDisconnectTillJunctionOrStatic(strip, n);
-        });
+        this.cleanLooseEnds(strip);
     }
 
     public mergeIntoBetaStrip(showDebug = false) {
@@ -280,14 +275,7 @@ export class ParcelGenerator {
 
             n.active = false;
 
-            if (junction) {
-                while (insideNeighbour.connections.length == 1) {
-                    if (insideNeighbour.static) { console.log(`neighbour ${insideNeighbour.i} static`); break; }
-                    const nextInLink = insideNeighbour.connections[0]!;
-                    this.disconnect(s, nextInLink, insideNeighbour);
-                    insideNeighbour = nextInLink;
-                }
-            }
+            if (junction) insideNeighbour = this.recursivelyDisconnectTillJunctionOrStatic(s, insideNeighbour);
 
             insideNeighbour.static = true;
 
@@ -332,11 +320,14 @@ export class ParcelGenerator {
 
                 s.nodes.push({ v: intersectionL.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                 s.nodes.push({ v: intersectionR.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
-                this.connect(s, s.nodes[s.nodes.length - 2]!, interiorNode);
-                this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
 
-                this.resolveStripCollapse(L.n, s.nodes[s.nodes.length - 2]!, intersectionL.edge, L.roadToCollapseTo, showDebug);
-                this.resolveStripCollapse(R.n, s.nodes[s.nodes.length - 1]!, intersectionR.edge, R.roadToCollapseTo, showDebug);
+                const [newNodeL, newNodeR] = [s.nodes[s.nodes.length - 2]!, s.nodes[s.nodes.length - 1]!];
+
+                this.connect(s, newNodeL, interiorNode);
+                this.connect(s, newNodeR, interiorNode);
+
+                this.resolveStripCollapse(L.n, newNodeL, intersectionL.edge.map(ei => L.roadToCollapseTo.segment[ei]!) as [number, number], L.roadToCollapseTo, showDebug);
+                this.resolveStripCollapse(R.n, newNodeR, intersectionR.edge.map(ei => R.roadToCollapseTo.segment[ei]!) as [number, number], R.roadToCollapseTo, showDebug);
                 return;
             }
 
@@ -346,7 +337,11 @@ export class ParcelGenerator {
 
                 s.nodes.push({ v: closestPointOnRoad.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                 this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
-                collapsesToResolve.push({ corner: conn.n, inserted: s.nodes[s.nodes.length - 1]!, e: closestPointOnRoad.edge, r: conn.roadToCollapseTo });
+                collapsesToResolve.push({
+                    corner: conn.n, inserted: s.nodes[s.nodes.length - 1]!,
+                    e: closestPointOnRoad.edge.map(ei => conn.roadToCollapseTo.segment[ei]!) as [number, number],
+                    r: conn.roadToCollapseTo
+                });
             });
         });
 
@@ -354,8 +349,10 @@ export class ParcelGenerator {
             this.resolveStripCollapse(c.corner, c.inserted, c.e, c.r, showDebug);
         });
 
-        console.log(this.roads);
-        console.log(this.frontageMap);
+        this.correctStraightSkeletons();
+
+        // console.log(this.roads);
+        // console.log(this.frontageMap);
     }
 
     private connect(s: SkeletonGraph, A: SkeletonGraphNode, B: SkeletonGraphNode) {
@@ -374,17 +371,22 @@ export class ParcelGenerator {
         s.edges = s.edges.filter(e => e[0] != key[0] || e[1] != key[1]);
     }
 
+    /**
+     *  
+     * @returns The last explored node.
+     */
     private recursivelyDisconnectTillJunctionOrStatic(s: SkeletonGraph, curr: SkeletonGraphNode) {
         while (curr.connections.length == 1 && !curr.static) {
             const next = curr.connections[0]!;
             this.disconnect(s, next, curr);
             curr = next;
         }
+        return curr;
     }
 
     /**
      * Corrects `roadCollapsedOnto` to remove points no longer part of its associated strip. Also removes edges from the frontage map.
-     * @param edgeOntoIndices Indexes into `roadCollapsedOnto.segment` that show which external nodes the newPoint falls between.
+     * @param edgeOntoIndices Indices of nodes which the newPoint falls between.
      */
     private resolveStripCollapse(
         cornerNode: SkeletonGraphNode,
@@ -392,46 +394,107 @@ export class ParcelGenerator {
         edgeOntoIndices: [number, number],
         roadCollapsedOnto: Road,
         showDebug = false) {
-        // const edgeOnto = edgeOntoIndices.map(i => roadCollapsedOnto.segment[i]!)
 
+        // const edgeOnto = edgeOntoIndices.map(i => roadCollapsedOnto.segment[i]!)
         const roadIndex = this.roads.findIndex(r => roadCollapsedOnto == r);
+        const collapsedLeft = roadCollapsedOnto.segment[roadCollapsedOnto.segment.length - 1] == cornerNode.i;
 
         if (showDebug) console.log(`collapsing onto road ${roadCollapsedOnto.segment.toString()}`);
+        const crSeg = roadCollapsedOnto.segment;
+
         /** Whether the collapse moved the edge leftwards (i.e. is the cornerPoint at the end of the road segment.) */
-        const collapsedLeft = roadCollapsedOnto.segment[roadCollapsedOnto.segment.length - 1]! == cornerNode.i;
         let spliceIndex = 0;
         let spliceLength = 0;
         if (collapsedLeft) {
-            spliceIndex = edgeOntoIndices[1];
-            spliceLength = roadCollapsedOnto.segment.length - spliceIndex;
-            this.frontageMap.set(roadCollapsedOnto.segment[edgeOntoIndices[0]]!, insertedNode.i, roadIndex);
+            spliceIndex = crSeg.findIndex(i => i == edgeOntoIndices[1]);
+            spliceLength = crSeg.length - spliceIndex;
+            this.frontageMap.set(edgeOntoIndices[0], insertedNode.i, roadIndex);
         } else {
             spliceIndex = 0;
-            spliceLength = edgeOntoIndices[0] + 1;
-            this.frontageMap.set(insertedNode.i, roadCollapsedOnto.segment[edgeOntoIndices[1]]!, roadIndex);
+            spliceLength = crSeg.findIndex(i => i == edgeOntoIndices[0]) + 1;
+            this.frontageMap.set(insertedNode.i, edgeOntoIndices[1], roadIndex);
         }
 
         for (let i = spliceIndex; i < spliceIndex + spliceLength - 1; i++) {
-            this.frontageMap.delete(roadCollapsedOnto.segment[i]!, roadCollapsedOnto.segment[i + 1]!);
+            this.frontageMap.delete(crSeg[i]!, crSeg[i + 1]!);
         }
 
         for (let i = spliceIndex; i < spliceIndex + spliceLength; i++) {
-            console.log({ msg: `disconnecting node V${roadCollapsedOnto.segment[i]!}`, node: this.skeleton!.nodes[i]! });
-            this.recursivelyDisconnectTillJunctionOrStatic(this.skeleton!, this.skeleton!.nodes[roadCollapsedOnto.segment[i]!]!);
+            const lastTouched = this.recursivelyDisconnectTillJunctionOrStatic(this.skeleton!, this.skeleton!.nodes[crSeg[i]!]!);
+            lastTouched.static = true;
+            this.lastTouchedNodes.push(lastTouched);
+            if (showDebug) console.log(`disconnecting node V${crSeg[i]!}, lt: ${lastTouched.i}`);
         }
 
-        this.frontageMap.delete(roadCollapsedOnto.segment[edgeOntoIndices[0]]!, roadCollapsedOnto.segment[edgeOntoIndices[1]]!);
+        this.frontageMap.delete(edgeOntoIndices[0], edgeOntoIndices[1]);
 
-        roadCollapsedOnto.segment.splice(spliceIndex, spliceLength, insertedNode.i);
+        crSeg.splice(spliceIndex, spliceLength, insertedNode.i);
 
-        if (showDebug) console.log(`updated road collapsed to ${roadCollapsedOnto.segment.toString()}`);
+        if (showDebug) console.log(`updated road collapsed to ${crSeg.toString()}`);
+    }
+
+    private correctStraightSkeletons(showDebug: boolean = false) {
+        const sk = this.skeleton!;
+        const strip = this.strip!;
+        const strSkelsToRecompute:number[] = [];
+
+        // de static all the nodes
+        sk.nodes.forEach(n => { n.static = false; });
+
+        // static only nodes on the strip
+        strip.edges.forEach(e => {
+            e.forEach(i => {
+                if (i >= sk.nodes.length) return;
+                sk.nodes[i]!.static = true;
+            });
+        });
+
+        // this.lastTouchedNodes = this.lastTouchedNodes.filter(n => !n.static && n.connections.length > 0);
+        this.lastTouchedNodes = g2d.removeDupes(this.lastTouchedNodes.map(n => n.i)).map(i => sk.nodes[i]!);
+        this.lastTouchedNodes.forEach(n => {
+            strSkelsToRecompute.push(...this.findSkeletonsToRecompute(sk, n));
+        });
+
+        console.log(strSkelsToRecompute.toString());
+        // explore up and down till we hit a static node, removing connections along the way.
+
+        // console.log(this.lastTouchedNodes.map(n => n.i).toString());
+        console.log(this.skeleton);
+
+        // const strip = this.strip, sk = this.skeleton;
+        // if (!strip || !sk) return;
+        // const staticNodeIndexes = strip.nodes.filter(n => n.static).map(n => n.i);
+        // const nodesToCorrectStraightSkeletonOf = [];
+
+        // staticNodeIndexes.forEach(sn_i => {
+        //     const staticNode = sk.nodes[sn_i]!;
+        //     // go downwards
+        //     const downHillNeighbours = staticNode.connections.filter(c => c.elevation < staticNode.elevation);
+        //     console.log(`downhill neighbours of ${sn_i}: ${downHillNeighbours.map(n => n.i).toString()}`);
+        // });
     }
 
     private generateSubBlocksFromStrip() {
 
     }
 
-    private correctStraightSkeletonAtNode() {
 
+    private findSkeletonsToRecompute(s: SkeletonGraph, n: SkeletonGraphNode): number[] {
+        if (n.static) return [];
+        if (n.i < this.polygon.length) return [n.i];
+        let skels: number[] = [];
+        n.connections.forEach(c => {
+            this.disconnect(s, n, c);
+            skels.push(...this.findSkeletonsToRecompute(s, c));
+        });
+        return skels;
+    }
+
+    /** Cleans up loose middle bits. */
+    private cleanLooseEnds(s: SkeletonGraph) {
+        s.nodes.forEach((n, i) => {
+            if (i < this.polygon.length || n.connections.length != 1) return;
+            this.recursivelyDisconnectTillJunctionOrStatic(s, n);
+        });
     }
 }

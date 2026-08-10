@@ -86,7 +86,7 @@ export default function ParcelGeneration() {
         {
             label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
-                pg.mergeIntoBetaStrip();
+                pg.mergeIntoBetaStrip(true);
                 canvasCtx.clearCanvasOverlays();
                 drawSkeleton(pg.strip!);
             }
@@ -111,8 +111,8 @@ export default function ParcelGeneration() {
                 pg.mergeIntoAlphaStrip();
                 pg.mergeIntoBetaStrip();
                 canvasCtx.clearCanvasOverlays();
-                drawSkeleton(s, 'grey');
                 drawSkeleton(pg.strip!);
+                drawSkeleton(s, 'grey');
                 console.log(pg.strip);
             }
         },
