@@ -1,5 +1,6 @@
 import { geometry2d as g2d, type Vec2 } from "../../lib/geometry/geometry2d.ts";
 import { SkeletonBuilder, type Skeleton } from 'straight-skeleton';
+import { PairedNumberMap } from "../../lib/geometry/pairedNumberMap.ts";
 // import type { MedialAxis } from "./approximate_medial_axis.ts";
 type Road = {
     segment: number[],
@@ -33,7 +34,8 @@ export class ParcelGenerator {
     public roads: Road[];
     public skeleton: SkeletonGraph | undefined;
     public strip: SkeletonGraph | undefined;
-    public frontageMap: Map<string, number> | undefined;
+    /** Maps edges (in ccw order) to roads. */
+    public frontageMap: PairedNumberMap = new PairedNumberMap(false);
     // private skeleton: Skeleton | undefined = undefined;
 
     constructor(polygon: Vec2[], roads: Road[] = []) {
@@ -146,8 +148,6 @@ export class ParcelGenerator {
 
         // TODO: need a more robust way to define roads.
 
-        /** Maps edges (in ccw order) to roads. */
-        this.frontageMap = new Map<string, number>();
         /** A list of  */
         const peripheralRoads: Road[] = [];
 
@@ -160,7 +160,7 @@ export class ParcelGenerator {
             const next = { v: this.polygon[(i + 1) % this.polygon.length]! }
             cumulativeLength += g2d.dist(prev.v, curr.v);
             roadSegment.push(curr.i);
-            this.frontageMap!.set(`${prev.i},${curr.i}`, peripheralRoads.length);
+            this.frontageMap!.set(prev.i, curr.i, peripheralRoads.length);
             const angle = g2d.getAngleDifferenceBetweenABandBC(prev.v, curr.v, next.v);
             if ((angle >= angleThreshold && cumulativeLength >= minLength) || cumulativeLength >= maxLength) {
                 peripheralRoads.push({ segment: roadSegment, attraction: cumulativeLength });
@@ -182,7 +182,7 @@ export class ParcelGenerator {
                 peripheralRoads[0]!.segment.splice(0, 0, ...roadSegment);
                 peripheralRoads[0]!.attraction += cumulativeLength;
                 for (let i = 0; i < roadSegment.length - 1; i++) {
-                    this.frontageMap.set(`${roadSegment[i]},${roadSegment[i + 1]}`, 0);
+                    this.frontageMap.set(roadSegment[i]!, roadSegment[i + 1]!, 0);
                 }
             }
         }
@@ -213,7 +213,7 @@ export class ParcelGenerator {
             if (i < this.polygon.length || n.connections.length !== 1) return;
             // console.log(`loose vertex found: V${i}`);
 
-            this.recursivelyDisconnectTillJunctionOrStatic(strip,n);
+            this.recursivelyDisconnectTillJunctionOrStatic(strip, n);
         });
     }
 
@@ -273,8 +273,8 @@ export class ParcelGenerator {
 
             insideNeighbour.static = true;
 
-            const prevRoad = this.roads[this.frontageMap!.get(`${prev},${i}`)!]!;
-            const nextRoad = this.roads[this.frontageMap!.get(`${i},${next}`)!]!;
+            const prevRoad = this.roads[this.frontageMap!.get(prev, i)!]!;
+            const nextRoad = this.roads[this.frontageMap!.get(i, next)!]!;
 
             const chosenRoad = nextRoad.attraction > prevRoad.attraction ? nextRoad : prevRoad;
             const roadToFace = nextRoad.attraction <= prevRoad.attraction ? nextRoad : prevRoad;
@@ -332,6 +332,7 @@ export class ParcelGenerator {
         });
 
         console.log(this.roads);
+        console.log(this.frontageMap);
     }
 
     private connect(s: SkeletonGraph, A: SkeletonGraphNode, B: SkeletonGraphNode) {
@@ -363,27 +364,37 @@ export class ParcelGenerator {
      * @param edgeOntoIndices Indexes into `roadCollapsedOnto.segment` that show which external nodes the newPoint falls between.
      */
     private resolveStripCollapse(
-        cornerPoint: SkeletonGraphNode,
-        newPoint: SkeletonGraphNode,
+        cornerNode: SkeletonGraphNode,
+        insertedNode: SkeletonGraphNode,
         edgeOntoIndices: [number, number],
         roadCollapsedOnto: Road,
         showDebug = false) {
         // const edgeOnto = edgeOntoIndices.map(i => roadCollapsedOnto.segment[i]!)
 
+        const roadIndex = this.roads.findIndex(r => roadCollapsedOnto == r);
+
         if (showDebug) console.log(`collapsing onto road ${roadCollapsedOnto.segment.toString()}`);
         /** Whether the collapse moved the edge leftwards (i.e. is the cornerPoint at the end of the road segment.) */
-        const collapsedLeft = roadCollapsedOnto.segment[roadCollapsedOnto.segment.length - 1]! == cornerPoint.i;
+        const collapsedLeft = roadCollapsedOnto.segment[roadCollapsedOnto.segment.length - 1]! == cornerNode.i;
         let spliceIndex = 0;
         let spliceLength = 0;
         if (collapsedLeft) {
             spliceIndex = edgeOntoIndices[1];
             spliceLength = roadCollapsedOnto.segment.length - spliceIndex;
+            this.frontageMap.set(roadCollapsedOnto.segment[edgeOntoIndices[0]]!, insertedNode.i, roadIndex);
         } else {
             spliceIndex = 0;
             spliceLength = edgeOntoIndices[0] + 1;
+            this.frontageMap.set(insertedNode.i, roadCollapsedOnto.segment[edgeOntoIndices[1]]!, roadIndex);
         }
 
-        roadCollapsedOnto.segment.splice(spliceIndex, spliceLength, newPoint.i);
+        for (let i = spliceIndex; i < spliceIndex + spliceLength - 1; i++) {
+            this.frontageMap.delete(roadCollapsedOnto.segment[i]!, roadCollapsedOnto.segment[i + 1]!);
+        }
+
+        this.frontageMap.delete(roadCollapsedOnto.segment[edgeOntoIndices[0]]!, roadCollapsedOnto.segment[edgeOntoIndices[1]]!);
+
+        roadCollapsedOnto.segment.splice(spliceIndex, spliceLength, insertedNode.i);
 
         if (showDebug) console.log(`updated road collapsed to ${roadCollapsedOnto.segment.toString()}`);
     }
