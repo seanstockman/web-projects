@@ -10,7 +10,7 @@ type SkeletonGraphNode = {
     v: Vec2,
     i: number,
     active: boolean,
-    connections: number[],
+    connections: SkeletonGraphNode[],
     elevation: number,
     static: boolean,
 }
@@ -101,8 +101,8 @@ export class ParcelGenerator {
                 if (!edgeSet.has(edgeKey)) {
                     edgeSet.add(edgeKey);
                     edges.push([lo, hi]);
-                    nodes[lo]!.connections.push(hi);
-                    nodes[hi]!.connections.push(lo);
+                    nodes[lo]!.connections.push(nodes[hi]!);
+                    nodes[hi]!.connections.push(nodes[lo]!);
                 }
             }
         }
@@ -120,8 +120,8 @@ export class ParcelGenerator {
             const edgeIndex = edges.findIndex(e => e[0] == edgeValue[0] && e[1] == edgeValue[1]);
             if (edgeIndex != -1) {
                 edges.splice(edgeIndex, 1);
-                nodes[edgeValue[0]]!.connections = nodes[edgeValue[0]]!.connections.filter(c => c != edgeValue[1]);
-                nodes[edgeValue[1]]!.connections = nodes[edgeValue[1]]!.connections.filter(c => c != edgeValue[0]);
+                nodes[edgeValue[0]]!.connections = nodes[edgeValue[0]]!.connections.filter(c => c != nodes[edgeValue[1]]!);
+                nodes[edgeValue[1]]!.connections = nodes[edgeValue[1]]!.connections.filter(c => c != nodes[edgeValue[0]]!);
             }
         });
 
@@ -203,7 +203,7 @@ export class ParcelGenerator {
                 const removedNode = strip.nodes[remove_i]!;
                 removedNode.active = false;
                 removedNode.connections.forEach(c => {
-                    this.disconnect(strip, c, remove_i);
+                    this.disconnect(strip, c, removedNode);
                 });
             }
         });
@@ -212,15 +212,8 @@ export class ParcelGenerator {
         strip.nodes.forEach((n, i) => {
             if (i < this.polygon.length || n.connections.length !== 1) return;
             // console.log(`loose vertex found: V${i}`);
-            let curr = i;
-            let currNode = n;
-            while (currNode.connections.length == 1) {
-                let next = currNode.connections[0]!;
-                const nextNode = strip.nodes[next]!
-                this.disconnect(strip, curr, next);
-                curr = next;
-                currNode = nextNode;
-            }
+
+            this.recursivelyDisconnectTillJunctionOrStatic(strip,n);
         });
     }
 
@@ -233,7 +226,7 @@ export class ParcelGenerator {
         const junction = s.nodes.find(node => node.connections.length > 2);
 
         /** Maps from inside vertex index to exterior nodes to fix. */
-        const betaFixMap = new Map<number, { n: number, roadToCollapseTo: Road, roadToFace: Road }[]>();
+        const betaFixMap = new Map<SkeletonGraphNode, { n: SkeletonGraphNode, roadToCollapseTo: Road, roadToFace: Road }[]>();
 
         /**
          * TODO:
@@ -257,8 +250,7 @@ export class ParcelGenerator {
 
             // - a) find the connecting node
 
-            let insideNeighbourIndex = n.connections[0]!;
-            let insideNeighbour = s.nodes[insideNeighbourIndex]!;
+            let insideNeighbour = n.connections[0]!;
 
             if (g2d.getAngleABC(prevExternalNode, n.v, nextExternalNode) > Math.PI) {
                 // if obtuse, remove connection
@@ -267,17 +259,15 @@ export class ParcelGenerator {
                 return;
             }
 
-            this.disconnect(s, insideNeighbourIndex, i);
+            this.disconnect(s, insideNeighbour, n);
             n.active = false;
 
             if (junction) {
                 while (insideNeighbour.connections.length == 1) {
                     if (insideNeighbour.static) break;
                     const nextInLink = insideNeighbour.connections[0]!;
-                    const nextNodeInLink = s.nodes[nextInLink]!;
-                    this.disconnect(s, nextInLink, insideNeighbourIndex);
-                    insideNeighbour = nextNodeInLink;
-                    insideNeighbourIndex = nextInLink;
+                    this.disconnect(s, nextInLink, insideNeighbour);
+                    insideNeighbour = nextInLink;
                 }
             }
 
@@ -289,88 +279,81 @@ export class ParcelGenerator {
             const chosenRoad = nextRoad.attraction > prevRoad.attraction ? nextRoad : prevRoad;
             const roadToFace = nextRoad.attraction <= prevRoad.attraction ? nextRoad : prevRoad;
 
-            betaFixMap.getOrInsert(insideNeighbourIndex, []).push({ n: i, roadToCollapseTo: chosenRoad, roadToFace: roadToFace });
+            betaFixMap.getOrInsert(insideNeighbour, []).push({ n: n, roadToCollapseTo: chosenRoad, roadToFace: roadToFace });
         });
 
-        betaFixMap.forEach((conns, interiorIndex) => {
+        betaFixMap.forEach((conns, interiorNode) => {
             if (conns.length == 2 && (conns[0]!.roadToFace == conns[1]!.roadToFace || conns[0]!.roadToCollapseTo == conns[1]!.roadToCollapseTo)) {
                 // add to the midpoint intersection instead
                 const A = conns[0]!;
                 const B = conns[1]!;
-                const O = s.nodes[interiorIndex]!;
-                const midpointAB = g2d.midpoint(s.nodes[A.n]!.v, s.nodes[B.n]!.v);
+                const O = interiorNode;
+                const midpointAB = g2d.midpoint(A.n.v, B.n.v);
                 const dir = g2d.normalise(g2d.sub(midpointAB, O.v));
 
                 if (conns[0]!.roadToCollapseTo == conns[1]!.roadToCollapseTo) {
                     // junction - case where both are collapsing onto the same road
                     const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToCollapseTo.segment.map(i => s.nodes[i]!.v))!;
-                    s.nodes.push({ v: intersection.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false, i: s.nodes.length });
-                    this.connect(s, s.nodes.length - 1, interiorIndex);
+                    s.nodes.push({ v: intersection.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
+                    this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
                     return;
                 }
 
                 // junction - case where both are changing to face the same road
                 const perpRHS = g2d.perpRHS(dir);
-                const OA = g2d.sub(s.nodes[A.n]!.v, O.v);
+                const OA = g2d.sub(A.n.v, O.v);
                 const [L, R] = g2d.dot(OA, perpRHS) > 0 ? [B, A] : [A, B];
 
-                const dirLR = g2d.normalise(g2d.sub(s.nodes[R.n]!.v, s.nodes[L.n]!.v));
+                const dirLR = g2d.normalise(g2d.sub(R.n.v, L.n.v));
 
                 const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.roadToCollapseTo.segment.map(i => s.nodes[i]!.v))!;
                 const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.roadToCollapseTo.segment.map(i => s.nodes[i]!.v));
-                if (!intersectionL) { if (showDebug) console.error({ message: `could not get intersection L, from V${interiorIndex} in direction ${R.n}->${L.n}`, road: L.roadToCollapseTo.segment }); return; }
-                if (!intersectionR) { if (showDebug) console.error({ message: `could not get intersection R, from V${interiorIndex} in direction ${L.n}->${R.n}`, road: R.roadToCollapseTo.segment }); return; }
+                if (!intersectionL) { if (showDebug) console.error({ message: `could not get intersection L, from V${interiorNode} in direction ${R.n}->${L.n}`, road: L.roadToCollapseTo.segment }); return; }
+                if (!intersectionR) { if (showDebug) console.error({ message: `could not get intersection R, from V${interiorNode} in direction ${L.n}->${R.n}`, road: R.roadToCollapseTo.segment }); return; }
 
-                s.nodes.push({ v: intersectionL.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false, i: s.nodes.length });
-                s.nodes.push({ v: intersectionR.intersection.point, active: true, connections: [interiorIndex], elevation: 0, static: false, i: s.nodes.length });
-                this.connect(s, s.nodes.length - 2, interiorIndex);
-                this.connect(s, s.nodes.length - 1, interiorIndex);
+                s.nodes.push({ v: intersectionL.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
+                s.nodes.push({ v: intersectionR.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
+                this.connect(s, s.nodes[s.nodes.length - 2]!, interiorNode);
+                this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
 
-                this.resolveStripCollapse(s.nodes[L.n]!, s.nodes[s.nodes.length - 2]!, intersectionL.edge, L.roadToCollapseTo, showDebug);
-                this.resolveStripCollapse(s.nodes[R.n]!, s.nodes[s.nodes.length - 1]!, intersectionR.edge, R.roadToCollapseTo, showDebug);
+                this.resolveStripCollapse(L.n, s.nodes[s.nodes.length - 2]!, intersectionL.edge, L.roadToCollapseTo, showDebug);
+                this.resolveStripCollapse(R.n, s.nodes[s.nodes.length - 1]!, intersectionR.edge, R.roadToCollapseTo, showDebug);
                 return;
             }
 
-            const insideNeighbour = s.nodes[interiorIndex]!
             conns.forEach(conn => {
-                const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.roadToCollapseTo.segment.map(i => this.polygon[i]!));
+                const closestPointOnRoad = g2d.getClosestPointToPOnLine(interiorNode.v, conn.roadToCollapseTo.segment.map(i => this.polygon[i]!));
 
-                s.nodes.push({ v: closestPointOnRoad.point, active: true, connections: [interiorIndex], elevation: 0, static: false, i: s.nodes.length });
-                this.connect(s, s.nodes.length - 1, interiorIndex);
+                s.nodes.push({ v: closestPointOnRoad.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
+                this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
 
-                this.resolveStripCollapse(s.nodes[conn.n]!, s.nodes[s.nodes.length - 1]!, closestPointOnRoad.edge, conn.roadToCollapseTo, showDebug);
+                this.resolveStripCollapse(conn.n, s.nodes[s.nodes.length - 1]!, closestPointOnRoad.edge, conn.roadToCollapseTo, showDebug);
             });
         });
 
         console.log(this.roads);
     }
 
-    private connect(s: SkeletonGraph, A: number, B: number) {
-        const nodeA = s.nodes[A], nodeB = s.nodes[B];
-        if (!nodeA || !nodeB) { console.error(`node ${A} or ${B} does not exist`); return; }
+    private connect(s: SkeletonGraph, A: SkeletonGraphNode, B: SkeletonGraphNode) {
+        if (!A.connections.includes(B)) A.connections.push(B);
+        if (!B.connections.includes(A)) B.connections.push(A);
 
-        if (!nodeA.connections.includes(B)) nodeA.connections.push(B);
-        if (!nodeB.connections.includes(A)) nodeB.connections.push(A);
-
-        s.edges.push([A, B].sort((a, b) => a - b) as [number, number]);
+        s.edges.push([A.i, B.i].sort((a, b) => a - b) as [number, number]);
     }
 
-    private disconnect(s: SkeletonGraph, A: number, B: number) {
-        const nodeA = s.nodes[A], nodeB = s.nodes[B];
-        if (!nodeA || !nodeB) { console.error(`node ${A} or ${B} does not exist`); return; }
+    private disconnect(s: SkeletonGraph, A: SkeletonGraphNode, B: SkeletonGraphNode) {
+        A.connections = A.connections.filter(conn => conn != B);
+        B.connections = B.connections.filter(conn => conn != A);
 
-        nodeA.connections = nodeA.connections.filter(conn => conn != B);
-        nodeB.connections = nodeB.connections.filter(conn => conn != A);
-
-        const key = [A, B].sort((a, b) => a - b) as [number, number];
+        const key = [A.i, B.i].sort((a, b) => a - b) as [number, number];
 
         s.edges = s.edges.filter(e => e[0] != key[0] || e[1] != key[1]);
     }
 
-    private recursivelyDisconnectTillJunctionOrStatic(s: SkeletonGraph, curr: { n: SkeletonGraphNode, i: number }) {
-        while (curr.n.connections.length == 1 && !curr.n.static) {
-            const next = { i: curr.n.connections[0]!, n: s.nodes[curr.n.connections[0]!]! };
-            this.disconnect(s, next.i, curr.i);
+    private recursivelyDisconnectTillJunctionOrStatic(s: SkeletonGraph, curr: SkeletonGraphNode) {
+        while (curr.connections.length == 1 && !curr.static) {
+            const next = curr.connections[0]!;
+            this.disconnect(s, next, curr);
             curr = next;
         }
     }
@@ -405,7 +388,11 @@ export class ParcelGenerator {
         if (showDebug) console.log(`updated road collapsed to ${roadCollapsedOnto.segment.toString()}`);
     }
 
+    private generateSubBlocksFromStrip() {
+
+    }
+
     private correctStraightSkeleton() {
-        
+
     }
 }
