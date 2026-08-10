@@ -16,7 +16,7 @@ import HdrAutoOutlinedIcon from '@mui/icons-material/HdrAutoOutlined';
 import FormatBoldOutlinedIcon from '@mui/icons-material/FormatBoldOutlined';
 
 
-import { ParcelGenerator } from './parcel-generator.ts';
+import { ParcelGenerator, type SkeletonGraph } from './parcel-generator.ts';
 
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 // import { lineStartMode } from '../components/drawingCanvas/draw_modes/lineTool.ts';
@@ -58,7 +58,7 @@ export default function ParcelGeneration() {
                 pg = new ParcelGenerator(canvasCtx.points, []);
                 const s = pg.generateStraightSkeleton();
                 if (!s) return;
-                drawSkeleton(pg);
+                drawSkeleton(s);
 
                 console.log(canvasCtx.points);
 
@@ -76,21 +76,19 @@ export default function ParcelGeneration() {
             label: "Merge into alpha strip", icon: <HdrAutoOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 pg.mergeIntoAlphaStrip();
-                drawSkeleton(pg);
+                drawSkeleton(pg.strip!);
             }
         },
         {
             label: "Merge into beta strip", icon: <FormatBoldOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
                 pg.mergeIntoBetaStrip();
-                drawSkeleton(pg);
+                drawSkeleton(pg.strip!);
             }
         },
     ];
 
-    function drawSkeleton(pg: ParcelGenerator) {
-        const s = pg.skeleton;
-        if (!s) return;
+    function drawSkeleton(s: SkeletonGraph) {
         canvasCtx.clearCanvasOverlays();
         const overlay: CustomDrawBundle = { lines: [], texts: [] };
 
@@ -123,8 +121,8 @@ export default function ParcelGeneration() {
                 pg.generateLogicalRoads();
                 pg.mergeIntoAlphaStrip();
                 pg.mergeIntoBetaStrip();
-                drawSkeleton(pg);
-                console.log(pg.skeleton);
+                drawSkeleton(pg.strip!);
+                console.log(pg.strip);
             }
         },
     ];

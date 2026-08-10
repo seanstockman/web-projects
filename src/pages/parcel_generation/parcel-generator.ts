@@ -6,7 +6,7 @@ type Road = {
     attraction: number,
 }
 
-type SkeletonGraph = {
+export type SkeletonGraph = {
     /** Vertices in the graph. First n vertices correspond to the n external polygon vertices. */
     nodes: { v: Vec2, active: boolean, connections: number[] }[],
     /** Unique connections between edges */
@@ -17,6 +17,7 @@ export class ParcelGenerator {
     public polygon: Vec2[];
     public roads: Road[];
     public skeleton: SkeletonGraph | undefined;
+    public strip: SkeletonGraph | undefined;
     public frontageMap: Map<string, number> | undefined;
     // private skeleton: Skeleton | undefined = undefined;
 
@@ -170,46 +171,47 @@ export class ParcelGenerator {
 
     public mergeIntoAlphaStrip() {
         if (!this.skeleton) return;
-        const s = this.skeleton!;
+        this.strip = { nodes: [...this.skeleton!.nodes], edges: [...this.skeleton!.edges] };
+        const strip = this.strip;
         this.roads.forEach(r => {
             // delete the straight skeleton values for each thing. so we need to turn the s polygon into strips.
             for (let i = 1; i < r.segment.length - 1; i++) {
                 const remove_i = r.segment[i]!;
                 // filter edges with vertex remove_i}
-                const removedNode = s.nodes[remove_i]!;
+                const removedNode = strip.nodes[remove_i]!;
                 removedNode.active = false;
                 removedNode.connections.forEach(c => {
-                    this.disconnect(s, c, remove_i);
+                    this.disconnect(strip, c, remove_i);
                 });
             }
         });
 
         // clean up loose middle bits
-        this.skeleton.nodes.forEach((n, i) => {
+        strip.nodes.forEach((n, i) => {
             if (i < this.polygon.length || n.connections.length !== 1) return;
             // console.log(`loose vertex found: V${i}`);
             let curr = i;
             let currNode = n;
             while (currNode.connections.length == 1) {
                 let next = currNode.connections[0]!;
-                const nextNode = this.skeleton!.nodes[next]!
-                this.disconnect(this.skeleton!, curr, next);
+                const nextNode = strip.nodes[next]!
+                this.disconnect(strip, curr, next);
                 curr = next;
                 currNode = nextNode;
             }
         });
     }
 
-    public mergeIntoBetaStrip() {
+    public mergeIntoBetaStrip(showDebug = false) {
         // for all e: exterior edges:\
-        if (!this.skeleton) return;
-        const s = this.skeleton;
+        if (!this.strip) return;
+        const s = this.strip;
 
         // verify junction exists
         const junction = s.nodes.find(node => node.connections.length > 2);
 
         /** Maps from inside vertex index to exterior nodes to fix. */
-        const betaFixMap = new Map<number, { n: number, road: Road }[]>();
+        const betaFixMap = new Map<number, { n: number, roadToMovePointTo: Road, roadToFace: Road }[]>();
 
         /**
          * TODO:
@@ -261,12 +263,13 @@ export class ParcelGenerator {
             const nextRoad = this.roads[this.frontageMap!.get(`${i},${next}`)!]!;
 
             const chosenRoad = nextRoad.attraction > prevRoad.attraction ? nextRoad : prevRoad;
+            const roadToFace = nextRoad.attraction <= prevRoad.attraction ? nextRoad : prevRoad;
 
-            betaFixMap.getOrInsert(insideNeighbourIndex, []).push({ n: i, road: chosenRoad });
+            betaFixMap.getOrInsert(insideNeighbourIndex, []).push({ n: i, roadToMovePointTo: chosenRoad, roadToFace: roadToFace });
         });
 
         betaFixMap.forEach((conns, interiorIndex) => {
-            if (conns.length == 2) {
+            if (conns.length == 2 && (conns[0]!.roadToFace == conns[1]!.roadToFace || conns[0]!.roadToMovePointTo == conns[1]!.roadToMovePointTo)) {
                 // add to the midpoint intersection instead
                 const A = conns[0]!;
                 const B = conns[1]!;
@@ -274,8 +277,8 @@ export class ParcelGenerator {
                 const midpointAB = g2d.midpoint(s.nodes[A.n]!.v, s.nodes[B.n]!.v);
                 const dir = g2d.normalise(g2d.sub(midpointAB, O.v));
 
-                if (conns[0]!.road == conns[1]!.road) {
-                    const intersection = g2d.getRayLineIntersection(O.v, dir, A.road.segment.map(i => s.nodes[i]!.v))!;
+                if (conns[0]!.roadToMovePointTo == conns[1]!.roadToMovePointTo) {
+                    const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToMovePointTo.segment.map(i => s.nodes[i]!.v))!;
                     s.nodes.push({ v: intersection.point, active: true, connections: [interiorIndex] });
                     this.connect(s, s.nodes.length - 1, interiorIndex);
                 } else {
@@ -285,8 +288,11 @@ export class ParcelGenerator {
 
                     const dirLR = g2d.normalise(g2d.sub(s.nodes[R.n]!.v, s.nodes[L.n]!.v));
 
-                    const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.road.segment.map(i => s.nodes[i]!.v))!;
-                    const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.road.segment.map(i => s.nodes[i]!.v))!;
+                    const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.roadToMovePointTo.segment.map(i => s.nodes[i]!.v))!;
+                    const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.roadToMovePointTo.segment.map(i => s.nodes[i]!.v));
+                    if (!intersectionL) { console.error({ message: `could not get intersection L, from V${interiorIndex} in direction ${R.n}->${L.n}`, road: L.roadToMovePointTo.segment }); return; }
+                    if (!intersectionR) { console.error({ message: `could not get intersection R, from V${interiorIndex} in direction ${L.n}->${R.n}`, road: R.roadToMovePointTo.segment }); return; }
+
                     s.nodes.push({ v: intersectionL.point, active: true, connections: [interiorIndex] });
                     s.nodes.push({ v: intersectionR.point, active: true, connections: [interiorIndex] });
                     this.connect(s, s.nodes.length - 2, interiorIndex);
@@ -297,7 +303,7 @@ export class ParcelGenerator {
 
             const insideNeighbour = s.nodes[interiorIndex]!
             conns.forEach(conn => {
-                const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.road.segment.map(i => this.polygon[i]!));
+                const closestPointOnRoad = g2d.getClosestPointToPOnLine(insideNeighbour.v, conn.roadToMovePointTo.segment.map(i => this.polygon[i]!));
 
                 s.nodes.push({ v: closestPointOnRoad, active: true, connections: [interiorIndex] });
                 this.connect(s, s.nodes.length - 1, interiorIndex);
