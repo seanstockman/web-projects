@@ -94,9 +94,10 @@ export default function ParcelGeneration() {
         {
             label: "Split strips into parcels", icon: <SplitscreenOutlinedIcon />, action: () => {
                 if (!pg) { console.error(`pg not defined`); return; }
-                // pg.mergeIntoBetaStrip();
-                // canvasCtx.clearCanvasOverlays();
-                // drawSkeleton(pg.strip!);
+                pg.roads.forEach(r => {
+                    pg?.subdivideIntoParcels(r);
+                });
+                drawSkeleton(pg.parcels, `blue`);
             }
         },
     ];
@@ -110,9 +111,13 @@ export default function ParcelGeneration() {
                 pg.generateLogicalRoads();
                 pg.mergeIntoAlphaStrip();
                 pg.mergeIntoBetaStrip();
+                // pg.roads.forEach(r => {
+                //     pg?.subdivideIntoParcels(r);
+                // });
                 canvasCtx.clearCanvasOverlays();
                 drawSkeleton(pg.strip!);
                 drawSkeleton(s, 'grey');
+                drawSkeleton(pg.parcels, `blue`);
                 console.log(pg.strip);
             }
         },

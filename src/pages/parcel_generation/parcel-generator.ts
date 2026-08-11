@@ -31,6 +31,7 @@ export class ParcelGenerator {
     public roads: Road[];
     public skeleton: SkeletonGraph | undefined;
     public strip: SkeletonGraph | undefined;
+    public parcels: SkeletonGraph = { nodes: [], edges: [] };
     /** Maps edges (in ccw order) to roads. */
     public frontageMap: PairedNumberMap = new PairedNumberMap(false);
     // private skeleton: Skeleton | undefined = undefined;
@@ -40,6 +41,8 @@ export class ParcelGenerator {
         this.polygon = g2d.windPolygonCCW(polygon);
         this.roads = roads;
     }
+
+    //#region Straight Skeleton
 
     public generateStraightSkeleton() {
         const s = SkeletonBuilder.BuildFromGeoJSON([[this.polygon.map(p => [p.x, p.y])]]);
@@ -127,6 +130,8 @@ export class ParcelGenerator {
 
         return { nodes: nodes, edges: edges };
     }
+
+    //#region Roads and Alpha Strip
 
     /** 
      * Generates new road segments around a given polygon (block).
@@ -225,6 +230,8 @@ export class ParcelGenerator {
 
         this.cleanLooseEnds(strip);
     }
+
+    //#region Beta Strip
 
     public mergeIntoBetaStrip(showDebug = false) {
         // for all e: exterior edges:\
@@ -519,19 +526,16 @@ export class ParcelGenerator {
 
     private recomputeStraightSkeletonsInRoad(r: Road, nodes: SkeletonGraphNode[]) {
         if (nodes.length == 0) return;
-        console.log(`recomputing the nodes in road ${r.frontage.toString()}`);
-        const interior = r.interiorVertices;
+        const interior = r.interiorVertices!.map(i => this.strip!.nodes[i]!.v);
         if (!interior) { console.error(`road ${r.frontage.toString()} has no interior vertices defined`); return; }
-        const interiorVerts = interior.map(i => this.strip!.nodes[i]!.v);
 
         nodes.forEach(n => {
-            console.log(` - recomputing ${n.i}`);
             const before = this.polygon[(n.i - 1 + this.polygon.length) % this.polygon.length]!;
             const after = this.polygon[(n.i + 1) % this.polygon.length]!;
             const angleBisector = g2d.getAngleABC(before, n.v, after) / 2 + g2d.getAngleAB(n.v, after);
             const dir = { x: Math.cos(angleBisector), y: Math.sin(angleBisector) };
 
-            const int = g2d.getRayLineIntersection(n.v, dir, interiorVerts);
+            const int = g2d.getRayLineIntersection(n.v, dir, interior);
             if (!int) { console.error(`could not recompute straight skeleton for node ${n.i}`); return; }
             this.skeleton?.nodes.push({
                 v: int.intersection.point,
@@ -543,5 +547,56 @@ export class ParcelGenerator {
             });
             this.connect(this.skeleton!, n, this.skeleton?.nodes[this.skeleton.nodes.length - 1]!);
         });
+    }
+
+    //#region Parcel Subdivision
+    public subdivideIntoParcels(r: Road, distancePerSubdivision = 50, minArea = 0, maxArea = Infinity) {
+        const interiorPolyline = r.interiorVertices!.map(i => this.strip!.nodes[i]!.v);
+        const frontagePolyline = r.frontage.map(i => this.strip!.nodes[i]!.v);
+        let totalDistance = 0;
+        for (let i = 0; i < frontagePolyline.length - 1; i++) {
+            totalDistance += g2d.dist(frontagePolyline[i]!, frontagePolyline[i + 1]!);
+        }
+        let cumulativeDistance = distancePerSubdivision;
+        let pointOnRoad = g2d.getPointAlongPolyline(frontagePolyline, cumulativeDistance);
+        let numIterations = 0;
+        while (pointOnRoad != undefined) {
+            if (totalDistance - cumulativeDistance < distancePerSubdivision) break;
+
+            const [a, b] = pointOnRoad.edge.map(i => this.strip!.nodes[r.frontage[i]!]!.v) as [Vec2, Vec2];
+            const dirIn = g2d.perpLHS(g2d.normalise(g2d.sub(b, a)));
+
+            // test against straight skeletons left and right
+
+            const interiorIntersection = g2d.getRayLineIntersection(pointOnRoad.v, dirIn, interiorPolyline);
+            if (interiorIntersection) {
+
+                const nodeOnRoad = {
+                    v: pointOnRoad.v,
+                    i: this.parcels.nodes.length,
+                    active: false,
+                    connections: [],
+                    elevation: 0,
+                    static: false
+                }
+
+                const intNode = {
+                    v: interiorIntersection.intersection.point,
+                    i: this.parcels.nodes.length + 1,
+                    active: false,
+                    connections: [],
+                    elevation: 0,
+                    static: false
+                }
+
+                this.parcels.nodes.push(nodeOnRoad, intNode);
+                this.connect(this.parcels, nodeOnRoad, intNode);
+            }
+
+            cumulativeDistance += distancePerSubdivision;
+            pointOnRoad = g2d.getPointAlongPolyline(frontagePolyline, cumulativeDistance);
+            numIterations++
+        }
+        console.log(numIterations);
     }
 }

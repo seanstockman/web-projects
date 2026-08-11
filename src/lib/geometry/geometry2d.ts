@@ -349,9 +349,34 @@ export const geometry2d = {
         return { point: closestPoint, edge: closestEdge as [number, number] };
     },
 
+    /** Returns the point found after traversing `distance` units along the polyline defined by `line`. 
+     * If `distance` is less than or equal to 0, returns the first vertex. If `distance` is greater than the
+     * total polyline length, returns the last vertex. */
+    getPointAlongPolyline(line: Vec2[], distance: number): {v: Vec2, edge: [number, number]} | undefined {
+        if (line.length === 0) return undefined;
+        if (distance < 0) return;
+
+        let remaining = distance;
+        if (distance == 0) return {v: line[0]!, edge: [0, 1] as [number, number]};
+
+        for (let i = 0; i < line.length - 1; i++) {
+            const A = line[i]!;
+            const B = line[i + 1]!;
+            const segmentLength = this.dist(A, B);
+            if (segmentLength === 0) continue;
+            if (remaining <= segmentLength) {
+                const t = remaining / segmentLength;
+                return {v: this.add(A, this.scalarMult(this.sub(B, A), t)), edge: [i, i + 1] as [number, number]};
+            }
+            remaining -= segmentLength;
+        }
+
+        return;
+    },
+
     getAverageOfTwoAngles(a: number, b: number) {
         return Math.atan2(Math.sin(a) + Math.sin(b), Math.cos(a) + Math.cos(b));
-    },
+    },    
 }
 
 
