@@ -5,8 +5,9 @@ import { PairedNumberMap } from "../../lib/geometry/pairedNumberMap.ts";
 type Road = {
     segment: number[],
     attraction: number,
-    verticesOnLeft?: number[],
     verticesOnRight?: number[],
+    verticesOnLeft?: number[],
+    interiorVertices?: number[]
 }
 
 type SkeletonGraphNode = {
@@ -433,11 +434,11 @@ export class ParcelGenerator {
         }
 
         const vertsMoved = crSeg.slice(spliceIndex, spliceIndex + spliceLength);
-        
+
         if (collapsedLeft) {
-            roadToFace.verticesOnRight = [insertedNode.i, ...vertsMoved];
-        } else { 
-            roadToFace.verticesOnLeft = [...vertsMoved, insertedNode.i];
+            roadToFace.verticesOnLeft = [insertedNode.i, ...vertsMoved];
+        } else {
+            roadToFace.verticesOnRight = [...vertsMoved, insertedNode.i];
         }
 
         this.frontageMap.delete(edgeOntoIndices[0], edgeOntoIndices[1]);
@@ -486,12 +487,40 @@ export class ParcelGenerator {
         //     const downHillNeighbours = staticNode.connections.filter(c => c.elevation < staticNode.elevation);
         //     console.log(`downhill neighbours of ${sn_i}: ${downHillNeighbours.map(n => n.i).toString()}`);
         // });
+        this.addInteriorStripToRoads();
     }
 
-    private generateSubBlocksFromStrip(s: SkeletonGraph) {
-
+    private addInteriorStripToRoads() {
+        console.log(`adding interior strip to roads`);
+        this.roads.forEach(r => {
+            r.interiorVertices = [];
+            const rightmostNodeIndex = r.verticesOnRight ? r.verticesOnRight[r.verticesOnRight.length - 1]! : r.segment[r.segment.length - 1]!;
+            r.interiorVertices = this.followCounterClockwise(this.strip?.nodes[rightmostNodeIndex]!, undefined).map(n => n.i);
+            console.log(`starting from road's right most index (V${rightmostNodeIndex}), ccw path followed is ${r.interiorVertices.toString()}`);
+        });
+        console.log(this.roads);
     }
 
+    private followCounterClockwise(n: SkeletonGraphNode, prev: SkeletonGraphNode | undefined): SkeletonGraphNode[] {
+        const connectionsWithoutPrev = n.connections.filter(c => c != prev);
+        // return this
+        if (connectionsWithoutPrev.length == 1) {
+            return [n, ...this.followCounterClockwise(connectionsWithoutPrev[0]!, n)];
+        } else if (connectionsWithoutPrev.length == 0) {
+            return [n];
+        } else {
+            if (prev == undefined) return [n, ...this.followCounterClockwise(connectionsWithoutPrev[0]!, n)];
+            // mulitple
+            const angleNPrev = g2d.getAngleAB(n.v, prev.v);
+            const normalise = (angle: number) => (angle + 2 * Math.PI) % (2 * Math.PI);
+            connectionsWithoutPrev.sort((a, b) => {
+                const angleNA = g2d.getAngleAB(n.v, a.v);
+                const angleNB = g2d.getAngleAB(n.v, b.v);
+                return normalise(angleNB - angleNPrev) - normalise(angleNA - angleNPrev);
+            });
+            return [n, ...this.followCounterClockwise(connectionsWithoutPrev[0]!, n)];
+        }
+    }
 
     private findSkeletonsToRecompute(s: SkeletonGraph, n: SkeletonGraphNode): number[] {
         if (n.static) return [];
@@ -511,4 +540,6 @@ export class ParcelGenerator {
             this.recursivelyDisconnectTillJunctionOrStatic(s, n);
         });
     }
+
+    
 }
