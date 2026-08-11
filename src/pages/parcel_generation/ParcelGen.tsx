@@ -112,12 +112,12 @@ export default function ParcelGeneration() {
                 pg.generateLogicalRoads();
                 pg.mergeIntoAlphaStrip();
                 pg.mergeIntoBetaStrip();
-                // pg.roads.forEach(r => {
-                //     pg?.subdivideIntoParcels(r);
-                // });
+                pg.roads.forEach(r => {
+                    pg?.subdivideIntoParcels(r);
+                });
                 canvasCtx.clearCanvasOverlays();
                 drawSkeleton(pg.strip!);
-                drawSkeleton(s, 'grey');
+                // drawSkeleton(s, 'grey');
                 drawSkeleton(pg.parcels, `blue`);
                 console.log(pg.strip);
             }

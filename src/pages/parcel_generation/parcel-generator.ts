@@ -12,7 +12,8 @@ type Road = {
 
 enum Direction {
     CW,
-    CCW
+    CCW,
+    higher
 }
 
 type SkeletonGraphNode = {
@@ -501,12 +502,17 @@ export class ParcelGenerator {
             // mulitple
             const angleNPrev = g2d.getAngleAB(n.v, prev.v);
             const normalise = (angle: number) => (angle + 2 * Math.PI) % (2 * Math.PI);
-            connectionsWithoutPrev.sort((a, b) => {
-                const angleNA = g2d.getAngleAB(n.v, a.v);
-                const angleNB = g2d.getAngleAB(n.v, b.v);
-                const normalisedDiff = normalise(angleNB - angleNPrev) - normalise(angleNA - angleNPrev);
-                return direction == Direction.CCW ? normalisedDiff : -normalisedDiff;
-            });
+            if (direction == Direction.CCW || direction == Direction.CW) {
+                connectionsWithoutPrev.sort((a, b) => {
+                    const angleNA = g2d.getAngleAB(n.v, a.v);
+                    const angleNB = g2d.getAngleAB(n.v, b.v);
+                    const normalisedDiff = normalise(angleNB - angleNPrev) - normalise(angleNA - angleNPrev);
+                    return direction == Direction.CCW ? normalisedDiff : -normalisedDiff;
+                });
+            }
+            if (direction == Direction.higher) {
+                connectionsWithoutPrev.sort((a, b) => b.elevation - a.elevation)
+            }
             return [n, ...this.followGraph(direction, connectionsWithoutPrev[0]!, n)];
         }
     }
@@ -599,16 +605,13 @@ export class ParcelGenerator {
             [skeletonA, skeletonB].forEach((sk, i) => {
                 if (intersection) return;
                 if (!sk) return;
-                const dirFollow = i == 0 ? Direction.CW : Direction.CCW;
-                const addedNodes = this.followGraph(dirFollow, sk, undefined);
+                const addedNodes = this.followGraph(Direction.higher, sk, undefined);
                 addedNodes.splice(addedNodes.findIndex(n => r.interiorVertices?.includes(n.i)) + 1);
 
-                console.log(`added nodes ${(i == 0 ? `b4` : `af`)} v${this.parcels.nodes.length}: ${addedNodes.map(n => n.i).toString()}`);
 
                 intersection = g2d.getRayLineIntersection(pointOnRoad!.v, dirIn, addedNodes.map(n => n.v));
                 if (intersection) {
                     nsToAddAfter.push(...addedNodes.slice(intersection.edge[1]));
-                    console.log(`nsToAddAfter nodes ${(i == 0 ? `b4` : `af`)} v${this.parcels.nodes.length}: ${nsToAddAfter.map(n => n.i).toString()}`);
                 }
             });
 
