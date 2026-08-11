@@ -88,8 +88,9 @@ export const geometry2d = {
     },
 
     /** Returns the intersection of a ray (starting at `O`, travelling in direction `dir`) with the
-     * line `AB`, or undefined if the ray and segment don't cross.
-     * `t` is the ray parameter (`P = O + t * dir`, `t >= 0`) and `u` is the segment parameter (0-1). */
+     * line `line`, or undefined if the ray and segment don't cross.
+     * `t` is the ray parameter (`P = O + t * dir`, `t >= 0`) and `u` is the segment parameter (0-1). 
+     * `edge` is the indices into `line` between which the intersection was detected, if at all. */
     getRayLineIntersection(O: Vec2, dir: Vec2, line: Vec2[]) {
         let closestIntersection;
         for (let i = 0; i < line.length - 1; i++) {

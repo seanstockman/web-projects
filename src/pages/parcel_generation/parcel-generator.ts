@@ -3,7 +3,7 @@ import { SkeletonBuilder, type Skeleton } from 'straight-skeleton';
 import { PairedNumberMap } from "../../lib/geometry/pairedNumberMap.ts";
 // import type { MedialAxis } from "./approximate_medial_axis.ts";
 type Road = {
-    segment: number[],
+    frontage: number[],
     attraction: number,
     verticesOnRight?: number[],
     verticesOnLeft?: number[],
@@ -24,12 +24,6 @@ export type SkeletonGraph = {
     nodes: SkeletonGraphNode[],
     /** Unique connections between edges */
     edges: [number, number][],
-}
-
-type SubBlock = {
-    vertices: number[], //indices into the strip graph, wound ccw
-    frontageVertices: number[],
-    internalEdge: number[],
 }
 
 export class ParcelGenerator {
@@ -167,7 +161,7 @@ export class ParcelGenerator {
             this.frontageMap!.set(prev.i, curr.i, peripheralRoads.length);
             const angle = g2d.getAngleDifferenceBetweenABandBC(prev.v, curr.v, next.v);
             if ((angle >= angleThreshold && cumulativeLength >= minLength) || cumulativeLength >= maxLength) {
-                peripheralRoads.push({ segment: roadSegment, attraction: cumulativeLength });
+                peripheralRoads.push({ frontage: roadSegment, attraction: cumulativeLength });
                 roadSegment = [roadSegment[roadSegment.length - 1]!];
                 cumulativeLength = 0;
             }
@@ -180,10 +174,10 @@ export class ParcelGenerator {
 
             const angle = g2d.getAngleDifferenceBetweenABandBC(prev.v, curr.v, next.v);
             if ((angle >= angleThreshold && cumulativeLength >= minLength) || cumulativeLength >= maxLength) {
-                peripheralRoads.push({ segment: roadSegment, attraction: cumulativeLength });
+                peripheralRoads.push({ frontage: roadSegment, attraction: cumulativeLength });
             } else {
                 roadSegment.splice(roadSegment.length - 1);
-                peripheralRoads[0]!.segment.splice(0, 0, ...roadSegment);
+                peripheralRoads[0]!.frontage.splice(0, 0, ...roadSegment);
                 peripheralRoads[0]!.attraction += cumulativeLength;
                 for (let i = 0; i < roadSegment.length - 1; i++) {
                     this.frontageMap.set(roadSegment[i]!, roadSegment[i + 1]!, 0);
@@ -218,8 +212,8 @@ export class ParcelGenerator {
         const strip = this.strip;
         this.roads.forEach(r => {
             // delete the straight skeleton values for each thing. so we need to turn the s polygon into strips.
-            for (let i = 1; i < r.segment.length - 1; i++) {
-                const remove_i = r.segment[i]!;
+            for (let i = 1; i < r.frontage.length - 1; i++) {
+                const remove_i = r.frontage[i]!;
                 // filter edges with vertex remove_i}
                 const removedNode = strip.nodes[remove_i]!;
                 removedNode.active = false;
@@ -303,7 +297,7 @@ export class ParcelGenerator {
 
                 if (conns[0]!.roadToCollapseTo == conns[1]!.roadToCollapseTo) {
                     // junction - case where both are collapsing onto the same road
-                    const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToCollapseTo.segment.map(i => s.nodes[i]!.v))!;
+                    const intersection = g2d.getRayLineIntersection(O.v, dir, A.roadToCollapseTo.frontage.map(i => s.nodes[i]!.v))!;
                     s.nodes.push({ v: intersection.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                     this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
                     return;
@@ -316,10 +310,10 @@ export class ParcelGenerator {
 
                 const dirLR = g2d.normalise(g2d.sub(R.n.v, L.n.v));
 
-                const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.roadToCollapseTo.segment.map(i => s.nodes[i]!.v))!;
-                const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.roadToCollapseTo.segment.map(i => s.nodes[i]!.v));
-                if (!intersectionL) { if (showDebug) console.error({ message: `could not get intersection L, from V${interiorNode} in direction ${R.n}->${L.n}`, road: L.roadToCollapseTo.segment }); return; }
-                if (!intersectionR) { if (showDebug) console.error({ message: `could not get intersection R, from V${interiorNode} in direction ${L.n}->${R.n}`, road: R.roadToCollapseTo.segment }); return; }
+                const intersectionL = g2d.getRayLineIntersection(O.v, g2d.scalarMult(dirLR, -1), L.roadToCollapseTo.frontage.map(i => s.nodes[i]!.v))!;
+                const intersectionR = g2d.getRayLineIntersection(O.v, dirLR, R.roadToCollapseTo.frontage.map(i => s.nodes[i]!.v));
+                if (!intersectionL) { if (showDebug) console.error({ message: `could not get intersection L, from V${interiorNode} in direction ${R.n}->${L.n}`, road: L.roadToCollapseTo.frontage }); return; }
+                if (!intersectionR) { if (showDebug) console.error({ message: `could not get intersection R, from V${interiorNode} in direction ${L.n}->${R.n}`, road: R.roadToCollapseTo.frontage }); return; }
 
                 s.nodes.push({ v: intersectionL.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                 s.nodes.push({ v: intersectionR.intersection.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
@@ -329,20 +323,20 @@ export class ParcelGenerator {
                 this.connect(s, newNodeL, interiorNode);
                 this.connect(s, newNodeR, interiorNode);
 
-                this.resolveStripCollapse(L.n, newNodeL, intersectionL.edge.map(ei => L.roadToCollapseTo.segment[ei]!) as [number, number], L.roadToCollapseTo, L.roadToFace, showDebug);
-                this.resolveStripCollapse(R.n, newNodeR, intersectionR.edge.map(ei => R.roadToCollapseTo.segment[ei]!) as [number, number], R.roadToCollapseTo, R.roadToFace, showDebug);
+                this.resolveStripCollapse(L.n, newNodeL, intersectionL.edge.map(ei => L.roadToCollapseTo.frontage[ei]!) as [number, number], L.roadToCollapseTo, L.roadToFace, showDebug);
+                this.resolveStripCollapse(R.n, newNodeR, intersectionR.edge.map(ei => R.roadToCollapseTo.frontage[ei]!) as [number, number], R.roadToCollapseTo, R.roadToFace, showDebug);
                 return;
             }
 
 
             conns.forEach(conn => {
-                const closestPointOnRoad = g2d.getClosestPointToPOnLine(interiorNode.v, conn.roadToCollapseTo.segment.map(i => this.polygon[i]!));
+                const closestPointOnRoad = g2d.getClosestPointToPOnLine(interiorNode.v, conn.roadToCollapseTo.frontage.map(i => this.polygon[i]!));
 
                 s.nodes.push({ v: closestPointOnRoad.point, active: true, connections: [interiorNode], elevation: 0, static: false, i: s.nodes.length });
                 this.connect(s, s.nodes[s.nodes.length - 1]!, interiorNode);
                 collapsesToResolve.push({
                     corner: conn.n, inserted: s.nodes[s.nodes.length - 1]!,
-                    e: closestPointOnRoad.edge.map(ei => conn.roadToCollapseTo.segment[ei]!) as [number, number],
+                    e: closestPointOnRoad.edge.map(ei => conn.roadToCollapseTo.frontage[ei]!) as [number, number],
                     rCollapse: conn.roadToCollapseTo,
                     rFace: conn.roadToFace,
                 });
@@ -402,10 +396,10 @@ export class ParcelGenerator {
 
         // const edgeOnto = edgeOntoIndices.map(i => roadCollapsedOnto.segment[i]!)
         const roadIndex = this.roads.findIndex(r => roadCollapsedOnto == r);
-        const collapsedLeft = roadCollapsedOnto.segment[roadCollapsedOnto.segment.length - 1] == cornerNode.i;
+        const collapsedLeft = roadCollapsedOnto.frontage[roadCollapsedOnto.frontage.length - 1] == cornerNode.i;
 
-        if (showDebug) console.log(`collapsing onto road ${roadCollapsedOnto.segment.toString()}`);
-        const crSeg = roadCollapsedOnto.segment;
+        if (showDebug) console.log(`collapsing onto road ${roadCollapsedOnto.frontage.toString()}`);
+        const crSeg = roadCollapsedOnto.frontage;
 
         /** Whether the collapse moved the edge leftwards (i.e. is the cornerPoint at the end of the road segment.) */
         let spliceIndex = 0;
@@ -451,7 +445,7 @@ export class ParcelGenerator {
     private correctStraightSkeletons(showDebug: boolean = false) {
         const sk = this.skeleton!;
         const strip = this.strip!;
-        const strSkelsToRecompute: number[] = [];
+        const nodesToRecomputeStrSk: SkeletonGraphNode[] = [];
 
         // de static all the nodes
         sk.nodes.forEach(n => { n.static = false; });
@@ -464,41 +458,23 @@ export class ParcelGenerator {
             });
         });
 
+        this.addInteriorStripToRoads();
+        console.log({ roads: this.roads });
+
         // this.lastTouchedNodes = this.lastTouchedNodes.filter(n => !n.static && n.connections.length > 0);
         this.lastTouchedNodes = g2d.removeDupes(this.lastTouchedNodes.map(n => n.i)).map(i => sk.nodes[i]!);
         this.lastTouchedNodes.forEach(n => {
-            strSkelsToRecompute.push(...this.findSkeletonsToRecompute(sk, n));
+            nodesToRecomputeStrSk.push(...this.findSkeletonsToRecompute(sk, n));
         });
-
-        console.log(strSkelsToRecompute.toString());
-        // explore up and down till we hit a static node, removing connections along the way.
-
-        // console.log(this.lastTouchedNodes.map(n => n.i).toString());
-        // console.log(this.skeleton);
-        console.log(this.roads);
-        // const strip = this.strip, sk = this.skeleton;
-        // if (!strip || !sk) return;
-        // const staticNodeIndexes = strip.nodes.filter(n => n.static).map(n => n.i);
-        // const nodesToCorrectStraightSkeletonOf = [];
-
-        // staticNodeIndexes.forEach(sn_i => {
-        //     const staticNode = sk.nodes[sn_i]!;
-        //     // go downwards
-        //     const downHillNeighbours = staticNode.connections.filter(c => c.elevation < staticNode.elevation);
-        //     console.log(`downhill neighbours of ${sn_i}: ${downHillNeighbours.map(n => n.i).toString()}`);
-        // });
-        this.addInteriorStripToRoads();
+        this.roads.forEach(r => this.recomputeStraightSkeletonsInRoad(r, nodesToRecomputeStrSk.filter(n => r.frontage.includes(n.i))));
     }
 
     private addInteriorStripToRoads() {
-        console.log(`adding interior strip to roads`);
         this.roads.forEach(r => {
             r.interiorVertices = [];
-            const rightmostNodeIndex = r.verticesOnRight ? r.verticesOnRight[r.verticesOnRight.length - 1]! : r.segment[r.segment.length - 1]!;
+            const rightmostNodeIndex = r.verticesOnRight ? r.verticesOnRight[r.verticesOnRight.length - 1]! : r.frontage[r.frontage.length - 1]!;
             r.interiorVertices = this.followCounterClockwise(this.strip?.nodes[rightmostNodeIndex]!, undefined).map(n => n.i);
-            console.log(`starting from road's right most index (V${rightmostNodeIndex}), ccw path followed is ${r.interiorVertices.toString()}`);
         });
-        console.log(this.roads);
     }
 
     private followCounterClockwise(n: SkeletonGraphNode, prev: SkeletonGraphNode | undefined): SkeletonGraphNode[] {
@@ -522,10 +498,10 @@ export class ParcelGenerator {
         }
     }
 
-    private findSkeletonsToRecompute(s: SkeletonGraph, n: SkeletonGraphNode): number[] {
+    private findSkeletonsToRecompute(s: SkeletonGraph, n: SkeletonGraphNode): SkeletonGraphNode[] {
         if (n.static) return [];
-        if (n.i < this.polygon.length) return [n.i];
-        let skels: number[] = [];
+        if (n.i < this.polygon.length) return [n];
+        let skels: SkeletonGraphNode[] = [];
         n.connections.forEach(c => {
             this.disconnect(s, n, c);
             skels.push(...this.findSkeletonsToRecompute(s, c));
@@ -541,5 +517,31 @@ export class ParcelGenerator {
         });
     }
 
-    
+    private recomputeStraightSkeletonsInRoad(r: Road, nodes: SkeletonGraphNode[]) {
+        if (nodes.length == 0) return;
+        console.log(`recomputing the nodes in road ${r.frontage.toString()}`);
+        const interior = r.interiorVertices;
+        if (!interior) { console.error(`road ${r.frontage.toString()} has no interior vertices defined`); return; }
+        const interiorVerts = interior.map(i => this.strip!.nodes[i]!.v);
+
+        nodes.forEach(n => {
+            console.log(` - recomputing ${n.i}`);
+            const before = this.polygon[(n.i - 1 + this.polygon.length) % this.polygon.length]!;
+            const after = this.polygon[(n.i + 1) % this.polygon.length]!;
+            const angleBisector = g2d.getAngleABC(before, n.v, after) / 2 + g2d.getAngleAB(n.v, after);
+            const dir = { x: Math.cos(angleBisector), y: Math.sin(angleBisector) };
+
+            const int = g2d.getRayLineIntersection(n.v, dir, interiorVerts);
+            if (!int) { console.error(`could not recompute straight skeleton for node ${n.i}`); return; }
+            this.skeleton?.nodes.push({
+                v: int.intersection.point,
+                i: this.skeleton.nodes.length,
+                active: false,
+                connections: [],
+                elevation: 0,
+                static: false
+            });
+            this.connect(this.skeleton!, n, this.skeleton?.nodes[this.skeleton.nodes.length - 1]!);
+        });
+    }
 }
