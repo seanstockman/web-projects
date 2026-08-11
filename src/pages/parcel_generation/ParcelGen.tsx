@@ -98,6 +98,7 @@ export default function ParcelGeneration() {
                     pg?.subdivideIntoParcels(r);
                 });
                 drawSkeleton(pg.parcels, `blue`);
+                console.log(pg.parcels);
             }
         },
     ];
