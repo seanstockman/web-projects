@@ -138,12 +138,12 @@ export default function ParcelGeneration() {
             });
         });
 
-        s.nodes.forEach((n, i) => {
-            overlay.texts!.push({
-                text: `V${i}`,
-                position: { x: n.v.x + 6, y: n.v.y - 8 }
-            });
-        });
+        // s.nodes.forEach((n, i) => {
+        //     overlay.texts!.push({
+        //         text: `V${i}`,
+        //         position: { x: n.v.x + 6, y: n.v.y - 8 }
+        //     });
+        // });
         canvasCtx.addDrawBundleToCanvas(overlay);
     }
 
